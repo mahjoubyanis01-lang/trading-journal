@@ -1,7 +1,7 @@
 nom,marche,statut,bots_100_auto,detail,source,site,nb_sources_referentiel
 1 of 1 Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"1of1funding.com, oneofonefunding.com",3
 100X Club,CFD,Active,Interdit,Automated trading using Expert Advisors not permitted on any account; copy trading also prohibited,https://www.fxempire.com/prop-firms/100xclub,100x.club,2
-10FOUR,CFD,Non vérifié,Non documenté,,,10four.com,3
+10FOUR,CFD,Non vérifié,Restreint / semi-auto,Automated strategies and trade copiers allowed; trader remains responsible.,https://fundedtrading.com/propfirm/10four/,10four.com,3
 18th Street Trading,CFD + Futures,Active,Autorisé,"FAQ: automated strategies 'Yes, subject to the prohibited trading policy'; third-party/off-the-shelf pass-the-evaluation strategies, latency exploitation and all-or-nothing sizing prohibited",https://trade18th.com/faq.html,"18thstreettrading.com, trade18th.com",4
 24funded,CFD,Non vérifié,Non documenté,,,,1
 2funded,CFD,Non vérifié,Non documenté,,,,1
@@ -9,12 +9,12 @@ nom,marche,statut,bots_100_auto,detail,source,site,nb_sources_referentiel
 4PropTrader,Futures,Active,Restreint / semi-auto,"Terms: EAs, bots, scripts, algorithms, AI, trade copiers, unauthorized APIs prohibited 'unless expressly authorized in writing beforehand' (approval required); VPS only for manual trading",https://4proptrader.com/en/terms,4proptrader.com,7
 5P Investimentos (Cinco Por Cento),Futures,Active,Non documenté,,,5pinvestimentos.com.br,1
 5RF,?,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,5rf.com,2
-8FigureTrader,?,Non vérifié,Non documenté,,,,1
+8FigureTrader,?,Non vérifié,Interdit,Rules: 'Manual trading only'; 'All trades must be executed manually by the trader'; no copiers/third-party services,https://8figuretrader.com/,,1
 Accelerated Prop Group,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,acceleratedpropgroup.com,2
 ADN Broker,?,Non vérifié,Non documenté,,,,1
-Aeon Funded,CFD,Non vérifié,Non documenté,,,,2
-AI Prop,CFD,Non vérifié,Non documenté,,,aiprop.com,2
-AIFO,CFD,Non vérifié,Non documenté,,,,2
+Aeon Funded,CFD,Non vérifié,Restreint / semi-auto,"Redirects to quantxfund.io: 'use EAs where allowed' - conditional, no detailed policy",https://quantxfund.io/,,2
+AI Prop,CFD,Non vérifié,Autorisé,"'Scalping, swing, EAs - no restrictions. Your strategy, your edge.'",https://aiprop.com/features/,aiprop.com,2
+AIFO,CFD,Non vérifié,Restreint / semi-auto,"EAs are permitted only on 1-Step, 2-Step, 3-Step, and AIFO Standard accounts.",https://fundedtrading.com/propfirm/aifo/,,2
 AIMTrader,Futures,Non vérifié,Non documenté,,,,1
 Algo Forex Funds,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,algoforexfunds.com,2
 Algofuturestrader,Futures,Non vérifié,Non documenté,,,,1
@@ -30,7 +30,7 @@ Alphachain,CFD,Fermée,Non documenté,,,,1
 AlphaPropTrading,Futures,Non vérifié,Non documenté,,,,1
 Alpicap,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,alpicap.com,4
 Alpine Funded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,alpinefunded.com,4
-Amadeux,CFD,Non vérifié,Non documenté,,,,1
+Amadeux,CFD,Non vérifié,Autorisé,'EAs permitidos'; explicitly welcomes algorithmic traders,https://amadeux.com/,,1
 Apex Crypto,CFD,Non vérifié,Non documenté,,,,1
 APEX Proprietary Fund,?,Non vérifié,Non documenté,,,,1
 Apex Trader Funding,CFD + Futures,Active,Restreint / semi-auto,"Bots/auto-strategies permitted during evaluation; on PA/Live accounts 'AI, Autobots, Algorithms, Fully Automated Trading Systems, HFT... prohibited'; no set-and-forget / 24h systems; ATM strategies and webhook alerts OK ",https://support.apextraderfunding.com/hc/en-us/articles/31519788944411-Performance-Account-PA-and-Compliance,apextraderfunding.com,21
@@ -43,17 +43,17 @@ AquaFutures,Futures,Active,Interdit,champ « EA trading » TheTrustedProp,https:
 Arctic Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,arcticfunding.com,3
 Ascetic Capital,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,asceticcapital.com,3
 Astra Capital Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,astracapitalfunding.com,2
-Astrofund,CFD + Futures,Active,Non documenté,,,"astrofund.com, astrofund.io",5
+Astrofund,CFD + Futures,Active,Restreint / semi-auto,"EAs / automation: Allowed; HFT banned | Prohibited: High-frequency trading (HFT); micro-scalping (more than 50% of profit from trades held five seconds or less); hedging the same instrument across multiple accounts, user",https://propfirmmap.com/firms/astrofund,"astrofund.com, astrofund.io",5
 ATFunded,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,atfunded.com,7
 ATFX Prop,CFD,Active,Non documenté,,,atfx.com,1
 Atlas Funded,CFD,Active,Autorisé,"Official site: 'No restrictions to EA on evaluation or funded accounts'; 'Zero fees for running third-party EAs'; platforms MT5, TradeLocker, Match-Trader, Volumetrica. General prohibited-practice rules still apply.",https://www.atlasfunded.com/post/prop-firms-that-allow-ea,atlasfunded.com,9
 Atlas Funded Futures,CFD + Futures,Active,Autorisé,"Atlas Funded: EAs, copy-trading and any strategy permitted except gambling-style (martingale/over-leverage); overnight/weekend holding allowed",https://tradelocker.com/hub/prop-firms/atlas-funded,atlasfunded.com,2
-Atmos Funded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,atmosfunded.com,7
+Atmos Funded,CFD,Active,Autorisé (EA personnel uniquement),EA allowed if owned and aligned with strategy; commercial EAs strictly prohibited,https://propfirmmatch.com/forex/prop-firms/atmos-funded,atmosfunded.com,7
 AtmosTraders,CFD,Non vérifié,Non documenté,,,atmostraders.com,2
 Atom Educacional,Futures,Active,Non documenté,,,atomeducacional.com.br,1
 Auctus Capital,Futures,Active,Non documenté,,,auctuscapital.com.br,1
 Audacity Capital,CFD,Active,Autorisé (EA personnel uniquement),"Official Prohibited Trading Practices: 'Running an EA, trading bot, script, or algorithm that was not personally written/developed by the trader' is prohibited; personally coded EAs (may use public indicators/open-source",https://audacity.capital/prohibited-trading-practices/,"audacity.capital, audacitycapital.co.uk",8
-Audacity Instant,CFD,Non vérifié,Non documenté,,,,1
+Audacity Instant,CFD,Non vérifié,Autorisé,"Audacity Capital comparison table: 'EAs Allowed / Copy Trading: Allowed' for Ability Challenge, Ability One and Instant Funding",https://audacity.capital/,,1
 Aura funded,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,,2
 Averon Funded,?,Non vérifié,Non documenté,,,,1
 Axe Trader,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,axetrader.com,4
@@ -61,7 +61,7 @@ AxeStreetCapital,Futures,Active,Non documenté,,,,2
 Axi Select,CFD,Active,Restreint / semi-auto,"Axi Help Center 'Can I use an Expert Advisor (EA) with my Axi Select Account?': Yes, but 'only your own custom-built Expert Advisors are allowed'; third-party EAs may be used for signals only, with all trades placed manu",https://help.axi.com/hc/en-us/articles/39381948835609-Can-I-use-an-Expert-Advisor-EA-with-my-Axi-Select-Account,axi.com,8
 Axia Futures,Futures,Non vérifié,Non documenté,,,axiafutures.com,2
 Axia Investing,Futures,Active,Autorisé,'Aceitamos robôs e replicadores em nossos parâmetros'; copy trade permitted; robôs only on ProfitChart PRO platform,https://axiainvesting.com.br/,axiainvesting.com.br,1
-Axis Funded,CFD,Non vérifié,Non documenté,,,,1
+Axis Funded,CFD,Non vérifié,Interdit,"No automated bots or EAs on any account. Copy trading on PRIME is a platform-level Match-Trader mirror (distinct from EAs), optional, using social traders with 12-month verified live track record.",https://fundedtrading.com/propfirm/axis-funded/,,1
 Banq Level Funding,?,Non vérifié,Non documenté,,,,1
 BB Funded,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,bbfunded.com,1
 Be Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"be-funding.com, befunding.com",3
@@ -72,7 +72,7 @@ BestFundingTraders,Futures,Non vérifié,Non documenté,,,,1
 BestProp4U,CFD + Futures,Active,Autorisé,"'Yes you can use any EA or algorithm, hold and manage positions during news or trade any non-abusive trading style'",https://bestprop4u.com/,"bestprop4u.com, bestprop4udashboard.propaccount.com",8
 BFX Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,bfxfunding.com,3
 Bharath Funded Trader,CFD,Active,Non documenté,,,bharathfundedtrader.com,1
-Billions Club,CFD,Non vérifié,Non documenté,,,billionsclub.com,1
+Billions Club,CFD,Non vérifié,Restreint / semi-auto,"billionsclub.com redirects to For Traders: fully automated bots prohibited, EAs only as support tools with trader deciding each trade",https://help.fortraders.com/en/articles/9259810-use-of-expert-advisors-eas,billionsclub.com,1
 Bit Funded Trader,?,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,bitfundedtrader.com,1
 Bitfunded,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,bitfunded.com,4
 Black Eagle FG,CFD,Active,Non documenté,,,blackeaglefg.com,1
@@ -95,7 +95,7 @@ Brasil Traders,Futures,Active,Non documenté,,,brasiltraders.com.br,1
 Breakout,CFD + Futures,Active,Autorisé,"Bots allowed (own strategies) via Breakout Terminal API - crypto-focused firm; bans HFT/latency exploitation, cross-account hedging, copy trading/signal following; no bot infrastructure or support provided",https://proptradingvibes.com/blog/breakout-bot-ea-trading,"breakout.com, breakout.trade",7
 Breakout Prop,CFD,Active,Autorisé (EA personnel uniquement),"Program Rules: Breakout offers its own API for algorithmic traders on its proprietary terminal (no MT4/MT5/EAs); prohibited: exploiting pricing/latency errors, executing trade ideas belonging to third parties, copy tradi",https://www.breakoutprop.com/program-rules/,breakoutprop.com,2
 Breakthrough Capital,CFD,Non vérifié,Non documenté,,,,2
-Bridge Funded,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,bridgefunded.com,3
+Bridge Funded,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Exploiting platform or pricing errors and latency; using insider or non-public information; front-running; grid trading; martingale; jeopardising liquidity-provider, CEX or mar",https://propfirmmap.com/firms/bridgefunded,bridgefunded.com,3
 BrightFunded,CFD,Active,Autorisé,"Help center: 'Absolutely, at BrightFunded, we allow the use of Expert Advisors (EAs).' Must respect loss limits; 'API and automated trading are not supported on DXtrade'; warns third-party EAs may be used by many traders",https://help.brightfunded.com/en/articles/9241699-can-i-use-ea,brightfunded.com,18
 Builtix,Futures,Non vérifié,Non documenté,,,,1
 Bulenox,CFD + Futures,Active,Autorisé,EAs/algos/bots/copiers allowed on all account types but only self-built for personal use; commercial/shared/rented tools need management approval; no automated scalping systems taking hundreds/thousands of trades exploit,https://proptradingvibes.com/blog/bulenox-permitted-strategies,bulenox.com,14
@@ -103,12 +103,12 @@ Bull Waves,CFD,Active,Autorisé (EA personnel uniquement),"Bullwaves Prime: EAs/
 Bullo,?,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,bullo.com,2
 BullRush,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,bullrush.com,4
 Bulls Road Funding,?,Non vérifié,Non documenté,,,,1
-Bullwaves Prime,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"bullwaves.com, bullwavesprime.com",7
-Buoytrade,CFD,Non vérifié,Non documenté,,,buoytrade.com,3
+Bullwaves Prime,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Arbitrage, grid trading, guaranteed limit orders around news, martingale, tick scalping, excessive risk during drawdown, one-sided betting, hedging, bracketing, account sharing",https://propfirmmap.com/firms/bullwavesprime,"bullwaves.com, bullwavesprime.com",7
+Buoytrade,CFD,Non vérifié,Autorisé,"Trading rules: algorithmic trading and EAs allowed, no limitation on style; HFT allowed on request",https://buoytrade.com/trading-rules,buoytrade.com,3
 Calvoro Funding,CFD,Non vérifié,Non documenté,,,,1
 Canário Capital,Futures,Non vérifié,Non documenté,,,canariocapital.com.br,1
 Capalantis,?,Non vérifié,Non documenté,,,,1
-Capital Mint Markets,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,capitalmintmarkets.com,5
+Capital Mint Markets,CFD,Active,Interdit,EAs / automation: Not allowed,https://propfirmmap.com/firms/capitalmintmarkets,capitalmintmarkets.com,5
 Capital Trading Group,CFD,Non vérifié,Non documenté,,,capitaltradinggroup.com,1
 Capitalize,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,prop-capitalize.com,1
 Carbon Investing,Futures,Active,Non documenté,,,carboninvesting.com.br,1
@@ -139,10 +139,10 @@ Crypto Street,CFD,Fermée,Interdit,champ « EA trading » TheTrustedProp,https:/
 CryptoPips,CFD,Non vérifié,Non documenté,,,,1
 Custom Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"custom-funding.com, customfunding.com",3
 Cyber Funded,CFD,Active,Autorisé,"Site advertises Expert Advisor (EA/Bot) support on forex, indices, commodities, crypto; FAQ has EA question",https://cyberfunded.com/,cyberfunded.com,1
-CypherTicks,Futures,Active,Non documenté,,,cypherticks.com,3
-Darwinex Zero,CFD + Futures,Active,Non documenté,,,darwinexzero.com,9
+CypherTicks,Futures,Active,Restreint / semi-auto,"EAs / automation: Allowed; HFT banned, tick scalping banned | Prohibited: Latency arbitrage; high-frequency order spamming; tick manipulation and quote stuffing; fully automated, bot-driven or AI trading systems and high",https://propfirmmap.com/firms/cypherticks,cypherticks.com,3
+Darwinex Zero,CFD + Futures,Active,Autorisé,Allowed.,https://fundedtrading.com/propfirm/darwinex-zero/,darwinexzero.com,9
 Dayna Capital,Futures,Active,Non documenté,,,daynacapital.com.br,1
-DayTraders,CFD + Futures,Active,Non documenté,,,daytraders.com,13
+DayTraders,CFD + Futures,Active,Interdit,Automated trading is not permitted. Manual trading only.,https://propfirm.compare/propfirm/daytraders,daytraders.com,13
 DayTradeTheWorld (DTTW),CFD,Non vérifié,Non documenté,,,,1
 DB Investing,CFD,Active,Non documenté,,,dbinvesting.com,1
 DDG,Futures,Non vérifié,Non documenté,,,,1
@@ -155,9 +155,9 @@ Digital Pit,CFD,Fermée,Non documenté,,,,1
 Direct Funded Trader,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,directfundedtrader.com,7
 DNA Funded,CFD + Futures,Active,Restreint / semi-auto,"Official Rules & Conditions / FAQ: EAs and algorithmic trading allowed on 1 Phase, 2 Phase and Rapid accounts; NOT allowed on Instant Funding or 24-hour accounts. Third-party EA during funded phase must be approved by DN",https://dnafunded.com/faqs/,dnafunded.com,8
 DND Capital,CFD,Non vérifié,Non documenté,,,dndcapital.com,1
-Dojifunded,CFD,Non vérifié,Non documenté,,,,1
-DojoTraders,CFD + Futures,Active,Non documenté,,,dojotraders.com,2
-Dolvero,CFD,Non vérifié,Non documenté,,,,1
+Dojifunded,CFD,Non vérifié,Restreint / semi-auto,60-second minimum hold blocks sub-second HFT bots; bots need retuning,https://fundedtrading.com/propfirm/dojifunded/,,1
+DojoTraders,CFD + Futures,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Group trading, signal/passing services, copy trading across accounts, group hedging or opposing positions across accounts, latency/arbitrage exploitation, gambling/all-in tradi",https://propfirmmap.com/firms/dojotraders,dojotraders.com,2
+Dolvero,CFD,Non vérifié,Restreint / semi-auto,'EAs are allowed on CFD accounts after a quick compliance review; third-party copy trading is not',https://dolvero.com/,,1
 Dominion Funding,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"dominionfunding.com, dominionfunding.trade",4
 DouroCapital,Futures,Active,Non documenté,,,,2
 Dream Ticks,CFD + Futures,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,dreamticks.com,2
@@ -178,18 +178,18 @@ Elite Funding Prop,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,h
 Elite Mind Funded,?,Non vérifié,Non documenté,,,,1
 Elite Trader Funding,CFD + Futures,Active,Restreint / semi-auto,"ToS: AI, bots, automated systems and trade copiers prohibited unless expressly authorized in writing (approval required); approved copier partners list; min 10s hold; no martingale",https://elitetraderfunding.com/terms-of-service/,"elitetraderfunding.app, elitetraderfunding.com",19
 Elite Traders Capital,?,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,elitetraderscapital.com,1
-Elites Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,elitesfunding.com,6
+Elites Funding,CFD,Fermée,Interdit,"EAs / automation: Not allowed | Prohibited: Tick scalping, inappropriate risk management, account sharing, martingale strategies, high-frequency trading, and any attempt to manipulate trading days or exploit demo environ",https://propfirmmap.com/firms/elitesfunding,elitesfunding.com,6
 Elysium Forex,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,elysiumforex.com,1
-EmergeProfit,CFD + Futures,Active,Non documenté,,,emergeprofit.com,7
+EmergeProfit,CFD + Futures,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Hedging, EA/bots, copy trading, martingale, swing abuse, opposite positions across accounts, artificial lot-size manipulation",https://propfirmmap.com/firms/emergeprofit,emergeprofit.com,7
 Emporos Capital,Futures,Non vérifié,Non documenté,,,emporoscapital.com,1
-Equity Edge,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"equityedge.com, equityedge.io",7
+Equity Edge,CFD,Active,Interdit,EAs and trade copiers prohibited on all account types; manual only,https://fundedtrading.com/propfirm/equity-edge/,"equityedge.com, equityedge.io",7
 ETX Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,etxfunding.com,2
 Euroinvest,Futures,Active,Autorisé,'É permitido o uso de ferramentas de automação e robôs tanto nas contas de simulação quanto nas contas reais da mesa (somente plataforma Nelogica)'; copy trade expressly prohibited,https://euroinvest.com.br/,euroinvest.com.br,1
 Evalu8trading,Futures,Non vérifié,Non documenté,,,evalu8trading.com,1
-EverBlue Trader,CFD,Non vérifié,Non documenté,,,everbluetrader.com,1
-Evercrest Funding,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,evercrestfunding.com,6
+EverBlue Trader,CFD,Non vérifié,Autorisé,"'EA's Allowed' in Phase 1, Phase 2 and Funded; 'use expert advisors and automated strategies'",https://everbluetrader.com/,everbluetrader.com,1
+Evercrest Funding,CFD,Active,Interdit,EAs / automation: Not allowed | Prohibited: Latency arbitrage / price-feed exploitation / any forms of arbitrage.,https://propfirmmap.com/firms/evercrestfunding,evercrestfunding.com,6
 EverFunded,CFD,Active,Autorisé (EA personnel uniquement),EAs permitted where trader can demonstrate ownership; martingale/grid/tick scalping/HFT deemed abusive,https://propfirmmap.com/blog/everfunded-review,everfunded.com,2
-EverTrader,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,evertrader.com,7
+EverTrader,CFD,Active,Interdit,EAs / automation: Not allowed | Prohibited: Gap exploitation High-frequency trading Server overload or spamming Latency arbitrage or execution manipulation Toxic order flow or reverse arbitrage Hedging or long/short arbi,https://propfirmmap.com/firms/evertrader,evertrader.com,7
 Exclusive Funded Programme,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,exclusivemarkets.com,1
 Exclusive Markets Prop,CFD,Active,Autorisé,Exclusive Funded Programme: EAs allowed but must not be arbitrage-based; no HFT/martingale/grid,https://thetrustedprop.com/prop-firms/exclusive-markets,exclusivemarkets.com,1
 ExFunded,CFD,Non vérifié,Non documenté,,,expressfunded.com,1
@@ -201,11 +201,11 @@ Fast Forex Funds,CFD,Non vérifié,Non documenté,,,,1
 Fast Road to Funding,Futures,Non vérifié,Non documenté,,,fastroadtofunding.com,1
 Fast Track Trading,Futures,Fermée,Non documenté,,,fasttracktrading.net,4
 Fidelcrest,CFD,Fermée,Non documenté,,,"fidelcrest.com, prop-firms.com",8
-Fill88,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fill88.com,3
+Fill88,CFD,Active,Autorisé (EA personnel uniquement),"EAs / automation: Allowed; HFT banned, tick scalping banned, third-party/unowned EA limits | Prohibited: One-sided bets; grid trading; high-frequency trading (trades held 60 seconds or less, or excessive trade frequency)",https://propfirmmap.com/firms/fill88,fill88.com,3
 Fimathe PROP,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fimatheprop.com,1
 FinanciaFutures,Futures,Active,Non documenté,,,,2
 Finotive Funding,CFD + Futures,Active,Autorisé (EA personnel uniquement),"Help center: 'EAs are permitted if you designed, customized, or coded them yourself. Pre-purchased or mass-market plug-and-play EAs are not allowed'; HFT and arbitrage EAs prohibited; martingale/grid prohibited; switchin",https://help.finotivefunding.com/en/articles/70-can-i-use-expert-advisors-eas,finotivefunding.com,11
-Finotive Futures,Futures,Active,Non documenté,,,finotivefutures.com,8
+Finotive Futures,Futures,Active,Restreint / semi-auto,EAs / automation: Allowed; HFT banned | Prohibited: Hedging across accounts and platforms; latency arbitrage and feed-error exploitation; spread and exchange arbitrage; account sharing or trading on behalf of others; dev,https://propfirmmap.com/firms/finotivefutures,finotivefutures.com,8
 FinProp Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,finpropfunding.com,2
 Fintokei,CFD,Active,Autorisé (EA personnel uniquement),"Support article (updated 3 Jun 2026): allowed 'Using your own EA or automated system, fully created and configured by you' or customizing commercial/free EAs 'as long as the logic is yours and transparent'; prohibited 'U",https://support.fintokei.com/en/articles/10419735-copy-trading-and-eas-what-is-allowed-and-what-prohibited,fintokei.com,11
 Firewood Funded,CFD,Active,Autorisé,EAs allowed within permitted platforms and rules; trades under 180s banned; 5-min news window,https://theindustryspread.com/firewood-funded-review-3-percent-funded-drawdown/,firewoodfunded.com,2
@@ -224,7 +224,7 @@ For Traders Crypto,CFD,Active,Restreint / semi-auto,"Fully automated bots strict
 For Traders Futures,CFD + Futures,Active,Restreint / semi-auto,"EAs only as support tools (alerts, sizing, managing pre-set orders); 'any EA configured to trade without your real-time decision is classified as an automated bot and is prohibited'; no external copy trading, no arbitrag",https://help.fortraders.com/en/articles/15343227-what-is-forbidden-with-us,fortraders.com,3
 Forex Capital Funds,CFD,Fermée,Non documenté,,,forexcapitalfunds.com,3
 Forex Funded Challenge,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,forexfundedchallenge.com,1
-Forex Funds Flow,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,forexfundsflow.com,4
+Forex Funds Flow,CFD,Active,Restreint / semi-auto,"EAs / automation: Allowed; HFT banned, tick scalping banned | Prohibited: Hedging, martingale, tick scalping, HFT, latency and reverse arbitrage, grid without stop losses, group trading, VPN/VPS/proxy use, and using 80% ",https://propfirmmap.com/firms/forexfundsflow,forexfundsflow.com,4
 Forex Prop Firm,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"forexpropfirm.com, home.forexpropfirm.com",2
 FOREXIVE,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,forexive.com,3
 FORFX,CFD,Contesté,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,forfx.com,5
@@ -234,7 +234,7 @@ FortressCapital Markets,Futures,Non vérifié,Non documenté,,,,1
 Fortuna Trader,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"fortunatrader.com, fortunatraders.com",3
 Fortunes Funding,CFD,Non vérifié,Non documenté,,,,2
 Foti Markets,CFD,Non vérifié,Non documenté,,,fotimarkets.com,1
-Foxx Funded,CFD,Non vérifié,Non documenté,,,,3
+Foxx Funded,CFD,Non vérifié,Interdit,EAs and automated strategies are allowed. The algorithm must respect the same risk limits and trading rules.,https://fundedtrading.com/propfirm/foxx-funded/,,3
 FPFX,CFD,Active,Non documenté,,,fpfx.tech,1
 FT9JA,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,ft9ja.com,4
 FTMO,CFD + Futures,Active,Autorisé,Official FAQ: 'Expert Advisors (EA) or robot trading is allowed'. Risks: third-party EA may exceed max capital allocation rule (same strategy across traders); server limits 200 open orders / 2000 positions per day; hyper,https://ftmo.com/en/faq/which-instruments-can-i-trade-and-what-strategies-am-i-allowed-to-use/,ftmo.com,25
@@ -246,10 +246,10 @@ FTUK Futures,Futures,Active,Autorisé,"EAs/bots allowed; must not be used for ti
 Fund Hance,CFD,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundhance.co.uk,1
 Fund Your Trading,CFD,Non vérifié,Non documenté,,,fundyourtrading.com,1
 Fund4Trades,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fund4trades.com,3
-Funded Academy,CFD,Fermée,Non documenté,,,fundedacademy.com,4
+Funded Academy,CFD,Fermée,Interdit,"EAs / automation: Not allowed | Prohibited: VPS services, Expert Advisors (EAs), automated trading systems, copy trading, account sharing, hedging, high-frequency trading, grid trading, one-sided betting, all-in trading,",https://propfirmmap.com/firms/fundedacademy,fundedacademy.com,4
 Funded By Earnex,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"earnex.com, earnexprime.com",2
 Funded By Traders,CFD,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedbytraders.com,3
-Funded Daily,CFD,Non vérifié,Non documenté,,,,1
+Funded Daily,CFD,Non vérifié,Interdit,"EAs / automation: Not allowed | Prohibited: Expert Advisors, bots, scripts and any trade automation; martingale and grid; hedging and reverse trading; third-party copy trading, mirrored signal execution and account manag",https://propfirmmap.com/firms/fundeddaily,,1
 Funded Engineer,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedengineer.com,5
 Funded Firm,CFD,Contesté,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedfirm.com,6
 Funded Forex,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedforex.com,1
@@ -267,25 +267,25 @@ Funded Mission,CFD,Active,Interdit,Terms: using automated trading systems (EAs) 
 Funded Nation,?,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundednation.com,2
 Funded Prime,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedprime.com,3
 Funded Pro Trader,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedprotrader.com,3
-Funded Profit,CFD,Active,Non documenté,,,fundedprofit.com,2
+Funded Profit,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: involves the use of algorithmic trading programs, EA's, trading bots, or high-frequency trading strategies",https://propfirmmap.com/firms/fundedprofit,fundedprofit.com,2
 Funded Prop BX,?,Non vérifié,Non documenté,,,,1
 Funded Roll,CFD,Active,Non documenté,,,fundedroll.com,1
 Funded Squad,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedsquad.com,4
-Funded Trader Markets,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedtradermarkets.com,8
+Funded Trader Markets,CFD,Active,Restreint / semi-auto,EA / algo trading permitted on most accounts; verify program variants,https://fundedtrading.com/propfirm/funded-trader-markets/,fundedtradermarkets.com,8
 Funded Trader Network,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedtradernetwork.com,1
 Funded Traders Global,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedtradersglobal.com,5
 Funded Trading Plus,CFD + Futures,Active,Autorisé,"Help center: 'You can use any strategy or style of simulated trading you would like. You can also use EAs, Algos or Bots.' Prohibited: arbitrage, grid trading, tick scalping, cross-account copy/hedging; no pre-approval; ",https://help.fundedtradingplus.com/does-your-simulated-live-environment-support-the-use-of-eas-algos-or-bots/,fundedtradingplus.com,23
-Funded X,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"fundedx.co, fundedx.com",5
+Funded X,CFD,Active,Autorisé,Allowed on the 1 Phase and 2 Phase Standard Challenges.,https://fundedtrading.com/propfirm/fundedx/,"fundedx.co, fundedx.com",5
 Funded7,CFD,Active,Interdit,"Official T&C Provision 8 prohibits 'High-frequency trading, automated software, AI-driven trading, ultra-fast execution strategies, or mass data entry systems' and copy trading of others; site markets MT5 EA capability b",https://funded7.com/terms-and-conditions/,funded7.com,7
 Fundedbit,CFD,Active,Autorisé,Crypto prop; algorithmic systems allowed if they comply with risk rules,https://fundedbit.com/,fundedbit.com,3
 FundedBits,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedbits.com,1
-FundedBull,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedbull.com,3
-FundedCobra,CFD,Non vérifié,Non documenté,,,,1
+FundedBull,CFD,Fermée,Interdit,EAs / automation: Not allowed | Prohibited: Latency trading and exploitation of pricing errors; external or slow data feeds and gap trading; group trading across connected accounts including simultaneous opposite positio,https://propfirmmap.com/firms/fundedbull,fundedbull.com,3
+FundedCobra,CFD,Non vérifié,Interdit,EAs / automation: Not allowed | Prohibited: High-Frequency Trading (HFT); Expert Advisors and automated trading; hedging (holding a buy and a sell on the same instrument at the same time) on accounts opened on or after 2,https://propfirmmap.com/firms/fundedcobra,,1
 FundedCore,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedcore.uk,1
-FundedElite,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedelite.com,8
-FundedFast,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedfast.com,5
+FundedElite,CFD,Active,Autorisé (EA personnel uniquement),EAs/algos allowed if strategy is your own; third-party signal copying is a violation,https://fundedtrading.com/propfirm/fundedelite/,fundedelite.com,8
+FundedFast,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Copy trading, latency arbitrage, martingale, reverse martingale, and grid strategies are also prohibited",https://propfirmmap.com/firms/fundedfast,fundedfast.com,5
 FundedForge,?,Non vérifié,Autorisé,"Official trading rules: 'Subject to our policy on Prohibited Trading as described below, you can trade using an automated strategy.' (Same rule template as FX2/Blink; prohibited-trading list typically bans HFT, latency/a",https://fundedforge.com/trading-rules,,1
-FundedFun,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedfun.com,2
+FundedFun,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Copy trading or mirroring external strategies; tick scalping, latency arbitrage and price-feed abuse; unapproved Expert Advisors (only trade and risk-manager EAs are permitted)",https://propfirmmap.com/firms/fundedfun,fundedfun.com,2
 FundedFuturez,Futures,Non vérifié,Non documenté,,,,1
 FundedFy,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundedfy.com,2
 FundedHero,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,google.com,1
@@ -303,24 +303,24 @@ Fundedsharks,?,Non vérifié,Non documenté,,,,1
 FundedStock,CFD,Active,Non documenté,,,fundedstock.io,1
 FundedTigers,?,Non vérifié,Non documenté,,,,1
 Fundedtop,CFD,Contesté,Non documenté,,,fundedtop.com,2
-FundedVerse,CFD,Non vérifié,Non documenté,,,,1
+FundedVerse,CFD,Non vérifié,Restreint / semi-auto,"EAs / automation: Allowed; HFT banned | Prohibited: Latency arbitrage, feed exploitation, quote stuffing, and synthetic-fill exploitation; High-frequency trading (HFT) strategies; Cross-account hedging or reverse trading",https://propfirmmap.com/firms/fundedverse,,1
 FundedWealth,CFD,Active,Non documenté,,,fundedwealth.com,1
 Funder,CFD,Active,Non documenté,,,funder.com,1
 Funder Trading,CFD + Futures,Active,Non documenté,,,fundertrading.com,2
 Funderblu,CFD,Non vérifié,Non documenté,,,,1
-FunderPro,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"funderpro.com, funderpro.cxclick.com",14
+FunderPro,CFD,Active,Autorisé (EA personnel uniquement),"Allows scalping, news trading, HFT, bots and custom algos",https://vettedpropfirms.com/hft-prop-firms/,"funderpro.com, funderpro.cxclick.com",14
 FunderPro Futures,Futures,Active,Autorisé,"EAs/bots permitted if transparent and trader-owned; rented bots, black-box files, mass-distributed EAs, Telegram mirroring not allowed; no excessive order placing / arbitrage",https://funderpro.com/blog/ea-friendly-prop-firms-in-2025-why-funderpro-leads-the-way/,"funderpro.com, funderprofutures.com",11
 Fundex FX,CFD,Non vérifié,Non documenté,,,,2
 Fundex24,?,Non vérifié,Non documenté,,,,1
 Funding Dynasty,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundingdynasty.com,2
-Funding Frontier,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundingfrontier.com,3
+Funding Frontier,CFD,Active,Restreint / semi-auto,"EAs enabled. Prohibited: martingale, layering, order-book spamming, HFT, ultra-fast scalping, latency arbitrage, tick scalping. Avg trade duration must exceed 2 min.",https://fundedtrading.com/propfirm/funding-frontier/,fundingfrontier.com,3
 Funding Funds,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"fundingfunds.com, fundings.fund",2
 Funding Pairs,?,Non vérifié,Non documenté,,,,1
 Funding Pips,CFD,Active,Restreint / semi-auto,Trading Conduct and Security Standards: 'Third-party Expert Advisors (EAs) are permitted only when used strictly as a trade or risk manager. Any other use of a third-party EA will result in denial of the evaluation or re,https://help.fundingpips.com/hc/en-us/articles/34505029138449-Trading-Conduct-and-Security-Standards,fundingpips.com,20
-Funding Predicts,CFD + Futures,Active,Non documenté,,,fundingpredicts.com,2
+Funding Predicts,CFD + Futures,Active,Interdit,EAs / automation: Not allowed | Prohibited: Bots/automated tools/scripts/algorithmic execution; copy trading; wash/self-trading; collusion; account passing schemes; challenge farming; correlated-outcome and resolution ar,https://propfirmmap.com/firms/fundingpredicts,fundingpredicts.com,2
 Funding Talent,CFD,Fermée,Non documenté,,,,1
 Funding Traders,CFD,Active,Autorisé,Official FAQ: MT5 'Full EA support'; 'You are allowed to manually copy your own trades across your own FundingTraders accounts. Using copy trading software between FT Instant Accounts is not allowed'; copying to/from ano,https://fundingtraders.com/faq,fundingtraders.com,8
-Funding Your Trades,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundingyourtrades.com,4
+Funding Your Trades,CFD,Active,Autorisé,"EAs / automation: Allowed | Prohibited: Any activity deemed unethical, exploitative or non-replicable under genuine live market conditions. Prime model additionally prohibits martingale, gambling-like risk of the full or",https://propfirmmap.com/firms/fundingyourtrades,fundingyourtrades.com,4
 Fundingalgo,?,Non vérifié,Non documenté,,,,1
 FundingRock,CFD,Active,Autorisé,"Official FAQ: 'Yes, Expert Advisors (EAs) are allowed on our platform. We support automated trading strategies as long as they comply with our trading rules and risk management guidelines.' Also markets 'EA's Allowed' an",https://fundingrock.com/faq,fundingrock.com,6
 Fundings Fund,CFD,Non vérifié,Non documenté,,,fundings.fund,1
@@ -332,18 +332,18 @@ FundoraPro,?,Non vérifié,Non documenté,,,,1
 Funds For Traders,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fundsfortraders.com,4
 Fundscap,CFD,Active,Non documenté,,,fundscap.com,3
 FundYourEdge,Futures,Active,Non documenté,,,,3
-FundYourFX,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"fundyourfx.com, fundyourfx.io",6
+FundYourFX,CFD,Active,Autorisé,Allowed (EA's: Allowed).,https://fundedtrading.com/propfirm/fundyourfx/,"fundyourfx.com, fundyourfx.io",6
 Furex Capital,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,furexcapital.com,2
 Fury Funded Trader,CFD,Fermée,Non documenté,,,furyfundedtrader.com,1
 Fusion Funded,CFD,Non vérifié,Non documenté,,,fusionfunded.com,1
-FuturesElite,Futures,Active,Non documenté,,,futureselite.com,15
+FuturesElite,Futures,Active,Interdit,Automated trading is not permitted. Manual trading only.,https://propfirm.compare/propfirm/futureselite,futureselite.com,15
 Fuze Traders,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fuzetraders.com,3
 FX Capital Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fxcapitalfunding.com,1
 FX Corp,CFD,Non vérifié,Non documenté,,,fxcorp.com,1
 Fx Expert Funded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fxexpertfunded.com,1
 FX Trader's EDGE,Futures,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fxtradersedge.com,1
 FX2 Funding,CFD + Futures,Active,Autorisé,"Official FAQ: 'Subject to our policy on Prohibited Trading... you can trade using an automated strategy'; 'If you are trading with MT5 or cTrader, then you may use expert advisors, as long as they aren't high-frequency-t",https://fx2funding.com/faqs/,fx2funding.com,6
-FXC Funded,CFD,Non vérifié,Non documenté,,,,2
+FXC Funded,CFD,Non vérifié,Interdit,EAs / automation: Not allowed,https://propfirmmap.com/firms/fundedfxc,,2
 FXCI,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,fxci.com,2
 Fxifty,CFD,Non vérifié,Non documenté,,,,1
 FXIFY,CFD + Futures,Active,Restreint / semi-auto,"FAQ: 'The use of an Expert Advisor, an EA, is allowed on the 1, 2 and 3 Phase challenges and their respective funded stage upon review by our support team and pre-approval.' Using EA without pre-approval may lead to susp",https://fxify.com/faqs/all-faqs/can-i-use-an-expert-advisor-for-mt-for-the-challenge-accounts/,fxify.com,19
@@ -352,31 +352,31 @@ FXRK,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrust
 Gemscend,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,gemscend.com,1
 Genesis Forex Funds,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,genesisforexfunds.com,3
 Get Crypto Funded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,getcryptofunded.com,2
-Get Funded Now,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,getfundednow.com,6
+Get Funded Now,CFD,Active,Autorisé (EA personnel uniquement),EAs permitted where strategy is your own; off-the-shelf challenge-passing tools restricted,https://fundedtrading.com/propfirm/get-funded-now/,getfundednow.com,6
 Get Funded Pro,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,,1
 Get Leveraged,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,getleveraged.com,1
 Giimer,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,giimer.com,3
-Global Forex Funds,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,globalforexfunds.com,4
+Global Forex Funds,CFD,Active,Restreint / semi-auto,"Standard/GFF+/Instant: HFT/algo, grid, martingale, arbitrage, hedging banned; copy trading banned (permanent ban). HFT+: all allowed.",https://fundedtrading.com/propfirm/global-forex-funds/,globalforexfunds.com,4
 Glow Node,CFD + Futures,Fermée,Autorisé,"FAQ (as quoted by reviewers; official site returned 522 at check time): EAs allowed; 'If you intend to use a third-party EA, keep in mind that other traders may also be using the same EA... could result in funded account",https://glow-node.com/faq,"glow-node.com, glownode.com",6
 Goat Funded Futures,Futures,Active,Autorisé,"Own EAs allowed (must provide source code on request); third-party/purchased bots, HFT, latency arbitrage, martingale prohibited; must keep same EA from eval to funded (no switching to manual)",https://thetrustedprop.com/blogs/goat-funded-futures-rules-restrictions-news-trading-eas-copy-trading,goatfundedfutures.com,14
 Goat Funded Trader,CFD,Active,Autorisé,"FAQ: 'Yes, you can use them as long as the EAs comply with the prohibited trading practices rule'; HFT systems and Gold Arbitrage EA prohibited; no approval. Note: from 12 Aug 2026 VPS banned on One Step/Two Step/Instant",https://help.goatfundedtrader.com/en/articles/10749630-can-i-use-expert-advisors-eas,goatfundedtrader.com,17
 GoFunding,?,Non vérifié,Non documenté,,,,1
 Gold Forex Funds,CFD,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,,1
-Gold Funding,CFD,Non vérifié,Non documenté,,,,1
+Gold Funding,CFD,Non vérifié,Interdit,EAs / automation: Not allowed | Prohibited: The only thing we don't allow is gamble-style trading — opening a single oversized position hoping for a one-shot win.,https://propfirmmap.com/firms/goldfunding,,1
 GoldenPipFx,CFD,Non vérifié,Non documenté,,,,1
 Gooey Trade,Futures,Active,Non documenté,,,,2
-Great Point Capital,CFD,Non vérifié,Non documenté,,,,1
+Great Point Capital,CFD,Non vérifié,Autorisé,Institutional US equities prop; serves algorithmic/quant firms with FIX APIs (not a CFD challenge firm),https://greatpointcapital.com/,,1
 Grupo MIDE,Futures,Active,Non documenté,,,grupomide.com.br,1
 Gry Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,gryfunding.com,3
 Guardeer Funding,?,Non vérifié,Non documenté,,,,1
 H Funds,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,,2
-Halcyon Trader Funding,CFD + Futures,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,halcyontraderfunding.com,10
+Halcyon Trader Funding,CFD + Futures,Active,Restreint / semi-auto,"EAs / automation: Allowed; HFT banned | Prohibited: HFT bots, spoofing, flipping trades, exploiting price-feed discrepancies or platform bugs, coordinated multi-account trading, and using VPNs to bypass access restrictio",https://propfirmmap.com/firms/halcyontraderfunding,halcyontraderfunding.com,10
 Hantec Trader,CFD,Active,Restreint / semi-auto,Official product pages/FAQ (htrader.hmarkets.com): EAs allowed on challenge accounts (Enhanced/EnhancedX/Express) provided no prohibited strategy; Instant Funding accounts: 'No EAs or copy trading'.,https://htrader.hmarkets.com/product/instant-funding/,"hantectrader.com, htrader.hmarkets.com",7
 Happy Gold,CFD,Fermée,Non documenté,,,,1
 Hash Hedge,CFD,Active,Non documenté,,,hashhedge.com,3
 Hawkish Fundings,?,Non vérifié,Non documenté,,,,1
 Helios,Futures,Non vérifié,Non documenté,,,helios.trade,1
-Hex Funded,CFD,Non vérifié,Non documenté,,,,1
+Hex Funded,CFD,Non vérifié,Autorisé,"Funded account rules: 'Expert Advisors: Yes', 'Trade Copier: Yes'",https://hexfunded.com/,,1
 Hexa Prop,CFD,Fermée,Autorisé,"Official FAQ: 'Hexa Prop permits the use of Expert Advisors (EAs), but it is prohibited to use any EA trading strategy that is specifically banned by the Company or its liquidity providers.' cTrader Automate (cBots) and ",https://hexaprop.com/faq,,1
 HF Crypto (HFM),CFD,Active,Non documenté,,,hfm.com,2
 High Roller Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"highrollerfunding.co.uk, highrollerfunding.com",2
@@ -391,17 +391,17 @@ Humble Futures (Humble Funding),Futures,Active,Non documenté,,,humblefunding.co
 Humble Futures Funding,Futures,Active,Non documenté,,,humblefunding.com,2
 HUMBPROP,CFD,Non vérifié,Non documenté,,,,1
 Hydra Crypto,CFD,Non vérifié,Non documenté,,,,1
-Hydra Funding,CFD + Futures,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,hydrafunding.io,8
+Hydra Funding,CFD + Futures,Active,Autorisé,EAs / automation: Allowed,https://propfirmmap.com/firms/hydrafunding,hydrafunding.io,8
 Hydra Futures,Futures,Non vérifié,Non documenté,,,,1
 Hyper Funding,CFD,Non vérifié,Non documenté,,,,1
-HyperPNL,CFD,Non vérifié,Non documenté,,,,2
+HyperPNL,CFD,Non vérifié,Interdit,EAs / automation: Not allowed | Prohibited: Copy trading is not permitted on HyperPNL evaluation or funded accounts.,https://propfirmmap.com/firms/hyperpnl,,2
 Hyperticks,Futures,Non vérifié,Non documenté,,,,1
 HyroTrader,CFD,Active,Autorisé (EA personnel uniquement),Official FAQ: during the challenge 'only custom bots are allowed. Third-party applications or signal services are not supported'; once funded (Bybit sub-account) third-party apps allowed; API available; every automated t,https://www.hyrotrader.com/faqs/can-i-use-trading-bots-or-signal-bots-during-the-challenge-or-on-a-funded-account/,hyrotrader.com,9
 IbexPeakFuturesTrading,Futures,Non vérifié,Non documenté,,,,1
 IC Funded,CFD,Active,Autorisé (EA personnel uniquement),"Official evaluation rules PDF: EAs permitted 'provided they do not incorporate copy trading functionalities, and traders must own the source code'; third-party EA without source code 'may risk disqualification'. T&C ban ",https://icfunded.com/wp-content/uploads/2024/11/Evaluation-Rules-ICF.pdf,icfunded.com,10
 ICT Prop,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,ictprop.com,2
-IF Crypto,CFD,Non vérifié,Non documenté,,,,1
-Ifunds,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,ifunds.io,11
+IF Crypto,CFD,Non vérifié,Restreint / semi-auto,Instant Funding rules: public third-party EAs restricted; own EAs allowed; group copying via identical EA settings banned,https://instantfunding.com/trading-rules,,1
+Ifunds,CFD,Active,Autorisé,EAs / automation: Allowed,https://propfirmmap.com/firms/ifundsio,ifunds.io,11
 IFundTrades,Futures,Active,Non documenté,,,ifundtrades.com,1
 IFX Traders,CFD,Non vérifié,Non documenté,,,ifxtraders.com,1
 Impact Trader,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,impacttrader.com,2
@@ -416,7 +416,7 @@ Innovated Funded,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,htt
 Inspire Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,inspire-funding.com,2
 Instant Funded Trader,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,theinstantfundedtrader.com,2
 Instant Funding,CFD + Futures,Active,Autorisé (EA personnel uniquement),Official 'prohibited trading practices' help page: 'Public third-party expert advisors are restricted. First-party EAs you build yourself are allowed.' HFT defined as trades held 60 seconds or less; grid/martingale prohi,https://instantfunding.com/help/prohibited-trading-practice/,"instantfunding.com, instantfunding.io",13
-Instant Funding Pakistan,CFD,Non vérifié,Non documenté,,,instantfunding-pakistan.com,1
+Instant Funding Pakistan,CFD,Non vérifié,Restreint / semi-auto,Automated systems permitted with lot-sizing/risk rules; custom algorithms require pre-approval; grid/martingale restricted,https://instantfunding-pakistan.com/rules/,instantfunding-pakistan.com,1
 Institutional Funding,?,Non vérifié,Non documenté,,,,1
 Integra Trade,CFD + Futures,Non vérifié,Non documenté,,,,1
 Interstellar Group (FISG) Prop,CFD,Non vérifié,Non documenté,,,fisg.com,1
@@ -424,14 +424,14 @@ Investiqa,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://the
 Invlyft,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,invlyft.com,3
 IQ Capital,CFD + Futures,Active,Autorisé,Review site: 'automated trading enabled on funded accounts'; official site (Volumetrica/Quantower/Tradovate/MT5) silent - verify with support,https://damnpropfirms.com/best-prop-firms-for-algo-trading/,iqcapital.io,9
 Jasper FOREX,CFD,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,jasperforex.com,2
-JoinX Capital,CFD,Active,Non documenté,,,joinxcapital.com,2
+JoinX Capital,CFD,Active,Interdit,EAs / automation: Not allowed | Prohibited: Forbidden Trading Practices (T&C 8.1): exploiting errors in the Services such as errors in display of prices or delay in their update; trading on an external or slow data feed;,https://propfirmmap.com/firms/joinxcapital,joinxcapital.com,2
 Karma Prop Traders,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,karmaproptraders.com,4
 Key to Prop,?,Non vérifié,Non documenté,,,,1
 Keyzone Traders,CFD,Non vérifié,Non documenté,,,keyzonetraders.com,1
 KHRUSOS Capital Group,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"khrusos.com, khrusoscapital.com",2
 Kickstart Trading,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,kickstarttrading.com,1
 Kingdom Wealth Funding,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,kingdomwealthfunding.com,1
-Klein Funding,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,kleinfunding.com,3
+Klein Funding,CFD,Active,Interdit,Bot trading listed among prohibited styles; 50-second rule,https://fundedtrading.com/propfirm/klein-funding/,kleinfunding.com,3
 Klein Funding Crypto,CFD,Non vérifié,Non documenté,,,,1
 Kortana,?,Non vérifié,Non documenté,,,,1
 Kortana FX,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,kortanafx.com,1
@@ -444,9 +444,9 @@ Kwakol Markets,?,Non vérifié,Non documenté,,,,1
 Lark Funding,CFD + Futures,Active,Autorisé,Help center: 'Whilst we do not prohibit the use of EAs... Using EAs designed for High Frequency Trading or arbitrage trading is strictly prohibited.' Own risk; no pre-approval; must be compatible with DXtrade/cTrader/Mat,https://helpdesk.larkfunding.com/en/articles/7174115-can-i-use-an-expert-advisor,larkfunding.com,10
 Leeloo Trading,CFD + Futures,Active,Interdit,"Only the trader may trade the account, no bots/algos/EAs; all trades manual; copy trading prohibited",https://tradingfunder.com/leeloo-trading-rules/,leelootrading.com,12
 Legacy Funded Futures,Futures,Active,Interdit,Terms list 'Automation / Bots' among prohibited disruptive practices (termination / forfeiture),https://legacyfundedfutures.com/terms-and-conditions/,"legacyfundedfutures.com, propfirmmap.com",3
-Legends Trading,CFD + Futures,Active,Non documenté,,,"legendstrading.com, thelegendstrading.com",11
+Legends Trading,CFD + Futures,Active,Interdit,Automated trading is not permitted. Manual trading only.,https://propfirm.compare/propfirm/legends-trading,"legendstrading.com, thelegendstrading.com",11
 LegionFunding,CFD,Active,Restreint / semi-auto,"EAs permitted only as trade/risk-management tools; HFT, tick scalping, latency arbitrage breach",https://propfirmmap.com/blog/legionfunding-review-2026-plans-rules-and-payouts,legionfunding.com,2
-LevaFX,CFD,Non vérifié,Non documenté,,,,1
+LevaFX,CFD,Non vérifié,Autorisé,"'News, scalping, EAs, overnight and weekend holds - all allowed'",https://levafx.com/,,1
 Leveled Up Society,CFD,Fermée,Non documenté,,,leveledupsociety.com,3
 Levels Funding,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,levels-funding.com,2
 Leveraged,CFD,Active,Restreint / semi-auto,Self-developed EAs may be used,https://propfirmmatch.com/prop-firms/leveraged,getleveraged.com,5
@@ -467,7 +467,7 @@ Mainet Funded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https:/
 Mara Futures Fund,Futures,Non vérifié,Non documenté,,,,1
 Market Mates,CFD,Active,Autorisé,"Broker-backed; challenges allow scalping, swing and automated strategies; MT5 EAs supported",https://marketmates.com/prop-trading/,marketmates.com,1
 Market Rush,CFD,Active,Restreint / semi-auto,Indian markets; systematic strategies allowed but high-frequency or fully automated trading designed to game the system is prohibited,https://marketrush.in/faqs/rules/which-instruments-can-i-trade-and-what-strategies-are-allowed,marketrush.in,1
-MasterFunders,CFD,Non vérifié,Non documenté,,,,3
+MasterFunders,CFD,Non vérifié,Restreint / semi-auto,Match-Trade Trade Copier supported; Level2 visual strategy builder for automation (simulated).,https://fundedtrading.com/propfirm/masterfunders/,,3
 Maven Trading,CFD,Active,Interdit,"Official rules page: 'Expert Advisors (EAs) are not permitted on any Maven Trading platform. Using an EA will prevent you from passing your challenge, and repeated use may lead to account suspension.' Tightened from cond",https://maventrading.com/day-trading-rules,maventrading.com,17
 Maverick Trading,CFD,Active,Non documenté,,,mavericktrading.com,2
 Mega Funded,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,getmegafunded.com,2
@@ -481,7 +481,7 @@ MFunded (MarketsVox),CFD,Active,Autorisé (EA personnel uniquement),EAs allowed 
 MiFunder,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,mifunder.com,3
 MILTRADERS,CFD + Futures,Active,Interdit,Hard breach (immediate closure): 'use of bots or automated systems',https://miltraders.com/faqs/,miltraders.com,3
 Mockapital,CFD,Active,Restreint / semi-auto,EAs allowed only with purchased EA add-on; third-party EAs only for trade/risk management,https://mockapital.com/faq,mockapital.com,2
-Moneta Funded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,monetafunded.com,9
+Moneta Funded,CFD,Active,Restreint / semi-auto,EA trading allowed; directory-flagged for HFT,https://audacity.capital/trading-guides/best-prop-firms-that-allow-hft/,monetafunded.com,9
 Monevis,CFD,Active,Restreint / semi-auto,"Help center overviews: EAs allowed on 1-Step and 2-Step Challenge ('EA Friendly'); 'EAs (Expert Advisors) are not allowed on Instant Funding accounts'. Prohibited: reverse arbitrage, HFT, tick scalping, grid; copy tradin",https://help.monevis.com/en/articles/11496397-instant-funding-overview,monevis.com,4
 MPFunds,?,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,mpfunds.com,1
 Msolutions,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"msolutionff.com, msolutions.com",3
@@ -521,8 +521,8 @@ NextGen Funding,CFD,Non vérifié,Non documenté,,,,1
 Nextproptrader,CFD + Futures,Active,Non documenté,,,nextproptrader.com,6
 Nexus Funding,?,Non vérifié,Non documenté,,,,1
 Nexusxfund,?,Non vérifié,Non documenté,,,,1
-Noctorial,CFD,Non vérifié,Non documenté,,,,2
-Nordic Funder,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,nordicfunder.com,6
+Noctorial,CFD,Non vérifié,Autorisé,Account specs: 'Asesores expertos: Permitidos' (Expert Advisors permitted) on MT5,https://noctorial.com/,,2
+Nordic Funder,CFD,Active,Interdit,EAs / automation: Not allowed,https://propfirmmap.com/firms/nordicfunder,nordicfunder.com,6
 Nostro,CFD,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,landing.nostro.co,2
 Nova Forex,CFD,Non vérifié,Non documenté,,,nova-forex.com,1
 Nova Funded,CFD,Active,Autorisé,FX/CFD challenges and instant funding: automated strategies allowed subject to prohibited-trading policy; crypto plans on DXTrade do not support EAs,https://novafunded.com/faq,novafunded.com,2
@@ -530,44 +530,44 @@ Nova Funding,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://
 Novus Trader,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,novustrader.com,2
 NowTradeFunded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,nowtradefunded.com,3
 NX Funded (FXNX),CFD,Active,Non documenté,,,fxnx.com,1
-NYS Markets,CFD,Active,Non documenté,,,nysmarkets.com,3
+NYS Markets,CFD,Active,Autorisé (EA personnel uniquement),"EA & automated allowed; copy trading only between own NYS accounts. HFT, hedging, martingale, arbitrage banned.",https://fundedtrading.com/propfirm/nys-markets/,nysmarkets.com,3
 OANDA Prop Trader,CFD,Fermée,Autorisé,"Official help: traders may use EAs, scripts and indicators; 'EAs engaging in price or latency arbitrage, or other prohibited trading behaviors, are strictly forbidden'; copy trading not allowed; 2-min news window either ",https://proptrader-help.oanda.com/can-i-use-expert-advisors,"oanda.com, proptrader.oanda.com",5
 Ofp,CFD,Active,Non documenté,,,ofpfunding.com,10
-OFunded,CFD,Non vérifié,Non documenté,,,,2
+OFunded,CFD,Non vérifié,Autorisé,"2-Step Challenge rule highlights: 'EAs, news & crypto allowed'",https://ofunded.com/,,2
 Olbios Markets,?,Non vérifié,Non documenté,,,,1
 One Traders Funding,CFD,Non vérifié,Non documenté,,,,1
 One Trading Brasil,Futures,Active,Non documenté,,,onetradingbrasil.com.br,1
-OneFunded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"affiliates.onefunded.com, onefunded.com",11
+OneFunded,CFD,Active,Restreint / semi-auto,EAs only as trading assistants after pre-approval; fully automated EAs not permitted,https://fundedtrading.com/propfirm/onefunded/,"affiliates.onefunded.com, onefunded.com",11
 OneStopProp,CFD,Active,Restreint / semi-auto,EAs allowed during challenge phases (own strategy) but not allowed once account reaches Funded Phase,https://help.onestopprop.com/faq/are-eas-and-trade-copiers-allowed/,onestopprop.com,4
-OneUp Trader,CFD + Futures,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"mavericktrading.com, oneuptrader.com",12
+OneUp Trader,CFD + Futures,Active,Interdit,Automated trading is not permitted. Manual trading only.,https://propfirm.compare/propfirm/oneup-trader,"mavericktrading.com, oneuptrader.com",12
 OnlyFunds,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,only-funds.com,2
-Onyx Futures,Futures,Active,Non documenté,,,onyx-futures.com,3
-Optimal Traders,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"optimal-traders.com, optimaltraders.com",3
+Onyx Futures,Futures,Active,Interdit,"EAs / automation: Allowed | Prohibited: Copy across your own evaluations, never hedge, and place every evaluation trade by hand.",https://propfirmmap.com/firms/onyxfutures,onyx-futures.com,3
+Optimal Traders,CFD,Fermée,Autorisé,HFT explicitly allowed: Yes; dedicated 1-Step ALGO account,https://www.goatfundedtrader.com/blog/prop-firms-that-allow-hft,"optimal-traders.com, optimaltraders.com",3
 Options Funding,CFD,Active,Non documenté,,,optionsfunding.co,1
 Origin FX,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,originfx.com,1
-Orion Funded,CFD,Active,Non documenté,,,orionfunded.com,6
+Orion Funded,CFD,Active,Restreint / semi-auto,EAs permitted across all programs; coordinated trading prohibited,https://fundedtrading.com/propfirm/orion-funded/,orionfunded.com,6
 OspreyFX Prop,CFD,Fermée,Non documenté,,,ospreyfx.com,3
 Overfunded,?,Non vérifié,Non documenté,,,,1
 P1 Futures,Futures,Active,Non documenté,,,p1futures.com,3
-Paid To Trade,CFD,Non vérifié,Non documenté,,,,3
+Paid To Trade,CFD,Non vérifié,Interdit,"EAs / automation: Not allowed | Prohibited: Arbitrage including HFT, grid trading, martingale, pyramid scaling, asymmetric scalping, all-in or concentrated-risk trades and tick scalping are prohibited on Static Evaluatio",https://propfirmmap.com/firms/paidtotrade,,3
 PaidPex,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,paidpex.com,2
 Pak Funded Trader,CFD,Active,Non documenté,,,pakfundedtrader.com,1
 Paradise Capital,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,paradisecapital.ai,2
 Percentage Profit,?,Non vérifié,Non documenté,,,,1
 Phidias Propfirm,CFD + Futures,Active,Restreint / semi-auto,Official rules: robots/fully automated algorithms not permitted; only semi-automated software where trader actively monitors and manually adjusts trades; no HFT,https://phidiaspropfirm.com/rules,phidiaspropfirm.com,17
 Phinaq Forex Funds,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,phinaqforexfunds.com,1
-Phoenix Trader Funding,CFD + Futures,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,phoenixtraderfunding.com,9
+Phoenix Trader Funding,CFD + Futures,Active,Restreint / semi-auto,"EAs / automation: Allowed; HFT banned, tick scalping banned | Prohibited: HFT/EA/scalping bots; hedging between accounts; flipping; 1-tick trading on bonds (ZB, ZN, ZS) on funded accounts.",https://propfirmmap.com/firms/phoenixtraderfunding,phoenixtraderfunding.com,9
 Pickfunded,?,Non vérifié,Non documenté,,,,1
-PineX Capital,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,pinexcapital.com,5
+PineX Capital,CFD,Active,Interdit,EAs / automation: Not allowed,https://propfirmmap.com/firms/pinexcapital,pinexcapital.com,5
 Pinnacle Trader Fx,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,pinnacletraderfx.com,2
 Pip Traders Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,piptradersfunding.com,2
-Pipcy,CFD,Active,Non documenté,,,pipcy.com,3
+Pipcy,CFD,Active,Restreint / semi-auto,"EAs / automation: Allowed; HFT banned, tick scalping banned | Prohibited: Martingale strategies, grid trading, latency arbitrage and every other form of arbitrage, platform exploitation, High-Frequency Trading, copy trad",https://propfirmmap.com/firms/pipcy,pipcy.com,3
 PipFarm,CFD,Active,Autorisé,"Official FAQ (cTrader): 'You can trade with your custom cTrader bot, providing the same bot was used to pass the challenge'; HFT not allowed; latency arbitrage, signal copying, group trading prohibited; EAs for personal ",https://pipfarm.com/faq/,pipfarm.com,12
 PipsFunding (formerly MatrisXCapital),CFD,Non vérifié,Non documenté,,,,1
-Pipster,CFD,Active,Non documenté,,,pipster.io,3
-Pipstone Capital,CFD,Active,Non documenté,,,pipstonecapital.com,4
+Pipster,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Copy trading outright. High-frequency and tick scalping, server spamming, and any profitable sub-60-second trade. Latency and price-feed arbitrage, bad-tick and misquote abuse.",https://propfirmmap.com/firms/pipster,pipster.io,3
+Pipstone Capital,CFD,Active,Restreint / semi-auto,"Algorithmic trading allowed (cBots); 60-second minimum trade duration, HFT flagged",https://fundedtrading.com/propfirm/pipstone/,pipstonecapital.com,4
 PitBullTraders,Futures,Active,Non documenté,,,,2
-Pivex Funded,CFD,Active,Non documenté,,,pivexfunded.com,3
+Pivex Funded,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Grid trading, stack trading, cross-account hedging, overleveraging, high-frequency trading and ultra-fast scalping, and copy trading (permitted only between the same trader's o",https://propfirmmap.com/firms/pivexfunded,pivexfunded.com,3
 PJCapital,Futures,Active,Non documenté,,,,2
 Plutus Trade Base,CFD,Active,Autorisé,Rules tables state Expert Advisors: Allowed across Lightning/Freedom/Adventure/Instant/2-Step,https://plutustradebase.com/,plutustradebase.com,5
 Point Blank Capital,?,Non vérifié,Non documenté,,,,1
@@ -589,13 +589,13 @@ Prop Number One,CFD,Contesté,Non documenté,,,propnumberone.com,4
 Prop Trading Hub,CFD,Non vérifié,Non documenté,,,proptradinghub.com,1
 PROP365,CFD,Non vérifié,Non documenté,,,prop365.com,1
 Propanium,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,propanium.com,3
-PropEd Capital,CFD + Futures,Active,Non documenté,,,propedcapital.com,4
+PropEd Capital,CFD + Futures,Active,Autorisé,"EAs / automation: Allowed | Prohibited: Hedging: you cannot hold opposing positions in the same instrument simultaneously, for example long and short ES at the same time. Coordinated hedging across accounts, including op",https://propfirmmap.com/firms/propedcapital,propedcapital.com,4
 propel Capital Group,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"propelcapital.com, propelcapitalgroup.co.uk",3
 PropFirm X,CFD,Non vérifié,Non documenté,,,propfirmx.com,1
 PropFirm.global,CFD,Active,Non documenté,,,propfirm.global,1
 PropFunded,CFD,Non vérifié,Non documenté,,,,2
 PropFunding,Futures,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,propfunding.com,1
-PropHelix,CFD,Non vérifié,Non documenté,,,,1
+PropHelix,CFD,Non vérifié,Interdit,"EAs / automation: Not allowed | Prohibited: Arbitrage, platform-error exploitation, delayed-data use, cross-account copy trading, account sharing, unpermitted bots, cross-account hedging, gambling-style over-risk (Terms ",https://propfirmmap.com/firms/prophelix,,1
 Propips,?,Non vérifié,Non documenté,,,,1
 Propiy,CFD,Active,Non documenté,,,propiy.com,1
 PropMarket,CFD,Non vérifié,Non documenté,,,,1
@@ -616,7 +616,7 @@ QT Futures,Futures,Active,Autorisé,Prohibited Strategies bans HFT (incl. tick s
 Quant Funded,?,Non vérifié,Non documenté,,,,1
 Quant Tekel (Ascendx),CFD,Active,Non documenté,,,quanttekel.com,3
 Quantec Trading Capital,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,quantectrading.com,2
-Quantum Funding,CFD,Non vérifié,Non documenté,,,,3
+Quantum Funding,CFD,Non vérifié,Restreint / semi-auto,"EAs / automation: Allowed; HFT banned, tick scalping banned | Prohibited: High-frequency trading, latency and reverse arbitrage, tick scalping, group trading, copy trading from third parties, account management for other",https://propfirmmap.com/firms/quantumfunding,,3
 Quicktrade Capital,?,Non vérifié,Non documenté,,,,1
 R u The 1,CFD,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,ruthe1.com,2
 Raise My Funds,CFD,Active,Non documenté,,,raisemyfunds.co,3
@@ -631,11 +631,11 @@ Redline Futures Funding,Futures,Active,Restreint / semi-auto,"Automation only vi
 Redline Futures Trading,Futures,Active,Restreint / semi-auto,redlinefutures.com unreachable; assumed same brand as Redline Futures Funding where automation requires the paid Automation Waiver,https://redlinefuturesfunding.com/,redlinefutures.com,1
 Relentless,?,Non vérifié,Non documenté,,,,1
 Renkoprop,Futures,Active,Non documenté,,,renkoprop.com.br,1
-Rev One Trading,CFD + Futures,Fermée,Non documenté,,,"revone.com, revonetrading.com",4
-Rhodium FX,CFD,Non vérifié,Non documenté,,,,2
+Rev One Trading,CFD + Futures,Fermée,Autorisé,Allowed.,https://fundedtrading.com/propfirm/rev-one-trading/,"revone.com, revonetrading.com",4
+Rhodium FX,CFD,Non vérifié,Interdit,"EAs / automation: Not allowed | Prohibited: Copy trading, arbitrage, or exploiting platform latency",https://propfirmmap.com/firms/rhodiumfx,,2
 Rocket21,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,rocket21challenge.com,2
 Ryze Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"ryze.trading, ryzefunding.com",3
-SabioTrade,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,sabiotrade.com,8
+SabioTrade,CFD,Active,Interdit,Trading Bots (EAs): Yes,https://www.toponetrader.com/blog/the-best-prop-firms-that-allow-expert-advisors-ea-in-2025,sabiotrade.com,8
 SACT Vietnam Trader Fund,Futures,Active,Non documenté,,,sact.vn,1
 Sakinnah Capital,CFD,Active,Autorisé,Bots/EAs permitted per account; one automated strategy across several accounts banned; latency-exploiting bot behaviour reviewed,https://sakinnahcapital.com/rules,sakinnahcapital.com,1
 Samuel  Co.,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,,1
@@ -644,12 +644,12 @@ Savvy Trader,?,Non vérifié,Non documenté,,,,1
 Seacrest Markets,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"myfundedfx.com, seacrestfunded.com",9
 Secure The Bag,?,Non vérifié,Non documenté,,,,1
 Seven Go Funding,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,sevengofunding.com,1
-SFX Funded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,sfxfunded.com,9
+SFX Funded,CFD,Active,Autorisé,No restrictions; EAs may be used freely,https://fundedtrading.com/propfirm/sfx-funded/,sfxfunded.com,9
 Shark Funded,CFD,Active,Non documenté,,,sharkfunded.com,4
-Shark Futures,Futures,Active,Non documenté,,,sharkfutures.com,7
+Shark Futures,Futures,Active,Autorisé,EAs / automation: Allowed,https://propfirmmap.com/firms/sharkfutures,sharkfutures.com,7
 SI World (Stocknet Institute),CFD,Fermée,Non documenté,,,siworld.com,1
 Sieg Fund,CFD,Active,Interdit,SiegPath FAQ: Sieg Terminal does not currently support expert advisor trading,https://siegpath.com/tools/faq,siegfund.com,1
-SiegPath,CFD,Non vérifié,Non documenté,,,,1
+SiegPath,CFD,Non vérifié,Interdit,FAQ: 'Sieg Terminal does not support expert advisor trading' (same firm as Sieg Fund),https://siegpath.com/tools/faq,,1
 SIG Mesa Proprietária,Futures,Non vérifié,Non documenté,,,sigmesa.com.br,1
 SizeProp,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,sizeprop.com,3
 Skill or Talent,?,Non vérifié,Non documenté,,,,1
@@ -660,12 +660,12 @@ Smart Prop Trader,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,ht
 SMB Capital,CFD,Active,Non documenté,,,smbtraining.com,2
 Soar Funding,CFD,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"soar-funding.com, soarfunding.com",2
 Social trading club,?,Non vérifié,Non documenté,,,,1
-Solana Funded,CFD,Non vérifié,Non documenté,,,,1
+Solana Funded,CFD,Non vérifié,Interdit,"Unauthorized bots, scripts, and automated trading systems are prohibited.",https://fundedtrading.com/propfirm/solana-funded/,,1
 Solo Clash,CFD,Fermée,Non documenté,,,,2
-Space Funded,CFD,Non vérifié,Non documenté,,,,2
+Space Funded,CFD,Non vérifié,Interdit,"EAs / automation: Not allowed | Prohibited: Arbitrage (latency, reverse, triangular, cross-platform), high-frequency trading, tick scalping, news bracketing and straddles, martingale and grid, drawdown-recovery averaging",https://propfirmmap.com/firms/spacefunded,,2
 Speed Funded Traders,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,speedfundedtraders.com,3
 Speedup Trader,CFD,Fermée,Non documenté,,,,1
-Spiceprop,CFD,Active,Non documenté,,,spiceprop.com,8
+Spiceprop,CFD,Active,Autorisé,Expert Advisors (EAs) Allowed,https://forexpropreviews.com/forex-prop-trading-firms/spiceprop/,spiceprop.com,8
 Starter Prop Trader,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,starterproptrader.com,1
 StartUpTrader,Futures,Non vérifié,Non documenté,,,,1
 Stealth Trader,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,,1
@@ -675,9 +675,9 @@ Strix Options Funding,CFD,Non vérifié,Non documenté,,,strixoptionsfunding.com
 Success Fund Trader,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,successfundtrader.com,2
 Success Prop Trader,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,successproptrader.com,1
 Summit Strike Capital,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"summitstrike.com, summitstrikecapital.com",3
-Super Funded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,superfunded.com,7
+Super Funded,CFD,Active,Restreint / semi-auto,"EAs / automation: Allowed; HFT banned, tick scalping banned | Prohibited: Martingale, multi-account management, HFT, tick scalping, latency/reverse arbitrage, data feed manipulation, delayed data feed use, gap trading, g",https://propfirmmap.com/firms/superfunded,superfunded.com,7
 Supertrade,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,supertrade.com,2
-Sure Leverage Funding,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"sureleverage.com, sureleveragefunding.com",5
+Sure Leverage Funding,CFD,Active,Restreint / semi-auto,EAs are not allowed on the Forex models.,https://fundedtrading.com/propfirm/sure-leverage-funding/,"sureleverage.com, sureleveragefunding.com",5
 SurgeTrader,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,surgetrader.com,7
 Sway Funded,CFD,Active,Autorisé,"Official help center 'Are Trading Bots or EAs Allowed?': 'Trading scripts and automated bots are permitted' provided they comply with rules; prohibited: toxic trading volume, HFT, arbitrage, latency exploitation; partner",https://swayfunded.kb.help/are-trading-bots-or-eas-allowed/,swayfunded.com,9
 Swift Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"swiftfunding.com, swiftfunding.io",3
@@ -687,20 +687,20 @@ Syndicate Funded,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,htt
 Syntxwiki,CFD,Active,Non documenté,,,syntxwiki.com,1
 T3 Trading Group,CFD + Futures,Active,Autorisé,"SEC-registered broker-dealer prop (not an eval firm): offers API access, co-location and 'black box trading' for professional traders",https://t3trading.com/,t3trading.com,2
 T4TCapital,CFD,Active,Non documenté,,,t4tcapitalfm.com,1
-T4TCAPITALFM,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,t4tcapitalfm.com,3
+T4TCAPITALFM,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: HFT trading, latency arbitrage, news straddling, stop order arbitrage, Expert Advisor robots or AI algorithm generated, martingale strategy",https://propfirmmap.com/firms/t4tcapitalfm,t4tcapitalfm.com,3
 Tailored Funding,CFD,Fermée,Non documenté,,,,1
 Take Capital For Traders,?,Non vérifié,Non documenté,,,,1
 Take Profit Trader,CFD + Futures,Active,Interdit,"Universal Trading Policies: 'We do not allow any automated or bot trading of any kind. All trades must be manually executed by the trader' (Test, PRO, PRO+); no HFT; approved trade copiers only across own accounts",https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/34431153546397-TakeProfitTrader-Universal-Trading-Policies-UTP,takeprofittrader.com,18
 TakeCap FT,CFD,Active,Non documenté,,,"takecap.com, takecapft.com",3
 Tattvam,CFD,Non vérifié,Non documenté,,,tattvam.com,1
 Taurus (Taurus Arena),Futures,Active,Non documenté,,,taurusarena.com,1
-Taurus Arena,CFD + Futures,Active,Non documenté,,,taurusarena.com,7
+Taurus Arena,CFD + Futures,Active,Autorisé,EAs / automation: Allowed,https://propfirmmap.com/firms/taurusarena,taurusarena.com,7
 Taurus Traders,?,Non vérifié,Non documenté,,,,1
 TC Star Desk,Futures,Non vérifié,Non documenté,,,tcstardesk.com.br,1
 TDL Prop,Futures,Non vérifié,Non documenté,,,tdlprop.com.br,1
-TEFS,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,tefs.com,3
+TEFS,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Lag trading, server latency exploitation, price manipulation, arbitrage, sniping, cross-account hedging, copy and mirror trading, coordinated multi-account strategies, and tech",https://propfirmmap.com/firms/tefs,tefs.com,3
 Telos Capital,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"teloscapital.com, telostraders.com",3
-Telostraders,CFD,Non vérifié,Non documenté,,,telostraders.com,1
+Telostraders,CFD,Non vérifié,Restreint / semi-auto,Telos Capital supports EAs per approved guidelines; third-party EA source code must be provided on request; stricter on funded accounts; no HFT/arbitrage bots,https://telostraders.com/legal/terms,telostraders.com,1
 TenacityTrading,Futures,Non vérifié,Non documenté,,,tenacitytrading.com,1
 TenTrade,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,tentrade.com,5
 Texaris,CFD,Non vérifié,Non documenté,,,,1
@@ -708,14 +708,14 @@ TH Traders,Futures,Non vérifié,Non documenté,,,thtraders.com.br,1
 ThaurusGuru,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,thaurusguru.com,1
 The Breakout Edge,CFD,Non vérifié,Non documenté,,,thebreakoutedge.com,1
 The City Traders,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,thecitytraders.com,3
-The Concept Trading,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,theconcepttrading.com,6
+The Concept Trading,CFD,Active,Autorisé,"All models allow EAs, HFT and copiers per public rules page",https://fundedtrading.com/propfirm/the-concept-trading/,theconcepttrading.com,6
 The Forex Funder,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,theforexfunder.com,4
-The Funded FX,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"fundedfx.com, thefundedfx.com",5
+The Funded FX,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Latency arbitrage, HFT/tick-scalping/quote-stuffing, all-or-nothing challenge-gaming, copy-trade manipulation, platform/API abuse",https://propfirmmap.com/firms/fundedfx,"fundedfx.com, thefundedfx.com",5
 The Funded Lab,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,thefundedlab.com,2
 The Funded Lion,CFD,Non vérifié,Non documenté,,,fundedlions.com,1
 The Funded Room,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,thefundedroom.com,3
 The Funded Talent,?,Non vérifié,Non documenté,,,,1
-The Funded Trader,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,thefundedtraderprogram.com,13
+The Funded Trader,CFD,Fermée,Autorisé,Automated strategies (EAs) allowed on Classic and Dragon challenges,https://bestpropfirms.com/reviews/the-funded-trader/,thefundedtraderprogram.com,13
 The Funded Way,CFD,Active,Restreint / semi-auto,"EAs/algos allowed but require pre-approval (submit EA name, logic, preferably source code); copy-trading bots and latency arbitrage banned",https://help.thefundedway.com/en/articles/12461845-ea-algo-trading-policy,thefundedway.com,7
 The Funding Futures,Futures,Fermée,Non documenté,,,"fundingfutures.com, thefundingfutures.com",3
 The Funding Kingdom (ex-The Funded Trader),CFD,Active,Non documenté,,,thefundingkingdom.com,1
@@ -728,7 +728,7 @@ The Prop Firm Traders,CFD,Non vérifié,Non documenté,,,thepropfirmtraders.com,
 The Prop Game,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,thepropgame.com,3
 The Prop Pit,?,Non vérifié,Non documenté,,,,1
 The Prop Trading,CFD,Non vérifié,Non documenté,,,theproptrading.com,2
-The Proven Trader,CFD,Non vérifié,Non documenté,,,,1
+The Proven Trader,CFD,Non vérifié,Interdit,"EAs / automation: Not allowed | Prohibited: Martingale, Grid trading, Latency arbitrage, Tick arbitrage, Reverse arbitrage, High-frequency trading (HFT)",https://propfirmmap.com/firms/theproventrader,,1
 The Royal Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,theroyalfunding.com,2
 The Skilled Trader,?,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,theskilledtrader.com,1
 The Talented Trader,?,Non vérifié,Non documenté,,,,1
@@ -736,7 +736,7 @@ The TradeMakers,CFD,Non vérifié,Non documenté,,,,1
 The Trading Capital,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,thetradingcapital.com,3
 The Trading Pit,CFD + Futures,Active,Autorisé,Own EA / automated systems permitted on all accounts; HFT prohibited; copying external/other traders prohibited (copy across up to 5 own futures accounts OK),https://www.luxalgo.com/prop-firms/the-trading-pit-futures/,thetradingpit.com,21
 The Trading Pit Futures,Futures,Active,Autorisé,Own EA / automated systems permitted on all accounts; HFT prohibited; copying external/other traders prohibited (copy across up to 5 own futures accounts OK),https://www.luxalgo.com/prop-firms/the-trading-pit-futures/,thetradingpit.com,2
-The Upside Funding,CFD,Active,Non documenté,,,theupsidefunding.com,4
+The Upside Funding,CFD,Active,Autorisé,Allowed.,https://fundedtrading.com/propfirm/the-upside-funding/,theupsidefunding.com,4
 The Whale Order,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,thewhaleorder.com,1
 The5ers,CFD + Futures,Active,Autorisé (EA personnel uniquement),"Official FAQ: 'You can use any EA you have in your trading account, as long as it does not' copy others' signals, tick scalp, latency/reverse/hedge arbitrage, HFT, or use emulators; 'Additionally, the trader must own the",https://the5ers.com/faqs/can-i-use-an-ea-expert-advisor-can-i-set-a-stealth-mode-stop-loss/,the5ers.com,26
 The5ers Crypto,CFD,Active,Non documenté,,,the5ers.com,1
@@ -751,7 +751,7 @@ ThorFX,CFD,Fermée,Non documenté,,,thorfx.com,2
 ThriveTrading,Futures,Non vérifié,Non documenté,,,,1
 TickTick Trader,Futures,Active,Interdit,"No automated trading, bots or EAs on any account type; manual trading mandatory; no copy trading; no VPN",https://support.tickticktrader.com/hc/en-us/articles/4414874446225-TTTPerformance-Account-Trading-Rules,tickticktrader.com,7
 TickWise,Futures,Non vérifié,Non documenté,,,tickwise.com,1
-Tiger Funded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,tigerfunded.com,5
+Tiger Funded,CFD,Active,Restreint / semi-auto,"EAs allowed in challenge phases, not allowed once funded",https://fundedtrading.com/propfirm/tiger-funded/,tigerfunded.com,5
 Titan Capital,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,titancapitalmarkets.co.uk,2
 Titan Fx Funded,CFD,Non vérifié,Non documenté,,,,1
 Top One Futures,Futures,Active,Interdit,"'Use of any automated trading system, script, bot, Expert Advisor (EA), or high-frequency execution tool is strictly forbidden. All trades must be entered manually or semi-manually'; only local NinjaTrader ATM stop/targe",https://help.toponefutures.com/en/articles/11021584-prohibited-trading-practices,toponefutures.com,17
@@ -761,7 +761,7 @@ TopFundr,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetr
 Topstep,CFD + Futures,Active,Restreint / semi-auto,"Automation (NinjaScript, TopstepX/ProjectX API) allowed only when actively monitored by the trader; unattended bots, VPS/remote servers prohibited; no HFT / latency arbitrage; API orders final, no tech support",https://algoproven.com/topstepx-api-bot-rules,topstep.com,19
 TopstepFX,CFD,Fermée,Non documenté,,,topstep.com,1
 TopTier Trader,CFD + Futures,Active,Interdit,"Official FAQ (toptiersales.com, as indexed): 'TopTier Trader does not allow EAs... all trades on TopTier accounts must be placed manually by the trader who is named on the account'; copy trading also banned. Note: toptie",https://toptiersales.com/faq/,toptiertrader.com,5
-TopTraderPrime,CFD,Non vérifié,Non documenté,,,,2
+TopTraderPrime,CFD,Non vérifié,Restreint / semi-auto,"EAs, overnight, weekend holding and news trading allowed",https://fundedtrading.com/propfirm/toptraderprime/,,2
 Tordess,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,tordess.com,2
 TPT PRO+ (Take Profit Trader),Futures,Active,Interdit,"Universal Trading Policies: 'We do not allow any automated or bot trading of any kind. All trades must be manually executed by the trader' (Test, PRO, PRO+); no HFT; approved trade copiers only across own accounts",https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/34431153546397-TakeProfitTrader-Universal-Trading-Policies-UTP,takeprofittrader.com,1
 Traddoo,CFD + Futures,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,traddoo.com,6
@@ -772,7 +772,7 @@ Trade Tech Solutions (white-label provider),CFD,Active,Non documenté,,,tradetec
 Trade The Pool,CFD + Futures,Active,Interdit,"'prohibits automated bots, Expert Advisor, and copy-trading tools across every account and every phase'; a human must personally place and authorize every trade; AI only for research/analysis",https://tradethepool.com/ai/ai-trading-bots-on-funded-accounts/,tradethepool.com,14
 Trade The Pool Futures,CFD + Futures,Non vérifié,Interdit,"'prohibits automated bots, Expert Advisor, and copy-trading tools across every account and every phase'; a human must personally place and authorize every trade; AI only for research/analysis",https://tradethepool.com/ai/ai-trading-bots-on-funded-accounts/,tradethepool.com,1
 Trade With GeorgeFX,CFD,Non vérifié,Non documenté,,,,1
-TradeApp,CFD,Active,Non documenté,,,tradeapp.com,3
+TradeApp,CFD,Active,Interdit,EAs / automation: Not allowed | Prohibited: Arbitrage trading; high-frequency trading (HFT); bracketing around high-impact news; exploiting system errors; trade coordination or copy trading; one-sided bets; scalping duri,https://propfirmmap.com/firms/tradeapp,tradeapp.com,3
 TradeDay,CFD + Futures,Active,Autorisé (EA personnel uniquement),"Own custom strategies via supported platforms (NinjaTrader, Tradovate, TradingView, Jigsaw, Quantower) permitted; third-party purchased algos/bots forbidden; no direct Tradovate API access; identical trades across users ",https://tradeday.freshdesk.com/en/support/solutions/articles/103000085101-automated-algo-and-bot-trading,tradeday.com,20
 TradeFundrr,CFD + Futures,Active,Restreint / semi-auto,'Certain automated strategies and trade management tools may be permitted depending on the platform and program' - conditional per program,https://tradefundrr.com/,tradefundrr.com,5
 Tradeify,CFD + Futures,Active,Autorisé,"Personal bots/algos allowed if trader is sole owner (no shared/rented bots, not run across other firms); no HFT; >=50% of profit must come from trades held >10s; no copy trading between users",https://help.tradeify.co/en/articles/10468318-guidelines-for-traders,tradeify.co,21
@@ -780,23 +780,23 @@ Tradeify 247,CFD,Active,Autorisé,"Official FAQ: bots/EAs 'Yes, as long as you o
 Tradeify Crypto,CFD,Active,Autorisé (EA personnel uniquement),Redirects to tradeify247.co; bots allowed only if you own them; shared bots/signal services banned,https://help.tradeify247.co/en/articles/13393249-tradeify-247-faq,tradeifycrypto.co,2
 Tradeify Futures,Futures,Non vérifié,Autorisé,"Personal bots/algos allowed if trader is sole owner (no shared/rented bots, not run across other firms); no HFT; >=50% of profit must come from trades held >10s; no copy trading between users",https://help.tradeify.co/en/articles/10468318-guidelines-for-traders,,1
 Tradentry,Futures,Non vérifié,Non documenté,,,tradentry.com,1
-Trader 2B,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,trader2b.com,5
+Trader 2B,CFD,Active,Interdit,EAs / automation: Not allowed,https://propfirmmap.com/firms/trader2b,trader2b.com,5
 Trader Funder,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,traderfunder.com,2
 Trader Funding Program,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,traderfundingprogram.com,1
 TraderFundZone,?,Non vérifié,Non documenté,,,,1
 Traders Central,CFD,Fermée,Non documenté,,,,1
 Traders Eco,CFD,Fermée,Non documenté,,,traderseco.com,2
 Traders Funding,CFD,Non vérifié,Non documenté,,,piptradersfunding.com,1
-Traders Launch,CFD + Futures,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,traderslaunch.com,13
+Traders Launch,CFD + Futures,Active,Autorisé,Expert advisors (EAs) and automated trading bots are permitted,https://propfirm.compare/propfirm/traderslaunch,traderslaunch.com,13
 Traders Support Funds,?,Non vérifié,Non documenté,,,,1
 Traders With Edge,CFD + Futures,Contesté,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,traderswithedge.com,5
 Traders4Traders,CFD,Fermée,Non documenté,,,traders4traders.com,2
 Traderscale,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,traderscale.com,2
 TradersCombat,CFD,Non vérifié,Non documenté,,,traderscombat.com,1
-TradersEdgeFX,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,tradersedgefx.com,3
+TradersEdgeFX,CFD,Active,Restreint / semi-auto,"EAs / automation: Allowed; HFT banned, tick scalping banned | Prohibited: Tick scalping, latency arbitrage, reverse arbitrage, hedge arbitrage, emulators, HFT bots, Martingale bots, copying other people's signals and acc",https://propfirmmap.com/firms/tradersedgefx,tradersedgefx.com,3
 Traderseed,CFD,Non vérifié,Non documenté,,,traderseed.com,1
 TradersFlow,?,Non vérifié,Non documenté,,,,1
-Tradersyard,CFD + Futures,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,tradersyard.com,7
+Tradersyard,CFD + Futures,Active,Autorisé,HFT permitted: Yes; EA/bots allowed; no minimum hold time,https://tradersyard.com/blog-posts/what-prop-firms-allow-hft,tradersyard.com,7
 TradeSea,Futures,Active,Non documenté,,,tradesea.com,1
 TradexMastery,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,tradexmastery.com,2
 Tradexprop,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"tradexprop.com, tradexpropdashboard.propaccount.com",12
@@ -830,15 +830,15 @@ Union Funded Capital,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp
 Union Wealths Management,CFD,Fermée,Non documenté,,,unionwealthmanagement.com,2
 Upcomers,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,upcomers.com,6
 Upcomers Futures,CFD + Futures,Active,Autorisé,"'Expert Advisors (EAs), trading bots, algorithms and automated trading tools are allowed... as long as they follow our trading rules and represent a real, unique and responsible trading strategy'; HFT, tick scalping, arb",https://help.upcomers.com/en/articles/11704867-are-expert-advisors-eas-trading-bots-and-automated-strategies-allowed,upcomers.com,3
-UProfit,CFD + Futures,Active,Non documenté,,,"uprofit.com, uprofittrader.com",12
+UProfit,CFD + Futures,Active,Interdit,Automated trading is not permitted. Manual trading only.,https://propfirm.compare/propfirm/uprofit,"uprofit.com, uprofittrader.com",12
 UpropFirm,Futures,Active,Non documenté,,,,2
-Upscale,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"app.upscale.trade, upscale.com",4
+Upscale,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Running the same trading strategy simultaneously across multiple accounts (coordinated or mirrored trading across accounts). Automated trading software, bots and algorithmic ex",https://propfirmmap.com/firms/upscale,"app.upscale.trade, upscale.com",4
 URFX,CFD,Non vérifié,Non documenté,,,,1
 Utrust,CFD,Fermée,Non documenté,,,,1
 UWM Trading,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,unionwealthsmanagement.com,1
 V Prop Trader,?,Non vérifié,Non documenté,,,,1
 Vanquish Trader,CFD,Active,Non documenté,,,"vanquishtrader.co, vanquishtrader.com",5
-Vanta Trading,CFD + Futures,Active,Non documenté,,,"vantatrading.com, vantatrading.io",5
+Vanta Trading,CFD + Futures,Active,Interdit,EAs / automation: Not allowed | Prohibited: Third-party signals or copy trading Prohibited · Immediate disqualification,https://propfirmmap.com/firms/vantatrading,"vantatrading.com, vantatrading.io",5
 Vantage Elite Traders,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"vantageelitetraders.com, vantagemarkets.com",3
 Vantage Funding FX,CFD,Non vérifié,Non documenté,,,,1
 Vault Funder,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,vaultfunder.trade,2
@@ -854,15 +854,15 @@ Vital Markets,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https:
 VJCapital,Futures,Non vérifié,Non documenté,,,,1
 Volumetrica Trading (platform),Futures,Active,Non documenté,,,volumetrica.com,1
 Waka Funding,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,wakafunding.com,2
-Wall Street Funded,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,wsfunded.com,6
-WarBux,CFD,Active,Non documenté,,,warbuxbtc.com,2
+Wall Street Funded,CFD,Active,Interdit,EAs / automation: Not allowed | Prohibited: High-Frequency trading (HFT) Trades of less than 60 seconds duration Grid trading Arbitrage trading Hedge trading Latency trading Reverse trading Tick Scalping Hyperactivity,https://propfirmmap.com/firms/wallstreetfunded,wsfunded.com,6
+WarBux,CFD,Active,Restreint / semi-auto,Help centre: DxTrade does not support automated trading strategies; no restriction if traders program strategies directly within DxTrade (no MT EA support),https://help.warbuxbtc.com/en/articles/12734622-can-i-use-automated-strategies,warbuxbtc.com,2
 We Copy Trade,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"wecopytrade.com, wmt.wecopytrade.com",2
 we Fund Traders,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,wefundtraders.co.uk,1
-We Fund You Trade,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,wfyt.com,5
+We Fund You Trade,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Latency trading, Arbitrage trading, High-Frequency Trading (HFT), Group hedging/reverse trading, account management services, EAs",https://propfirmmap.com/firms/wefundyoutrade,wfyt.com,5
 WeFund,CFD,Fermée,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,we-fund.com,2
-WeGetFunded,CFD,Fermée,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,wegetfunded.com,5
-WeMasterTrade,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,wemastertrade.com,5
-WenCrypto,CFD,Active,Interdit,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,wencrypto.com,4
+WeGetFunded,CFD,Fermée,Interdit,"EAs / automation: Not allowed | Prohibited: Emulators, high-frequency trading (manual or bot), reverse arbitrage, hedging arbitrage, latency arbitrage, tick scalping, grid trading, one-way betting, copying trades from ot",https://propfirmmap.com/firms/wegetfunded,wegetfunded.com,5
+WeMasterTrade,CFD,Active,Autorisé,Automated trading strategies and EAs are permitted across challenge and funded accounts.,https://fundedtrading.com/propfirm/wemastertrade/,wemastertrade.com,5
+WenCrypto,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Expert Advisors and all automated trading, copy trading (both accounts breached if detected), reverse or group hedging, high-frequency trading, toxic order flow, long/short arb",https://propfirmmap.com/firms/wencrypto,wencrypto.com,4
 WeYouCapital,Futures,Non vérifié,Non documenté,,,,1
 Wfunded,CFD,Active,Autorisé,"Use of Expert Advisors is allowed; HFT, grid/martingale, arbitrage, tick scalping banned",https://wfunded.io/en/faq,wfunded.io,2
 WildFunded,Futures,Active,Non documenté,,,wildfunded.com,2
@@ -874,15 +874,15 @@ WM Manhattan,Futures,Active,Non documenté,,,wmmanhattan.com.br,1
 WokeFX,CFD,Non vérifié,Non documenté,,,wokefx.com,1
 WSFunded,CFD,Active,Autorisé,Pricing tables: Expert advisor/cBots permitted for Classic/Ultra/Rapid/Elite/Power accounts,https://wsfunded.com/,wsfunded.com,3
 X Prop Trading,Futures,Active,Non documenté,,,xproptrading.com.br,1
-Xfunded,CFD,Non vérifié,Non documenté,,,,1
+Xfunded,CFD,Non vérifié,Restreint / semi-auto,Allowed during challenge phases; NOT allowed when funded. Instant: not allowed. >20% discount codes cannot be used on 1-Phase traded with EA/bot.,https://fundedtrading.com/propfirm/xfunded/,,1
 XLTrade,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"xltrade.com, xltrade.net",4
 Xnss Funds,?,Non vérifié,Non documenté,,,,1
 Xpert Funding,CFD,Active,Autorisé,champ « EA trading » TheTrustedProp,https://thetrustedprop.com/prop-firms/,"xpertfunding.com, xpertfunding.pro",2
 XPIPS,CFD,Active,Autorisé,'Expert Advisors allowed - Automate your strategy',https://xpips.com/,xpips.com,3
 XVXT,?,Non vérifié,Non documenté,,,,1
-Ylos Trading,CFD + Futures,Active,Non documenté,,,ylostrading.com,6
+Ylos Trading,CFD + Futures,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Latency, reverse, statistical and hedge arbitrage; gap and platform-glitch exploitation; microscalping of 30 seconds or less across the majority of trades; hedging across multi",https://propfirmmap.com/firms/ylostrading,ylostrading.com,6
 YouTrade,?,Non vérifié,Non documenté,,,,1
 YRM Prop,CFD + Futures,Active,Restreint / semi-auto,Manual discretionary trading permitted; 'automated trading needs explicit approval'; trade copiers for own accounts across firms allowed (no hedging),https://pickmytrade.io/faq/prop-firm-automation/,yrmprop.com,9
 Zenit Funding,CFD + Futures,Active,Autorisé,Own-source-code algos allowed; 'using an algorithm whose source code you do not own is prohibited'; HFT (many orders per second) and copy trading prohibited,https://zenitfunding.com/,zenitfunding.com,4
-Zeno Traders,CFD,Active,Non documenté,,,zenotraders.com,2
+Zeno Traders,CFD,Active,Interdit,"EAs / automation: Not allowed | Prohibited: Cross-account and group hedging, martingale/grid/averaging down, tick-scalping and high-frequency trading, latency and feed arbitrage, copy trading and account management or sh",https://propfirmmap.com/firms/zenotraders,zenotraders.com,2
 Zero7 Tesouraria,Futures,Active,Interdit,"'É estritamente proibido o uso de qualquer tipo de automação... incluindo copy trade, carteiras automatizadas, replicadores ou sistemas similares'; only manual organic orders by the trader",https://zero7.com.br/regulamento/,zero7.com.br,1

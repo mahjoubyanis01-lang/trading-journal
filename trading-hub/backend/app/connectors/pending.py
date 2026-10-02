@@ -37,65 +37,9 @@ class MT4Connector(_PendingConnector):
     )
 
 
-class CTraderConnector(_PendingConnector):
-    key = "ctrader"
-    display_name = "cTrader"
-    _requirement = (
-        "cTrader Open API credentials (OAuth app clientId/secret). Protobuf over "
-        "TCP; reads account/symbols/positions. No EA model - robots run as cBots."
-    )
-
-
-class TradovateConnector(_PendingConnector):
-    key = "tradovate"
-    display_name = "Tradovate"
-    _requirement = (
-        "Tradovate API access (username/password/app id/secret, device id). "
-        "REST + WebSocket; reads account/positions/instruments (futures)."
-    )
-
-
-class NinjaTraderConnector(_PendingConnector):
-    key = "ninjatrader"
-    display_name = "NinjaTrader"
-    _requirement = (
-        "Windows + NinjaTrader 8 with ATI/NTDirect enabled, or the socket API. "
-        "Robots are NinjaScript strategies managed in-platform."
-    )
-
-
-class RithmicConnector(_PendingConnector):
-    key = "rithmic"
-    display_name = "Rithmic"
-    _requirement = "Rithmic R|API+ credentials and gateway access (futures)."
-
-
-class DXtradeConnector(_PendingConnector):
-    key = "dxtrade"
-    display_name = "DXtrade"
-    _requirement = "DXtrade REST/WebSocket broker credentials and API endpoint."
-
-
-class MatchTraderConnector(_PendingConnector):
-    key = "matchtrader"
-    display_name = "Match-Trader"
-    _requirement = "Match-Trader broker API credentials and endpoint."
-
-
-class TradeLockerConnector(_PendingConnector):
-    key = "tradelocker"
-    display_name = "TradeLocker"
-    _requirement = "TradeLocker REST API credentials (email/password/server)."
-
-
-class QuantowerConnector(_PendingConnector):
-    key = "quantower"
-    display_name = "Quantower"
-    _requirement = "Quantower API / plugin bridge on the host machine."
-
-
+# cTrader, Tradovate, NinjaTrader, Rithmic, DXtrade, Match-Trader, TradeLocker and
+# Quantower now have real connectors under app/connectors/<key>/ and are registered
+# directly in registry.py. Only MT4 remains a scaffold here (file-bridge EA).
 ALL: list[type[_PendingConnector]] = [
-    MT4Connector, CTraderConnector, TradovateConnector, NinjaTraderConnector,
-    RithmicConnector, DXtradeConnector, MatchTraderConnector,
-    TradeLockerConnector, QuantowerConnector,
+    MT4Connector,
 ]

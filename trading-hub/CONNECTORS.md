@@ -7,21 +7,30 @@ status and the exact integration path for each.
 
 | Platform | Status | What it needs / how it works |
 |---|---|---|
-| **Mock** | ✅ Full | Built-in simulation (all capabilities + fault injection). Runs anywhere. |
-| **MetaTrader 5** | ✅ Full (on Windows) | `MetaTrader5` Python package for reads; the **TradingHubBridge** EA + the Windows agent for instances, heartbeat, RUN/STOP, risk delivery. See below. |
-| **MetaTrader 4** | 🟧 Bridge shipped | Same file-bridge model; MQL4 EA provided (`assets/mt4/`). No official MT4 Python API, so reads come from the bridge's `account.json`. Wiring the MT4 agent mirrors MT5. |
-| cTrader | ⬜ Scaffold | cTrader Open API (OAuth app id/secret, protobuf over TCP). Reads account/symbols/positions; bots are cBots managed in-platform. |
-| Tradovate | ⬜ Scaffold | REST + WebSocket (user/pass/app id/secret/device). Futures account/positions/instruments. |
-| NinjaTrader | ⬜ Scaffold | NinjaTrader 8 ATI / socket API on Windows; strategies are NinjaScript. |
-| Rithmic | ⬜ Scaffold | R\|API+ credentials + gateway (futures). |
-| DXtrade | ⬜ Scaffold | Broker REST/WebSocket credentials + endpoint. |
-| Match-Trader | ⬜ Scaffold | Broker API credentials + endpoint. |
-| TradeLocker | ⬜ Scaffold | REST API (email/password/server). |
-| Quantower | ⬜ Scaffold | Quantower API / plugin bridge on the host. |
+| **Mock** | ✅ Full, verified | Built-in simulation (all capabilities + fault injection). Runs anywhere. |
+| **MetaTrader 5** | ✅ Full (on Windows) | `MetaTrader5` package for reads; **TradingHubBridge** EA + Windows agent for instances, heartbeat, RUN/STOP, risk delivery. See below. |
+| **Tradovate** | 🟩 Implemented, unverified | REST (futures). `/auth/accesstokenrequest` → `/account/list`, `/cashBalance/...`, `/product/list`, `/position/list`. Creds: user/pass + app_id/cid/sec/device_id; `server` picks live/demo. Reads only. |
+| **TradeLocker** | 🟩 Implemented, unverified | REST (CFD). JWT auth → `/trade/accounts/{id}/state\|instruments\|positions`. Creds: email/password + `tl_server`. Reads only. |
+| **DXtrade** | 🟩 Implemented, unverified | REST. `/api/auth/login` → `/api/accounts\|instruments\|positions`. Creds: user/pass + `domain` + endpoint. Reads only. |
+| **Match-Trader** | 🟩 Implemented, unverified | REST. `/mtr-api/{uuid}/login` → balance/instruments/positions. Creds: email/password + `system_uuid` + endpoint. Reads only. |
+| **MetaTrader 4** | 🟧 Bridge shipped | File-bridge model; MQL4 EA provided (`assets/mt4/`). No official MT4 Python API; reads come from the bridge's `account.json`. |
+| **cTrader** | 🔌 Driver-gated | Activates when `pip install ctrader-open-api` is present; OAuth app (client_id/secret/access_token) + ctidTraderAccountId. Protobuf/TLS. |
+| **NinjaTrader** | 🔌 Driver-gated (Windows) | NinjaTrader 8 ATI socket (127.0.0.1:36973) + OIF file drop. Active only on Windows with NT8 running. |
+| **Rithmic** | 🔌 Driver-gated | Licensed R\|API+ SDK/gateway + system name + credentials. Not faked without the SDK. |
+| **Quantower** | 🔌 Driver-gated | In-app Quantower bridge plugin on the host (bridge port). |
 
-⬜ Scaffold = registered and listed in the UI with a precise "Requires: …" note,
-`capabilities()` all false until implemented. Adding one is a self-contained
-file under `app/connectors/<key>/` + one `register()` line — no core changes (§8).
+Legend — ✅ verified · 🟩 **implemented against the documented API but not yet
+tested against a live account** (verify with real credentials, then flip to ✅)
+· 🟧 partial · 🔌 real code that activates when its SDK / host dependency is
+present, honest-empty otherwise. Every connector is listed in the UI with its
+exact "Requires: …" note and the credential fields it needs; `capabilities()`
+never claims what the code can't do (§88). Adding/finishing one is a
+self-contained change under `app/connectors/<key>/` — no core edits (§8).
+
+> The 🟩 REST connectors read account, instruments and positions (broker APIs
+> have no Expert-Advisor model, so robot start/stop is intentionally absent —
+> your algo connects to the same API). Trading Hub still does discovery, risk
+> sizing and monitoring for them.
 
 ---
 

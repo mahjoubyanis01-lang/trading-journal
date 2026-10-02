@@ -9,8 +9,16 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from .base import PlatformConnector
+from .ctrader.ctrader import CTraderConnector
+from .dxtrade.dxtrade import DXtradeConnector
+from .matchtrader.matchtrader import MatchTraderConnector
 from .mock.mock import MockConnector
 from .mt5.mt5 import MT5Connector
+from .ninjatrader.ninjatrader import NinjaTraderConnector
+from .quantower.quantower import QuantowerConnector
+from .rithmic.rithmic import RithmicConnector
+from .tradelocker.tradelocker import TradeLockerConnector
+from .tradovate.tradovate import TradovateConnector
 
 ConnectorFactory = Callable[..., PlatformConnector]
 
@@ -36,7 +44,20 @@ def available_keys() -> list[str]:
 register("mock", lambda seed_balance=10_000.0: MockConnector(seed_balance=seed_balance))
 register("mt5", lambda: MT5Connector())
 
-# Additional platforms: honest scaffolds until each is implemented (§88, §95).
+# Real REST broker connectors (reads only; honest per §88).
+register("tradovate", lambda: TradovateConnector())
+register("tradelocker", lambda: TradeLockerConnector())
+register("dxtrade", lambda: DXtradeConnector())
+register("matchtrader", lambda: MatchTraderConnector())
+
+# Driver-gated connectors (activate when their SDK/host dependency is present).
+register("ctrader", lambda: CTraderConnector())
+register("ninjatrader", lambda: NinjaTraderConnector())
+register("rithmic", lambda: RithmicConnector())
+register("quantower", lambda: QuantowerConnector())
+
+# Remaining platforms: honest scaffolds until each is implemented (§88, §95).
+# MT4 stays here (handled via the MQL4 file-bridge EA elsewhere).
 from .pending import ALL as _PENDING  # noqa: E402
 
 for _cls in _PENDING:

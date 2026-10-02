@@ -41,9 +41,17 @@ def test_platform_capabilities_are_honest(client):
     assert platforms["mt5"]["available"] is False
     assert platforms["mt5"]["capabilities"].get("can_connect") in (False, None)
     assert "MetaTrader 5" in platforms["mt5"]["requirement"]
-    # additional platforms are listed honestly with a requirement note
-    assert platforms["tradovate"]["available"] is False
+    # Tradovate is now a real REST connector: available (can connect) but reads
+    # only - a broker API has no EA to start/stop (§88).
+    assert platforms["tradovate"]["available"] is True
+    assert platforms["tradovate"]["capabilities"]["can_read_account"] is True
+    assert platforms["tradovate"]["capabilities"]["can_start_robot"] is False
     assert platforms["tradovate"]["requirement"]
+    # Still-pending / driver-gated platforms stay honestly unavailable with a
+    # requirement note (mt4 = scaffold; rithmic = licensed SDK absent here).
+    for key in ("mt4", "rithmic"):
+        assert platforms[key]["available"] is False
+        assert platforms[key]["requirement"]
 
 
 def test_add_mt5_like_account_workflow(client):

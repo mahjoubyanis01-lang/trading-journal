@@ -213,6 +213,17 @@ def mass_risk(body: MassRiskBody, session: Session = Depends(get_session)):
     if body.strategy_id:
         ids |= {a.id for a in session.query(Account).filter(Account.strategy_id == body.strategy_id)}
     accounts = [session.get(Account, i) for i in ids if session.get(Account, i)]
+    # Safety: refuse the whole batch if the amount breaches the hard cap for any
+    # affected account (same guard as the single-account path).
+    hard = get_settings().risk_hard_fraction
+    if hard > 0:
+        for a in accounts:
+            if a.initial_balance > 0 and body.amount / a.initial_balance >= hard:
+                raise HTTPException(
+                    400,
+                    f"Risk {body.amount} exceeds the hard cap of {round(hard * 100)}% "
+                    f"of capital for {a.name}",
+                )
     if not body.confirm:
         return {"needs_confirmation": True, "affected": len(accounts),
                 "message": f"{len(accounts)} comptes seront modifiés."}

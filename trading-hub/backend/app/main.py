@@ -67,6 +67,35 @@ def health():
     return {"status": "ok", "app": get_settings().app_name}
 
 
+def _mount_frontend() -> None:
+    """Serve the built React app from the same origin (single-process desktop
+    app - no dev server/proxy at runtime). SPA routes fall back to index.html."""
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    index = dist / "index.html"
+    if not get_settings().serve_frontend or not index.exists():
+        log.info("Frontend build not found at %s - API-only mode.", dist)
+        return
+    if (dist / "assets").exists():
+        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa(full_path: str):  # noqa: ANN202 - FastAPI route
+        candidate = dist / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(index)  # SPA client-side routing
+
+    log.info("Serving frontend from %s", dist)
+
+
+_mount_frontend()
+
+
 @app.websocket("/ws")
 async def ws(websocket: WebSocket):
     """Live event stream (§81). The frontend reacts to typed events and

@@ -11,9 +11,10 @@ data/
 
 # Node / frontend
 node_modules/
-frontend/dist/
 frontend/node_modules/
 *.tsbuildinfo
+# NOTE: frontend/dist IS committed on purpose, so the app runs with only Python
+# (no Node needed at launch). Rebuild with `npm run build` after UI changes.
 
 # Env / secrets (credentials never belong in Git anyway, see §7)
 .env

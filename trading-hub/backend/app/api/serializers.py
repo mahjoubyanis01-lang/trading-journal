@@ -43,6 +43,7 @@ def account_row(session: Session, a: Account) -> dict:
         "prop_firm_id": a.prop_firm_id,
         "platform": a.platform.name if a.platform else None,
         "platform_key": a.platform.key if a.platform else None,
+        "server": a.broker.server if a.broker else None,
         "strategy": strat.name if strat else None,
         "robot_version": ri.robot_version if ri else None,
         "capital": a.initial_balance,

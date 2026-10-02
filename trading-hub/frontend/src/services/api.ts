@@ -83,6 +83,7 @@ export interface CreateAccountBody {
   platform_key: string;
   login: string;
   password: string;
+  server?: string;
   name?: string;
   strategy_id?: number;
   seed_balance: number;

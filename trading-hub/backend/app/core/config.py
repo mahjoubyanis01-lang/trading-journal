@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     data_dir: Path = _DEFAULT_DATA_DIR
     database_url: str = ""  # filled from data_dir if empty
 
+    # Local server binding + whether to serve the built frontend from the same
+    # origin (single process, no dev proxy needed) (§3, §80).
+    host: str = "127.0.0.1"
+    port: int = 8000
+    serve_frontend: bool = True
+
     # Mock mode lets the whole stack run with a simulated platform (§70).
     mock_mode: bool = True
 

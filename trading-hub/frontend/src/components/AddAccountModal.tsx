@@ -32,8 +32,11 @@ export function AddAccountModal({
   const [strategyId, setStrategyId] = useState('');
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
+  const [server, setServer] = useState('');
   const [name, setName] = useState('');
   const [seedBalance, setSeedBalance] = useState('100000');
+
+  const isMock = platformKey === 'mock';
 
   const [submitting, setSubmitting] = useState(false);
   const [steps, setSteps] = useState<LiveStep[]>([]);
@@ -67,6 +70,7 @@ export function AddAccountModal({
       setStrategyId('');
       setLogin('');
       setPassword('');
+      setServer('');
       setName('');
       setSeedBalance('100000');
       setSubmitting(false);
@@ -88,8 +92,13 @@ export function AddAccountModal({
   }, [platforms.data, platformKey]);
 
   const valid = useMemo(
-    () => propFirmId && platformKey && login.trim() && password.trim() && seedBalance,
-    [propFirmId, platformKey, login, password, seedBalance],
+    () =>
+      propFirmId &&
+      platformKey &&
+      login.trim() &&
+      password.trim() &&
+      (isMock ? Boolean(seedBalance) : Boolean(server.trim())),
+    [propFirmId, platformKey, login, password, seedBalance, server, isMock],
   );
 
   async function submit() {
@@ -104,6 +113,7 @@ export function AddAccountModal({
         platform_key: platformKey,
         login: login.trim(),
         password: password.trim(),
+        server: server.trim() || undefined,
         name: name.trim() || undefined,
         strategy_id: strategyId ? Number(strategyId) : undefined,
         seed_balance: Number(seedBalance),
@@ -187,6 +197,15 @@ export function AddAccountModal({
           />
         </Field>
 
+        <Field label="Server" hint={isMock ? 'not needed for mock' : 'e.g. FundedNext-Server'}>
+          <Input
+            value={server}
+            onChange={(e) => setServer(e.target.value)}
+            placeholder={isMock ? 'optional' : 'Broker / server'}
+            disabled={running || isMock}
+          />
+        </Field>
+
         <Field label="Name" hint="leave blank for auto">
           <Input
             value={name}
@@ -196,14 +215,16 @@ export function AddAccountModal({
           />
         </Field>
 
-        <Field label="Starting balance (mock)">
-          <Input
-            type="number"
-            value={seedBalance}
-            onChange={(e) => setSeedBalance(e.target.value)}
-            disabled={running}
-          />
-        </Field>
+        {isMock && (
+          <Field label="Starting balance (mock)">
+            <Input
+              type="number"
+              value={seedBalance}
+              onChange={(e) => setSeedBalance(e.target.value)}
+              disabled={running}
+            />
+          </Field>
+        )}
 
         <Field label="Strategy" hint="optional">
           <Select value={strategyId} onChange={(e) => setStrategyId(e.target.value)} disabled={running}>

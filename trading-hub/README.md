@@ -25,25 +25,31 @@ acceptance criteria, and a React/TypeScript cockpit UI.
 
 ---
 
-## Quick start
+## Launch it like a normal app (one click)
 
-### Backend (engine + API)
+The UI is pre-built and the backend serves it, so there is **one process and one
+window** — no terminals, no dev server. Only **Python 3.11+** is required.
+
+- **Windows:** double-click **`TradingHub.bat`**.
+- **macOS / Linux:** run **`./start-trading-hub.sh`**.
+
+First run installs dependencies automatically into a local `.venv`; after that it
+opens straight into its own window (native via *pywebview*, or your browser as a
+fallback). To add a real account you enter: **Prop Firm, Platform, Server, Login,
+Password** — the risk is already set (0.5% → fixed money) and Trading Hub does the
+rest (create the terminal instance, connect, map markets, configure + start the
+robot). On first launch, the Dashboard offers a **"Seed 50 demo accounts"** button
+so you can see it populated immediately (mock mode).
+
+### Developer mode (optional)
 ```bash
-cd backend
-python -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
+# backend only (API + served UI) on a chosen port
+cd backend && python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-- API docs: http://localhost:8000/docs
-- Health:   http://localhost:8000/health
-- Seed demo data (50 simulated accounts):
-  `curl -X POST localhost:8000/seed-demo -H 'content-type: application/json' -d '{"count":50}'`
+uvicorn app.main:app --port 8000          # http://localhost:8000  (UI + API + /docs)
 
-### Frontend (cockpit UI)
-```bash
-cd frontend
-npm install
-npm run dev        # http://localhost:5173, proxies /api and /ws to :8000
+# live frontend with hot reload (needs Node), proxies to :8000
+cd frontend && npm install && npm run dev  # http://localhost:5173
 ```
 
 ### Tests
@@ -76,7 +82,8 @@ this MVP:
 | REST API + WebSocket live events + SQLite persistence | **Real.** |
 | Credential storage via OS keyring / Windows Credential Manager (DPAPI) | **Real**, with a safe process-memory fallback when no keyring exists. Passwords are never stored in the DB, logs, JSON or API responses (spec §7). |
 | **MT5 reads** (connect, balance/equity, instrument specs, positions) | **Implemented** via the official `MetaTrader5` Python package — runs only on **Windows with that package installed**. On other machines the connector honestly reports *no* capabilities and the account shows as "platform unavailable". |
-| **MT5 terminal/robot lifecycle** (portable instances, EA install, templates, process supervision, heartbeat file) | **Designed & abstracted**, to be completed in the Windows agent. The MT5 Python API cannot do these — they are file-system + process operations. See `app/connectors/mt5/mt5.py` and `app/terminal/manager.py` for the exact plan. |
+| **MT5 terminal/robot lifecycle** (locate install, portable per-account instances, launch/monitor/restart process, EA install, templates) | **Implemented** in `app/terminal/mt5_agent.py` (Windows file-system + process ops, since the MT5 Python API can't do these). Runs on the user's Windows PC; the companion-EA heartbeat file is the one remaining piece to finalise with the actual EA. |
+| **Desktop app** (single process serving UI + API, native window, one-click launcher) | **Real.** `TradingHub.bat` / `start-trading-hub.sh` + `app/desktop.py` (pywebview, browser fallback). |
 | Other connectors (cTrader, Tradovate, NinjaTrader, …) | **Not yet built.** The connector abstraction + registry make each a self-contained addition with no core changes (spec §8). |
 | Windows auto-start / background agent | **Designed** (spec §65); not packaged in this MVP. |
 

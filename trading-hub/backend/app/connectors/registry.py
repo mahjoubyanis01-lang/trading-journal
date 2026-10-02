@@ -34,4 +34,4 @@ def available_keys() -> list[str]:
 # Built-in connectors. Others (cTrader, Tradovate, NinjaTrader, ...) register
 # here as they are implemented; until then they are simply absent from the UI.
 register("mock", lambda seed_balance=10_000.0: MockConnector(seed_balance=seed_balance))
-register("mt5", lambda terminal_path=None: MT5Connector(terminal_path=terminal_path))
+register("mt5", lambda: MT5Connector())

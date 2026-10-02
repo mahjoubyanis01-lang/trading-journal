@@ -30,6 +30,7 @@ from ..database.models import (
     Account,
     AccountCredential,
     AccountSnapshot,
+    Broker,
     Platform,
     PropFirm,
     Strategy,
@@ -69,6 +70,7 @@ class AddAccountInput:
     platform_key: str
     login: str
     password: str
+    server: str | None = None  # broker/server (required by MT5)
     name: str | None = None
     strategy_id: int | None = None
     seed_balance: float = 10_000.0  # mock only
@@ -109,7 +111,21 @@ def add_account(session: Session, data: AddAccountInput) -> tuple[Account, list[
     step("Secure credentials", True, f"stored via {credential_manager.backend()}")
     _emit_step(account.id, steps[-1])
 
-    # 3-4. create connector + connect
+    # Record the broker/server so it shows in the UI and drives the connection.
+    if data.server:
+        broker = (
+            session.query(Broker)
+            .filter(Broker.server == data.server, Broker.prop_firm_id == prop.id)
+            .one_or_none()
+        )
+        if broker is None:
+            broker = Broker(name=f"{prop.name} ({data.server})", server=data.server,
+                            prop_firm_id=prop.id)
+            session.add(broker)
+            session.flush()
+        account.broker_id = broker.id
+
+    # 3. create connector + verify it can actually operate on this machine (§88)
     kwargs = {"seed_balance": data.seed_balance} if data.platform_key == "mock" else {}
     connector = registry.create(data.platform_key, **kwargs)
     caps = connector.capabilities()
@@ -124,7 +140,16 @@ def add_account(session: Session, data: AddAccountInput) -> tuple[Account, list[
         session.flush()
         return account, steps
 
-    result = connector.connect(data.login, credential_manager.retrieve(secret_ref) or "", None)
+    # 4. create the dedicated terminal instance FIRST (MT5 connects through it,
+    #    and each account gets its own isolated portable terminal §14-15).
+    ti = terminal_manager.allocate(session, connector, account.id, data.platform_key)
+    step("Terminal instance", True, ti.instance_id)
+    _emit_step(account.id, steps[-1])
+
+    # 5. connect (MT5 initialises against the instance created above)
+    result = connector.connect(
+        data.login, credential_manager.retrieve(secret_ref) or "", data.server
+    )
     if not result.ok:
         account.health = HealthStatus.DISCONNECTED
         account.connection = ConnectionStatus.ERROR
@@ -138,7 +163,7 @@ def add_account(session: Session, data: AddAccountInput) -> tuple[Account, list[
     step("Connect", True, f"server {result.account.server}")
     _emit_step(account.id, steps[-1])
 
-    # 5-6. read account + auto-name
+    # 6. read account + auto-name
     info = connector.get_account_info()
     account.initial_balance = info.balance
     account.balance = info.balance
@@ -147,11 +172,6 @@ def add_account(session: Session, data: AddAccountInput) -> tuple[Account, list[
     if not data.name:
         account.name = _auto_name(prop.name, info.balance)
     step("Read account", True, f"balance {info.balance} {info.currency}")
-    _emit_step(account.id, steps[-1])
-
-    # 7. terminal instance
-    ti = terminal_manager.allocate(session, connector, account.id, data.platform_key)
-    step("Terminal instance", True, ti.instance_id)
     _emit_step(account.id, steps[-1])
 
     # 8-9. strategy + robot instance

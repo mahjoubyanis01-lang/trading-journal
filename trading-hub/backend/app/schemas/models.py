@@ -14,6 +14,7 @@ class AddAccountBody(BaseModel):
     platform_key: str
     login: str
     password: str = Field(repr=False)  # never logged
+    server: str | None = None  # broker/server (required by MT5)
     name: str | None = None
     strategy_id: int | None = None
     seed_balance: float = 10_000.0  # mock only

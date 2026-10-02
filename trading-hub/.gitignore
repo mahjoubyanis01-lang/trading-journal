@@ -13,6 +13,7 @@ data/
 node_modules/
 frontend/dist/
 frontend/node_modules/
+*.tsbuildinfo
 
 # Env / secrets (credentials never belong in Git anyway, see §7)
 .env

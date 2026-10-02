@@ -70,7 +70,14 @@ class TradeLockerConnector(BaseRestConnector):
             "password": password,
             "server": extra.get("tl_server", ""),
         })
-        resp.raise_for_status()
+        # TradeLocker returns 4xx + {"message": "..."} on failure (verified live);
+        # surface that message rather than a generic HTTP error.
+        if resp.status_code >= 400:
+            try:
+                msg = resp.json().get("message")
+            except ValueError:
+                msg = None
+            raise RuntimeError(msg or f"TradeLocker auth failed (HTTP {resp.status_code})")
         token = resp.json().get("accessToken")
         if not token:
             raise RuntimeError("TradeLocker auth returned no accessToken")

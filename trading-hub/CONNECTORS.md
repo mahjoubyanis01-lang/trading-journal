@@ -9,8 +9,8 @@ status and the exact integration path for each.
 |---|---|---|
 | **Mock** | ✅ Full, verified | Built-in simulation (all capabilities + fault injection). Runs anywhere. |
 | **MetaTrader 5** | ✅ Full (on Windows) | `MetaTrader5` package for reads; **TradingHubBridge** EA + Windows agent for instances, heartbeat, RUN/STOP, risk delivery. See below. |
-| **Tradovate** | 🟩 Implemented, unverified | REST (futures). `/auth/accesstokenrequest` → `/account/list`, `/cashBalance/...`, `/product/list`, `/position/list`. Creds: user/pass + app_id/cid/sec/device_id; `server` picks live/demo. Reads only. |
-| **TradeLocker** | 🟩 Implemented, unverified | REST (CFD). JWT auth → `/trade/accounts/{id}/state\|instruments\|positions`. Creds: email/password + `tl_server`. Reads only. |
+| **Tradovate** | 🟩 Endpoint verified live · auth pending creds | REST (futures). `/auth/accesstokenrequest` → `/account/list`, `/cashBalance/...`, `/product/list`, `/position/list`. **Verified live against demo.tradovateapi.com**: host reachable, endpoint correct, and the real failure shape (HTTP 200 + `errorText`) is handled (regression-tested). Full read path awaits real demo creds. Creds: user/pass + app_id/cid/sec/device_id; `server` picks live/demo. Reads only. |
+| **TradeLocker** | 🟩 Endpoint verified live · auth pending creds | REST (CFD). JWT auth → `/trade/accounts/{id}/state\|instruments\|positions`. **Verified live against demo.tradelocker.com**: reachable, endpoint correct, 4xx `message` surfaced (regression-tested). Full read path awaits real demo creds. Creds: email/password + `tl_server`. Reads only. |
 | **DXtrade** | 🟩 Implemented, unverified | REST. `/api/auth/login` → `/api/accounts\|instruments\|positions`. Creds: user/pass + `domain` + endpoint. Reads only. |
 | **Match-Trader** | 🟩 Implemented, unverified | REST. `/mtr-api/{uuid}/login` → balance/instruments/positions. Creds: email/password + `system_uuid` + endpoint. Reads only. |
 | **MetaTrader 4** | 🟧 Bridge shipped | File-bridge model; MQL4 EA provided (`assets/mt4/`). No official MT4 Python API; reads come from the bridge's `account.json`. |
@@ -31,6 +31,26 @@ self-contained change under `app/connectors/<key>/` — no core edits (§8).
 > have no Expert-Advisor model, so robot start/stop is intentionally absent —
 > your algo connects to the same API). Trading Hub still does discovery, risk
 > sizing and monitoring for them.
+
+## Verify a connector against your own account (last mile → ✅)
+
+Run the connector live with your (demo) credentials — it prints the account,
+a few instruments and the open-position count; secrets are never printed:
+
+```bash
+cd backend && . .venv/bin/activate
+python -m app.connectors.probe tradovate \
+    --login you@example.com --password '***' --server demo \
+    --extra app_id=MyApp --extra cid=1234 --extra sec='***' --extra device_id=abc
+
+python -m app.connectors.probe tradelocker \
+    --login you@example.com --password '***' --server https://demo.tradelocker.com \
+    --extra tl_server=OSP-DEMO
+```
+
+A green run means that connector reads your live account end to end — flip its
+row to ✅. (This is the one step that needs real credentials, so it can't be run
+for you.)
 
 ---
 

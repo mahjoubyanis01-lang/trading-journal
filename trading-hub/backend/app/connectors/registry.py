@@ -35,3 +35,9 @@ def available_keys() -> list[str]:
 # here as they are implemented; until then they are simply absent from the UI.
 register("mock", lambda seed_balance=10_000.0: MockConnector(seed_balance=seed_balance))
 register("mt5", lambda: MT5Connector())
+
+# Additional platforms: honest scaffolds until each is implemented (§88, §95).
+from .pending import ALL as _PENDING  # noqa: E402
+
+for _cls in _PENDING:
+    register(_cls.key, (lambda c: (lambda: c()))(_cls))

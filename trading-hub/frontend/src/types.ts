@@ -139,6 +139,7 @@ export interface Platform {
   key: string;
   name: string;
   available: boolean;
+  requirement?: string;
   capabilities: Record<string, boolean>;
 }
 

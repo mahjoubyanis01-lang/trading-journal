@@ -24,10 +24,16 @@ def test_health(client):
 
 def test_platform_capabilities_are_honest(client):
     platforms = {p["key"]: p for p in client.get("/platforms").json()["platforms"]}
-    # mock supports everything; mt5 is unavailable on this (Linux) machine (§88)
+    # mock supports everything and is available here
     assert platforms["mock"]["capabilities"]["can_start_robot"] is True
-    assert platforms["mt5"]["available"] is True  # registered
+    assert platforms["mock"]["available"] is True
+    # mt5 is registered but NOT available on this (Linux) machine, and says why (§88)
+    assert platforms["mt5"]["available"] is False
     assert platforms["mt5"]["capabilities"].get("can_connect") in (False, None)
+    assert "MetaTrader 5" in platforms["mt5"]["requirement"]
+    # additional platforms are listed honestly with a requirement note
+    assert platforms["tradovate"]["available"] is False
+    assert platforms["tradovate"]["requirement"]
 
 
 def test_add_mt5_like_account_workflow(client):

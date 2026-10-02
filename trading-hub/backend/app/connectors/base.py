@@ -133,6 +133,13 @@ class PlatformConnector(ABC):
     @abstractmethod
     def capabilities(self) -> PlatformCapabilities: ...
 
+    @classmethod
+    def requirement(cls) -> str:
+        """Human-readable note on what this connector needs to operate.
+        Empty string means "ready". Surfaced in the UI so limitations are
+        never hidden (§88, §92)."""
+        return ""
+
     def _require(self, flag: str) -> None:
         caps = self.capabilities()
         if not getattr(caps, flag, False):

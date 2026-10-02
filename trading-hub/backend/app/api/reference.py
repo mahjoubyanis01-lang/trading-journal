@@ -41,15 +41,22 @@ def prop_firm(pf_id: int, session: Session = Depends(get_session)):
 def platforms(session: Session = Depends(get_session)):
     out = []
     for p in session.query(Platform).order_by(Platform.id).all():
-        available = p.key in registry.available_keys()
-        caps = {}
-        if available:
+        registered = p.key in registry.available_keys()
+        caps: dict = {}
+        requirement = ""
+        available = False
+        if registered:
             try:
-                caps = registry.create(p.key).capabilities().as_dict()
+                conn = registry.create(p.key)
+                caps = conn.capabilities().as_dict()
+                requirement = conn.requirement()
+                # "available" = can actually operate here (can at least connect).
+                available = bool(caps.get("can_connect"))
             except Exception:  # noqa: BLE001
                 caps = {}
         out.append({"id": p.id, "key": p.key, "name": p.name,
-                    "available": available, "capabilities": caps})
+                    "available": available, "requirement": requirement,
+                    "capabilities": caps})
     return {"platforms": out}
 
 

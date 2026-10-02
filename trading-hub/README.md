@@ -41,6 +41,22 @@ rest (create the terminal instance, connect, map markets, configure + start the
 robot). On first launch, the Dashboard offers a **"Seed 50 demo accounts"** button
 so you can see it populated immediately (mock mode).
 
+### Start with Windows (optional, §65)
+```bat
+backend\.venv\Scripts\python -m app.autostart enable    REM disable | status
+```
+
+### Build a standalone .exe (optional)
+Double-click **`build-windows.bat`** (needs Python + Node once) → produces
+`backend\dist\TradingHub.exe`, a single file you can pin to the taskbar.
+
+### Platforms
+MetaTrader 5 is fully wired (instances, connect, risk, heartbeat, recovery via
+the bundled bridge EA). MetaTrader 4 ships its bridge EA; the other platforms
+(cTrader, Tradovate, NinjaTrader, Rithmic, DXtrade, Match-Trader, TradeLocker,
+Quantower) are listed honestly with a "Requires: …" note until implemented.
+Full matrix + MT5 setup details: **`CONNECTORS.md`**.
+
 ### Developer mode (optional)
 ```bash
 # backend only (API + served UI) on a chosen port

@@ -53,7 +53,9 @@ def main() -> None:
     port = _free_port(settings.port)
     base = f"http://127.0.0.1:{port}"
 
-    config = uvicorn.Config("app.main:app", host="127.0.0.1", port=port, log_level="info")
+    from .main import app as asgi_app
+
+    config = uvicorn.Config(asgi_app, host="127.0.0.1", port=port, log_level="info")
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()

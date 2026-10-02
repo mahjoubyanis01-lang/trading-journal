@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import logging
 
-from ...terminal import mt5_agent
+from ...terminal import bridge, mt5_agent
+from ...core.config import get_settings
 from ..base import (
     AccountInfo,
     ConnectResult,
@@ -58,6 +59,12 @@ class MT5Connector(PlatformConnector):
     def runtime_available() -> bool:
         return _MT5_AVAILABLE and mt5_agent.IS_WINDOWS
 
+    @classmethod
+    def requirement(cls) -> str:
+        if cls.runtime_available():
+            return ""
+        return "Windows + MetaTrader 5 installed + `pip install MetaTrader5`"
+
     def capabilities(self) -> PlatformCapabilities:
         if not self.runtime_available():
             return PlatformCapabilities()  # honest: nothing works without the runtime
@@ -76,6 +83,7 @@ class MT5Connector(PlatformConnector):
         if inst is None:
             raise RuntimeError("MetaTrader 5 installation not found")
         self._instance = inst
+        mt5_agent.install_bridge(inst)  # heartbeat + account reporting + RUN/STOP
         self._pid = mt5_agent.launch(inst)
         return {
             "instance_id": instance_id,
@@ -145,9 +153,18 @@ class MT5Connector(PlatformConnector):
 
     def configure_robot(self, config: RobotConfig) -> bool:  # pragma: no cover - Win
         self._require("can_configure_robot")
-        # Parameters are written to the instance's EA preset (.set) file by the
-        # agent; kept minimal here. Returns True when an instance exists.
-        return self._instance is not None and config.risk_amount > 0
+        if self._instance is None:
+            return False
+        # Publish risk + markets to the bridge (config.json) AND to the strategy
+        # EA input preset (.set) - the two standard delivery mechanisms (§22).
+        bridge.write_config(
+            self._instance.root, risk_mode=config.risk_mode,
+            risk_amount=config.risk_amount, markets=config.markets,
+        )
+        bridge.write_preset(self._instance.root, "StrategyA", {
+            "RiskMode": config.risk_mode, "RiskAmount": config.risk_amount,
+        })
+        return config.risk_amount > 0
 
     def apply_template(self, template_name: str) -> bool:  # pragma: no cover - Win
         self._require("can_apply_template")
@@ -157,15 +174,26 @@ class MT5Connector(PlatformConnector):
 
     def start_robot(self) -> bool:  # pragma: no cover - Win
         self._require("can_start_robot")
-        return self._robot_installed and self._pid is not None
+        if self._instance is None:
+            return False
+        bridge.write_command(self._instance.root, "RUN")
+        return self._pid is not None
 
     def stop_robot(self) -> bool:  # pragma: no cover - Win
         self._require("can_stop_robot")
+        if self._instance is not None:
+            bridge.write_command(self._instance.root, "STOP")
         return True
 
     def robot_heartbeat(self) -> bool:  # pragma: no cover - Win
-        # Real heartbeat = freshness of the file the companion EA writes.
-        return mt5_agent.is_process_alive(self._pid) and self._robot_installed
+        # Real heartbeat = freshness of the file the companion EA writes;
+        # fall back to process liveness if the bridge file isn't there yet.
+        if self._instance is None:
+            return False
+        timeout = get_settings().heartbeat_timeout_s
+        if bridge.heartbeat_fresh(self._instance.root, timeout):
+            return True
+        return mt5_agent.is_process_alive(self._pid)
 
     # --- recovery surface ------------------------------------------------
     def terminal_alive(self) -> bool:  # pragma: no cover - Win

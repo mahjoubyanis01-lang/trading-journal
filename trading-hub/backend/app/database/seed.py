@@ -30,6 +30,11 @@ PLATFORMS = [
     ("ctrader", "cTrader"),
     ("tradovate", "Tradovate"),
     ("ninjatrader", "NinjaTrader"),
+    ("rithmic", "Rithmic"),
+    ("dxtrade", "DXtrade"),
+    ("matchtrader", "Match-Trader"),
+    ("tradelocker", "TradeLocker"),
+    ("quantower", "Quantower"),
 ]
 
 # (name, daily %, max total %, drawdown type)

@@ -37,6 +37,7 @@ export function AddAccountModal({
   const [seedBalance, setSeedBalance] = useState('100000');
 
   const isMock = platformKey === 'mock';
+  const selectedPlatform = platforms.data?.platforms.find((p) => p.key === platformKey);
 
   const [submitting, setSubmitting] = useState(false);
   const [steps, setSteps] = useState<LiveStep[]>([]);
@@ -172,10 +173,15 @@ export function AddAccountModal({
             {platforms.data?.platforms.map((p) => (
               <option key={p.key} value={p.key} disabled={!p.available}>
                 {p.name}
-                {p.available ? '' : ' (unavailable)'}
+                {p.available ? '' : ' (unavailable here)'}
               </option>
             ))}
           </Select>
+          {selectedPlatform && !selectedPlatform.available && selectedPlatform.requirement && (
+            <p className="mt-1 text-[11px] leading-snug text-attn">
+              Requires: {selectedPlatform.requirement}
+            </p>
+          )}
         </Field>
 
         <Field label="Login">

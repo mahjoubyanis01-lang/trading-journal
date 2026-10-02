@@ -31,6 +31,11 @@ log = logging.getLogger("trading_hub.mt5_agent")
 
 IS_WINDOWS = sys.platform == "win32"
 
+# Repo-bundled MQL assets (companion bridge EA) - works in dev and frozen.
+from ..paths import assets_dir as _assets_dir
+
+ASSETS_DIR = _assets_dir()
+
 # Common 64-bit install locations to probe when the registry lookup misses.
 _COMMON_DIRS = [
     r"C:\Program Files\MetaTrader 5",
@@ -177,5 +182,40 @@ def apply_template(paths: InstancePaths, template_dir: str | None) -> bool:
         for f in src.glob("*.tpl"):
             shutil.copy2(f, paths.root / "templates" / f.name)
         return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def install_bridge(paths: InstancePaths) -> bool:
+    """Install + compile the TradingHubBridge companion EA into the instance,
+    so heartbeat/account reporting and RUN/STOP work (§21, §66)."""
+    src = ASSETS_DIR / "mt5" / "TradingHubBridge.mq5"
+    if not src.exists():
+        return False
+    experts = paths.root / "MQL5" / "Experts"
+    experts.mkdir(parents=True, exist_ok=True)
+    dst = experts / src.name
+    try:  # pragma: no cover - Windows only
+        shutil.copy2(src, dst)
+        compile_ea(paths, dst)
+        return True
+    except Exception:  # noqa: BLE001
+        log.exception("failed to install bridge EA")
+        return False
+
+
+def compile_ea(paths: InstancePaths, source: Path) -> bool:
+    """Compile an .mq5 to .ex5 with MetaEditor (§21)."""
+    if not IS_WINDOWS:
+        return False
+    editor = paths.root / "metaeditor64.exe"
+    if not editor.exists():
+        return False
+    try:  # pragma: no cover - Windows only
+        subprocess.run(
+            [str(editor), f"/compile:{source}", "/log"],
+            capture_output=True, timeout=120,
+        )
+        return source.with_suffix(".ex5").exists()
     except Exception:  # noqa: BLE001
         return False

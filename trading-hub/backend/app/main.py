@@ -70,12 +70,12 @@ def health():
 def _mount_frontend() -> None:
     """Serve the built React app from the same origin (single-process desktop
     app - no dev server/proxy at runtime). SPA routes fall back to index.html."""
-    from pathlib import Path
-
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
 
-    dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    from .paths import frontend_dist
+
+    dist = frontend_dist()
     index = dist / "index.html"
     if not get_settings().serve_frontend or not index.exists():
         log.info("Frontend build not found at %s - API-only mode.", dist)

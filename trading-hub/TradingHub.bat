@@ -18,6 +18,8 @@ call "backend\.venv\Scripts\activate.bat"
 python -m pip install --quiet --upgrade pip
 python -m pip install --quiet -r "backend\requirements.txt"
 python -m pip install --quiet pywebview
+REM Pilote MetaTrader 5 (Windows uniquement) pour la connexion réelle aux comptes MT5.
+python -m pip install --quiet MetaTrader5
 
 REM Reconstruire l'interface seulement si absente ET que Node est present.
 if not exist "frontend\dist\index.html" (

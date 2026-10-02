@@ -18,6 +18,7 @@ import type {
   Strategy,
   Terminal,
 } from '../types';
+import { getToken } from './token';
 
 const BASE = '/api';
 
@@ -36,9 +37,13 @@ async function request<T>(
   path: string,
   body?: unknown,
 ): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const tok = getToken();
+  if (tok) headers['x-th-token'] = tok;
   const opts: RequestInit = {
     method,
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    headers: Object.keys(headers).length ? headers : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   };
   const res = await fetch(`${BASE}${path}`, opts);
@@ -84,6 +89,7 @@ export interface CreateAccountBody {
   login: string;
   password: string;
   server?: string;
+  extra?: Record<string, string>;
   name?: string;
   strategy_id?: number;
   seed_balance: number;
@@ -167,6 +173,8 @@ export const api = {
       account_ids,
       action,
     }),
+
+  stopAll: () => request<{ stopped: number }>('POST', '/accounts/stop-all'),
 
   getPropFirms: () =>
     request<{ prop_firms: PropFirmSummary[] }>('GET', '/prop-firms'),

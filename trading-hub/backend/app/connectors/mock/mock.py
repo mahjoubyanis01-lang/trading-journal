@@ -73,7 +73,8 @@ class MockConnector(PlatformConnector):
         )
 
     # --- connection ------------------------------------------------------
-    def connect(self, login: str, password: str, server: str | None = None) -> ConnectResult:
+    def connect(self, login: str, password: str, server: str | None = None,
+                extra: dict | None = None) -> ConnectResult:
         self._require("can_connect")
         if self._fault_connection:
             return ConnectResult(ok=False, message="Connection refused (simulated outage)")

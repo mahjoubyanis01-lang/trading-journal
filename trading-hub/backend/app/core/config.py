@@ -45,6 +45,12 @@ class Settings(BaseSettings):
 
     # Risk safety guard: warn when risk/position exceeds this share of capital (§39).
     risk_warn_fraction: float = 0.10
+    # Hard cap: refuse a risk above this share of capital outright (<=0 disables).
+    risk_hard_fraction: float = 1.0
+
+    # Loopback API token. When set, every API/WS call must present it (the
+    # desktop launcher generates one per run). Empty => dev mode, no auth.
+    api_token: str = ""
 
     # Heartbeat timeout in seconds before a robot is considered lost (§66).
     heartbeat_timeout_s: int = 60

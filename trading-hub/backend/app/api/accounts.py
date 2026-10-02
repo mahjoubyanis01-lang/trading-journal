@@ -173,7 +173,17 @@ def a_market_mappings(session: Session, account_id: int):
 @router.post("/{account_id}/risk")
 def update_risk(account_id: int, body: RiskUpdateBody, session: Session = Depends(get_session)):
     a = _account(session, account_id)
-    guard = check_risk_guard(body.amount, a.initial_balance, get_settings().risk_warn_fraction)
+    s = get_settings()
+    # Hard safety cap: refuse an obviously dangerous risk outright (§39, safety).
+    if s.risk_hard_fraction > 0 and a.initial_balance > 0 and (
+        body.amount / a.initial_balance >= s.risk_hard_fraction
+    ):
+        raise HTTPException(
+            400,
+            f"Risk {body.amount} exceeds the hard cap of "
+            f"{round(s.risk_hard_fraction * 100)}% of capital",
+        )
+    guard = check_risk_guard(body.amount, a.initial_balance, s.risk_warn_fraction)
     if not guard.allowed:
         raise HTTPException(400, "; ".join(guard.warnings))
     if guard.needs_confirmation and not body.confirm:
@@ -221,6 +231,22 @@ def mass_risk(body: MassRiskBody, session: Session = Depends(get_session)):
 
 
 # --- mass action --------------------------------------------------------
+@router.post("/stop-all")
+def stop_all(session: Session = Depends(get_session)):
+    """Safety kill-switch: stop every running robot immediately (§52 keeps
+    positions open - this halts new activity, it does not liquidate)."""
+    stopped = 0
+    for ri in session.query(RobotInstance).all():
+        connector = sessions.get(ri.account_id)
+        if connector is None or not connector.capabilities().can_stop_robot:
+            continue
+        if robot_manager.stop(session, connector, ri):
+            stopped += 1
+    record_event(session, EventType.ROBOT_STOPPED, f"PANIC STOP: {stopped} robots stopped")
+    session.commit()
+    return {"stopped": stopped}
+
+
 @router.post("/mass-action")
 def mass_action(body: MassActionBody, session: Session = Depends(get_session)):
     done = 0

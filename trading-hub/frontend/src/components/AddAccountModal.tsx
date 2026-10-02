@@ -33,11 +33,14 @@ export function AddAccountModal({
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [server, setServer] = useState('');
+  const [extra, setExtra] = useState<Record<string, string>>({});
   const [name, setName] = useState('');
   const [seedBalance, setSeedBalance] = useState('100000');
 
   const isMock = platformKey === 'mock';
   const selectedPlatform = platforms.data?.platforms.find((p) => p.key === platformKey);
+  const credFields = selectedPlatform?.credential_fields ?? [];
+  const needsServer = selectedPlatform?.needs_server ?? false;
 
   const [submitting, setSubmitting] = useState(false);
   const [steps, setSteps] = useState<LiveStep[]>([]);
@@ -72,6 +75,7 @@ export function AddAccountModal({
       setLogin('');
       setPassword('');
       setServer('');
+      setExtra({});
       setName('');
       setSeedBalance('100000');
       setSubmitting(false);
@@ -92,15 +96,15 @@ export function AddAccountModal({
     if (!platformKey && avail) setPlatformKey(avail.key);
   }, [platforms.data, platformKey]);
 
-  const valid = useMemo(
-    () =>
-      propFirmId &&
-      platformKey &&
-      login.trim() &&
-      password.trim() &&
-      (isMock ? Boolean(seedBalance) : Boolean(server.trim())),
-    [propFirmId, platformKey, login, password, seedBalance, server, isMock],
-  );
+  const valid = useMemo(() => {
+    if (!propFirmId || !platformKey || !login.trim() || !password.trim()) return false;
+    if (isMock) return Boolean(seedBalance);
+    if (needsServer && !server.trim()) return false;
+    for (const f of credFields) {
+      if (f.required && !(extra[f.name] ?? '').trim()) return false;
+    }
+    return true;
+  }, [propFirmId, platformKey, login, password, seedBalance, server, isMock, needsServer, credFields, extra]);
 
   async function submit() {
     if (!valid) return;
@@ -115,6 +119,7 @@ export function AddAccountModal({
         login: login.trim(),
         password: password.trim(),
         server: server.trim() || undefined,
+        extra: Object.keys(extra).length ? extra : undefined,
         name: name.trim() || undefined,
         strategy_id: strategyId ? Number(strategyId) : undefined,
         seed_balance: Number(seedBalance),
@@ -211,6 +216,18 @@ export function AddAccountModal({
             disabled={running || isMock}
           />
         </Field>
+
+        {credFields.map((f) => (
+          <Field key={f.name} label={f.label} hint={f.required ? undefined : 'optional'}>
+            <Input
+              type={f.secret ? 'password' : 'text'}
+              value={extra[f.name] ?? ''}
+              onChange={(e) => setExtra((prev) => ({ ...prev, [f.name]: e.target.value }))}
+              placeholder={f.secret ? '••••••••' : f.label}
+              disabled={running}
+            />
+          </Field>
+        ))}
 
         <Field label="Name" hint="leave blank for auto">
           <Input

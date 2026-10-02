@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Plus, Wifi, WifiOff } from 'lucide-react';
+import { Plus, Wifi, WifiOff, OctagonX } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { eventBus, useEvents } from '../../services/useEvents';
+import { api } from '../../services/api';
+import { useToast } from '../ui/Toast';
 import { money, pct, signClass } from '../../lib/format';
 import type { Dashboard } from '../../types';
 
@@ -16,6 +18,17 @@ function Stat({ label, value, className }: { label: string; value: string; class
 
 export function TopBar({ dashboard, onAddAccount }: { dashboard: Dashboard | null; onAddAccount: () => void }) {
   const [connected, setConnected] = useState(eventBus.isConnected());
+  const toast = useToast();
+
+  async function panicStop() {
+    if (!window.confirm('Stop ALL robots now? Open positions are left untouched.')) return;
+    try {
+      const res = await api.stopAll();
+      toast('success', `Stopped ${res.stopped} robot(s). Positions left open.`);
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Stop-all failed');
+    }
+  }
 
   // Keep a live view of the WS connection state.
   useEvents(['*'], () => setConnected(true));
@@ -60,6 +73,14 @@ export function TopBar({ dashboard, onAddAccount }: { dashboard: Dashboard | nul
           {connected ? <Wifi size={13} /> : <WifiOff size={13} />}
           {connected ? 'LIVE' : 'OFFLINE'}
         </span>
+        <button
+          onClick={panicStop}
+          title="Emergency: stop all robots (positions stay open)"
+          className="flex items-center gap-1.5 rounded-md border border-err/50 px-2.5 py-1.5 text-2xs font-semibold text-err transition hover:bg-err/10"
+        >
+          <OctagonX size={14} />
+          STOP ALL
+        </button>
         <Button variant="primary" size="sm" onClick={onAddAccount}>
           <Plus size={14} />
           Add account

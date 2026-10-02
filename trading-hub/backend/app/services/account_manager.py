@@ -71,6 +71,7 @@ class AddAccountInput:
     login: str
     password: str
     server: str | None = None  # broker/server (required by MT5)
+    extra: dict | None = None  # platform-specific secrets (api_key, secret, ...)
     name: str | None = None
     strategy_id: int | None = None
     seed_balance: float = 10_000.0  # mock only
@@ -105,9 +106,13 @@ def add_account(session: Session, data: AddAccountInput) -> tuple[Account, list[
     session.flush()
     _emit_step(account.id, steps[-1])
 
-    # 2. store credential in the OS secret store (never in DB) (§7)
+    # 2. store credentials in the OS secret store (never in DB) (§7)
     secret_ref = credential_manager.store(account.id, data.password)
     session.add(AccountCredential(account_id=account.id, secret_ref=secret_ref))
+    extra_in = data.extra or {}
+    for field, value in extra_in.items():
+        if value:
+            credential_manager.store_field(account.id, field, value)
     step("Secure credentials", True, f"stored via {credential_manager.backend()}")
     _emit_step(account.id, steps[-1])
 
@@ -147,8 +152,13 @@ def add_account(session: Session, data: AddAccountInput) -> tuple[Account, list[
     _emit_step(account.id, steps[-1])
 
     # 5. connect (MT5 initialises against the instance created above)
+    extra_secrets = {
+        f.name: credential_manager.retrieve_field(account.id, f.name) or extra_in.get(f.name, "")
+        for f in connector.extra_credential_fields()
+    }
     result = connector.connect(
-        data.login, credential_manager.retrieve(secret_ref) or "", data.server
+        data.login, credential_manager.retrieve(secret_ref) or "", data.server,
+        extra_secrets,
     )
     if not result.ok:
         account.health = HealthStatus.DISCONNECTED
@@ -267,6 +277,13 @@ def remove_account(session: Session, account_id: int) -> None:
         sessions.drop(account_id)
     if account.credential:
         credential_manager.delete(account.credential.secret_ref)
+    # Also purge any extra secret fields (api_key/secret/...) for this platform.
+    try:
+        from ..connectors import registry as _reg
+        fields = [f.name for f in _reg.create(account.platform.key).extra_credential_fields()]
+        credential_manager.delete_account(account.id, fields)
+    except Exception:  # noqa: BLE001
+        pass
     record_event(session, EventType.ACCOUNT_REMOVED, f"Account {account.name} removed",
                  account_id=None)
     session.delete(account)

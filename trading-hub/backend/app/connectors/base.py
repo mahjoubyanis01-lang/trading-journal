@@ -20,6 +20,21 @@ from ..core.enums import AssetClass
 
 
 @dataclass(slots=True)
+class CredentialField:
+    """An extra credential a connector needs (beyond login/password/server).
+    ``secret=True`` fields are stored in the OS secret store, never the DB (§7)."""
+
+    name: str
+    label: str
+    secret: bool = True
+    required: bool = True
+
+    def as_dict(self) -> dict:
+        return {"name": self.name, "label": self.label,
+                "secret": self.secret, "required": self.required}
+
+
+@dataclass(slots=True)
 class PlatformCapabilities:
     """Mirror of the TS interface in §9. All default to False: a connector
     must explicitly opt in to each capability it genuinely supports."""
@@ -140,13 +155,27 @@ class PlatformConnector(ABC):
         never hidden (§88, §92)."""
         return ""
 
+    @classmethod
+    def extra_credential_fields(cls) -> list[CredentialField]:
+        """Extra credential inputs the Add-Account form should render for this
+        platform (e.g. API key/secret). Empty by default."""
+        return []
+
+    @classmethod
+    def needs_server(cls) -> bool:
+        """Whether a server/endpoint value is required to connect."""
+        return False
+
     def _require(self, flag: str) -> None:
         caps = self.capabilities()
         if not getattr(caps, flag, False):
             raise CapabilityError(f"{self.display_name} does not support {flag}")
 
     # --- connection ------------------------------------------------------
-    def connect(self, login: str, password: str, server: str | None = None) -> ConnectResult:
+    def connect(
+        self, login: str, password: str, server: str | None = None,
+        extra: dict[str, str] | None = None,
+    ) -> ConnectResult:
         self._require("can_connect")
         raise NotImplementedError
 

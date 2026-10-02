@@ -45,17 +45,22 @@ def platforms(session: Session = Depends(get_session)):
         caps: dict = {}
         requirement = ""
         available = False
+        cred_fields: list = []
+        needs_server = False
         if registered:
             try:
                 conn = registry.create(p.key)
                 caps = conn.capabilities().as_dict()
                 requirement = conn.requirement()
+                cred_fields = [f.as_dict() for f in conn.extra_credential_fields()]
+                needs_server = conn.needs_server()
                 # "available" = can actually operate here (can at least connect).
                 available = bool(caps.get("can_connect"))
             except Exception:  # noqa: BLE001
                 caps = {}
         out.append({"id": p.id, "key": p.key, "name": p.name,
                     "available": available, "requirement": requirement,
+                    "needs_server": needs_server, "credential_fields": cred_fields,
                     "capabilities": caps})
     return {"platforms": out}
 

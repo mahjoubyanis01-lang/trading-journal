@@ -39,8 +39,10 @@ except Exception:  # noqa: BLE001
 _memory_store: dict[str, str] = {}
 
 
-def _ref(account_id: int) -> str:
-    return f"account:{account_id}"
+def _ref(account_id: int, field: str = "password") -> str:
+    # One handle per (account, field) so brokers needing api_key/secret/etc.
+    # keep every secret in the OS store, never the DB (§7).
+    return f"account:{account_id}:{field}" if field != "password" else f"account:{account_id}"
 
 
 class CredentialManager:
@@ -49,6 +51,31 @@ class CredentialManager:
     @staticmethod
     def backend() -> str:
         return "os-keyring" if _HAS_KEYRING else "process-memory"
+
+    @staticmethod
+    def store_field(account_id: int, field: str, value: str) -> str:
+        """Persist one named secret field (api_key, api_secret, ...)."""
+        return CredentialManager._store_ref(_ref(account_id, field), value)
+
+    @staticmethod
+    def retrieve_field(account_id: int, field: str) -> str | None:
+        return CredentialManager.retrieve(_ref(account_id, field))
+
+    @staticmethod
+    def delete_account(account_id: int, fields: list[str]) -> None:
+        for f in ["password", *fields]:
+            CredentialManager.delete(_ref(account_id, f))
+
+    @staticmethod
+    def _store_ref(ref: str, value: str) -> str:
+        if _HAS_KEYRING:
+            try:
+                keyring.set_password(_SERVICE, ref, value)
+                return ref
+            except Exception:  # noqa: BLE001
+                log.warning("OS keyring write failed; using process-memory store.")
+        _memory_store[ref] = value
+        return ref
 
     @staticmethod
     def store(account_id: int, password: str) -> str:

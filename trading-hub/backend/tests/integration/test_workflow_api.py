@@ -14,8 +14,18 @@ def client():
 
 
 def _fundednext_id(client) -> int:
-    firms = client.get("/prop-firms").json()["prop_firms"]
+    firms = client.get("/api/prop-firms").json()["prop_firms"]
     return next(f["id"] for f in firms if f["name"] == "FundedNext")
+
+
+def _tenk_id(client) -> int:
+    """The 10 000 $ mock account created by the workflow test (robust to other
+    accounts existing in the shared test DB)."""
+    accounts = client.get("/api/accounts").json()["accounts"]
+    for a in accounts:
+        if a["name"] == "FundedNext 10K":
+            return a["id"]
+    return accounts[0]["id"]
 
 
 def test_health(client):
@@ -23,7 +33,7 @@ def test_health(client):
 
 
 def test_platform_capabilities_are_honest(client):
-    platforms = {p["key"]: p for p in client.get("/platforms").json()["platforms"]}
+    platforms = {p["key"]: p for p in client.get("/api/platforms").json()["platforms"]}
     # mock supports everything and is available here
     assert platforms["mock"]["capabilities"]["can_start_robot"] is True
     assert platforms["mock"]["available"] is True
@@ -42,7 +52,7 @@ def test_add_mt5_like_account_workflow(client):
         "prop_firm_id": _fundednext_id(client), "platform_key": "mock",
         "login": "1001001", "password": "secret-pw", "seed_balance": 10_000,
     }
-    r = client.post("/accounts", json=body)
+    r = client.post("/api/accounts", json=body)
     assert r.status_code == 201, r.text
     data = r.json()
     acc = data["account"]
@@ -62,31 +72,31 @@ def test_add_mt5_like_account_workflow(client):
 
 def test_change_risk_50_to_75(client):
     # Acceptance Test 3
-    aid = client.get("/accounts").json()["accounts"][0]["id"]
-    r = client.post(f"/accounts/{aid}/risk", json={"mode": "fixed_money", "amount": 75})
+    aid = _tenk_id(client)
+    r = client.post(f"/api/accounts/{aid}/risk", json={"mode": "fixed_money", "amount": 75})
     assert r.status_code == 200, r.text
     assert r.json()["risk_amount"] == 75.0
 
 
 def test_risk_guard_requires_confirmation(client):
     # §39 : huge risk => needs confirmation before applying
-    aid = client.get("/accounts").json()["accounts"][0]["id"]
-    r = client.post(f"/accounts/{aid}/risk", json={"mode": "fixed_money", "amount": 5000})
+    aid = _tenk_id(client)
+    r = client.post(f"/api/accounts/{aid}/risk", json={"mode": "fixed_money", "amount": 5000})
     assert r.json().get("needs_confirmation") is True
     # confirm applies it
-    r2 = client.post(f"/accounts/{aid}/risk", json={"mode": "fixed_money", "amount": 5000, "confirm": True})
+    r2 = client.post(f"/api/accounts/{aid}/risk", json={"mode": "fixed_money", "amount": 5000, "confirm": True})
     assert r2.status_code == 200
     # put it back to a sane value
-    client.post(f"/accounts/{aid}/risk", json={"mode": "fixed_money", "amount": 50})
+    client.post(f"/api/accounts/{aid}/risk", json={"mode": "fixed_money", "amount": 50})
 
 
 def test_market_search_and_map(client):
     # Acceptance Test 4 : search on platform + add to robot
-    aid = client.get("/accounts").json()["accounts"][0]["id"]
-    r = client.post(f"/accounts/{aid}/markets/search", json={"universal_symbol": "NASDAQ100"})
+    aid = _tenk_id(client)
+    r = client.post(f"/api/accounts/{aid}/markets/search", json={"universal_symbol": "NASDAQ100"})
     cands = r.json()["candidates"]
     assert any(c["real_symbol"] == "USTEC" for c in cands)
-    r2 = client.post(f"/accounts/{aid}/markets/map",
+    r2 = client.post(f"/api/accounts/{aid}/markets/map",
                      json={"universal_symbol": "NASDAQ100", "real_symbol": "USTEC"})
     assert r2.status_code == 200
     markets = {m["universal"]: m for m in r2.json()["markets"]}
@@ -96,39 +106,39 @@ def test_market_search_and_map(client):
 
 def test_recovery_from_robot_crash(client):
     # Acceptance Test 5
-    aid = client.get("/accounts").json()["accounts"][0]["id"]
-    client.post(f"/sim/{aid}/fault", json={"fault": "robot"})
-    out = client.post(f"/accounts/{aid}/recover").json()
+    aid = _tenk_id(client)
+    client.post(f"/api/sim/{aid}/fault", json={"fault": "robot"})
+    out = client.post(f"/api/accounts/{aid}/recover").json()
     assert out["outcome"] == "recovered"
 
 
 def test_recovery_from_terminal_crash(client):
     # Acceptance Test 6
-    aid = client.get("/accounts").json()["accounts"][0]["id"]
-    client.post(f"/sim/{aid}/fault", json={"fault": "terminal"})
-    out = client.post(f"/accounts/{aid}/recover").json()
+    aid = _tenk_id(client)
+    client.post(f"/api/sim/{aid}/fault", json={"fault": "terminal"})
+    out = client.post(f"/api/accounts/{aid}/recover").json()
     assert out["outcome"] == "recovered"
 
 
 def test_seed_50_accounts_and_dashboard(client):
     # Acceptance Tests 7, 9, 10 : 50 accounts, dashboard + prop firm aggregates
-    created = client.post("/seed-demo", json={"count": 50}).json()["created"]
+    created = client.post("/api/seed-demo", json={"count": 50}).json()["created"]
     assert created >= 1
-    dash = client.get("/dashboard").json()
+    dash = client.get("/api/dashboard").json()
     assert dash["accounts"] >= 50
     assert dash["capital"] > 0
     assert "robots_active" in dash and dash["robots_total"] >= 50
     assert isinstance(dash["prop_firms"], list) and dash["prop_firms"]
     # prop firm page (Test 9)
     pf_id = dash["prop_firms"][0]["id"] if "id" in dash["prop_firms"][0] else _fundednext_id(client)
-    pf = client.get(f"/prop-firms/{pf_id}").json()
+    pf = client.get(f"/api/prop-firms/{pf_id}").json()
     assert pf["accounts"] >= 1 and "capital" in pf
 
 
 def test_account_detail(client):
     # Acceptance Test 8
-    aid = client.get("/accounts").json()["accounts"][0]["id"]
-    d = client.get(f"/accounts/{aid}").json()
+    aid = _tenk_id(client)
+    d = client.get(f"/api/accounts/{aid}").json()
     for key in ("balance", "equity", "pnl_today", "pnl_month", "performance_pct",
                 "risk_amount", "robot_status", "terminal", "markets"):
         assert key in d

@@ -49,9 +49,20 @@ def _wait_until_up(url: str, timeout: float = 30.0) -> bool:
 
 
 def main() -> None:
+    import os
+
+    from .security.apitoken import generate_token
+
+    # Generate a per-run loopback token BEFORE settings/app are built, so the
+    # API + WS require it and only the window we open knows it.
+    token = os.environ.get("TH_API_TOKEN") or generate_token()
+    os.environ["TH_API_TOKEN"] = token
+    get_settings.cache_clear()  # pick up the token
+
     settings = get_settings()
     port = _free_port(settings.port)
     base = f"http://127.0.0.1:{port}"
+    url = f"{base}/?token={token}"
 
     from .main import app as asgi_app
 
@@ -69,14 +80,14 @@ def main() -> None:
         import webview  # type: ignore
 
         webview.create_window(
-            settings.app_name, base, width=1360, height=860, min_size=(1024, 680),
+            settings.app_name, url, width=1360, height=860, min_size=(1024, 680),
         )
         webview.start()  # blocks until the window is closed
     except Exception:  # noqa: BLE001
         import webbrowser
 
         log.info("pywebview unavailable - opening in the default browser.")
-        webbrowser.open(base)
+        webbrowser.open(url)
         try:
             while thread.is_alive():
                 time.sleep(1)

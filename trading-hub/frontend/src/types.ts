@@ -134,12 +134,21 @@ export interface Dashboard {
   recent_events: EventItem[];
 }
 
+export interface CredentialField {
+  name: string;
+  label: string;
+  secret: boolean;
+  required: boolean;
+}
+
 export interface Platform {
   id: number;
   key: string;
   name: string;
   available: boolean;
   requirement?: string;
+  needs_server?: boolean;
+  credential_fields?: CredentialField[];
   capabilities: Record<string, boolean>;
 }
 

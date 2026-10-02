@@ -92,7 +92,12 @@ class MT5Connector(PlatformConnector):
             "process_id": self._pid,
         }
 
-    def connect(self, login: str, password: str, server: str | None = None) -> ConnectResult:  # pragma: no cover - Win
+    @classmethod
+    def needs_server(cls) -> bool:
+        return True
+
+    def connect(self, login: str, password: str, server: str | None = None,
+                extra: dict | None = None) -> ConnectResult:  # pragma: no cover - Win
         self._require("can_connect")
         path = str(self._instance.terminal_exe) if self._instance else None
         if not mt5.initialize(path=path, portable=bool(self._instance)):

@@ -54,12 +54,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Loopback API-token guard (local hardening). No-op when no token configured.
+from .security.apitoken import ApiTokenMiddleware  # noqa: E402
+
+app.add_middleware(ApiTokenMiddleware, token=get_settings().api_token)
+
 from .api import accounts, dashboard, reference, system  # noqa: E402
 
-app.include_router(dashboard.router)
-app.include_router(accounts.router)
-app.include_router(reference.router)
-app.include_router(system.router)
+# All API routes live under /api so they never collide with the SPA's own
+# client-side routes (e.g. the page /accounts vs the API GET /api/accounts).
+app.include_router(dashboard.router, prefix="/api")
+app.include_router(accounts.router, prefix="/api")
+app.include_router(reference.router, prefix="/api")
+app.include_router(system.router, prefix="/api")
 
 
 @app.get("/health")
@@ -100,6 +107,14 @@ _mount_frontend()
 async def ws(websocket: WebSocket):
     """Live event stream (§81). The frontend reacts to typed events and
     refreshes only the affected view."""
+    token = get_settings().api_token
+    if token:
+        import secrets as _secrets
+
+        supplied = websocket.query_params.get("token", "")
+        if not _secrets.compare_digest(supplied, token):
+            await websocket.close(code=1008)
+            return
     await websocket.accept()
     async with bus.subscribe() as queue:
         try:

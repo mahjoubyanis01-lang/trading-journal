@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { WsMessage } from '../types';
+import { getToken } from './token';
 
 type Listener = (msg: WsMessage) => void;
 
@@ -26,7 +27,9 @@ class EventBus {
     }
     try {
       const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      this.ws = new WebSocket(`${proto}://${window.location.host}/ws`);
+      const tok = getToken();
+      const q = tok ? `?token=${encodeURIComponent(tok)}` : '';
+      this.ws = new WebSocket(`${proto}://${window.location.host}/ws${q}`);
     } catch {
       this.scheduleReconnect();
       return;

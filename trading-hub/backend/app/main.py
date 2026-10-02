@@ -90,11 +90,16 @@ def _mount_frontend() -> None:
     if (dist / "assets").exists():
         app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
 
+    dist_root = dist.resolve()
+
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa(full_path: str):  # noqa: ANN202 - FastAPI route
-        candidate = dist / full_path
-        if full_path and candidate.is_file():
-            return FileResponse(candidate)
+        if full_path:
+            # Resolve and confine within dist to block path traversal
+            # (e.g. GET /../../etc/passwd). Only serve real files inside dist.
+            candidate = (dist_root / full_path).resolve()
+            if candidate.is_relative_to(dist_root) and candidate.is_file():
+                return FileResponse(candidate)
         return FileResponse(index)  # SPA client-side routing
 
     log.info("Serving frontend from %s", dist)

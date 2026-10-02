@@ -65,6 +65,20 @@ def test_panic_stop_all(monkeypatch):
     assert "stopped" in res.json()
 
 
+def test_spa_handler_blocks_path_traversal():
+    # The SPA fallback must never serve files outside the dist folder.
+    for attack in (
+        "/../../../../etc/passwd",
+        "/..%2f..%2f..%2fetc%2fpasswd",
+        "/....//....//etc/passwd",
+    ):
+        r = client.get(attack)
+        body = r.text
+        # Either a safe fallback to index.html or a 404 - never /etc/passwd.
+        assert "root:x:0:0" not in body
+        assert "root:" not in body or "<!doctype html" in body.lower()
+
+
 def test_password_never_in_responses(monkeypatch):
     firm = client.get("/api/prop-firms").json()["prop_firms"][0]["id"]
     body = {"prop_firm_id": firm, "platform_key": "mock", "login": "99",

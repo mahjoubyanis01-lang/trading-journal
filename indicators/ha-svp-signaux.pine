@@ -1,21 +1,24 @@
 //@version=6
 // =============================================================================
-//  HA + SVP + Niveaux horaires -- Signaux de retournement valides par zones
+//  HA + SVP + Niveaux horaires -- Signaux de retournement par zones
 //
-//  1) Bougies Heiken Ashi colorees par le momentum Squeeze (LazyBear) :
-//        - point VERT sous la bougie  = retournement haussier valide
-//        - point ROUGE sur la bougie  = retournement baissier valide
-//  2) Zones qualifiantes :
-//        a) SVP : VAH/VAL de la veille (J-1, chaque touche) et zones
-//           anciennes jamais touchees (J-2+, premiere touche seulement)
-//        b) Niveaux d'ouverture horaires (00:00, 06:00, 09:00, 10:00,
-//           15:30, 22:00), actifs jusqu'a la fin de leur journee
-//  3) VALIDATION DIRECTIONNELLE (logique de reversal) :
-//        - signal d'ACHAT : le prix doit etre VENU PAR LE HAUT, c'est-a-dire
-//          avoir BAISSE jusqu'a toucher le niveau, puis signal -> valide
-//        - signal de VENTE : le prix doit etre VENU PAR LE BAS, c'est-a-dire
-//          avoir MONTE jusqu'a toucher le niveau, puis signal -> valide
-//        Une touche dans le mauvais sens ne valide rien.
+//  1) Bougies Heiken Ashi colorees par le momentum Squeeze (LazyBear).
+//  2) NIVEAUX ACTIVATEURS (obligatoires : il faut en toucher un pour
+//     confirmer un signal) :
+//        - SVP fige : VAH/VAL de la veille (J-1, chaque touche) et zones
+//          anciennes jamais touchees (J-2+, premiere touche seulement)
+//        - SVP evolutif : VAH/VAL evolutives de la seance EN COURS
+//          (le POC est affiche mais n'active rien)
+//  3) NIVEAUX DE CONFLUENCE (n'activent pas seuls, renforcent le signal) :
+//        - ouvertures horaires (00:00, 06:00, 09:00, 10:00, 15:30, 22:00)
+//  4) VALIDATION DIRECTIONNELLE (logique de reversal) :
+//        - ACHAT : le prix doit etre VENU PAR LE HAUT (il baisse jusqu'a
+//          toucher le niveau), puis signal -> point VERT
+//        - VENTE : le prix doit etre VENU PAR LE BAS (il monte jusqu'a
+//          toucher le niveau), puis signal -> point ROUGE
+//  5) COULEUR GRADUEE PAR LA CONFLUENCE : plus il y a de niveaux touches
+//     dans la fenetre (activateurs + horaires), plus le point est fonce :
+//     vert clair -> vert fonce, rouge clair -> rouge fonce.
 // =============================================================================
 indicator("HA + SVP + Niveaux horaires -- Signaux", "HA Zones", overlay=true, max_lines_count=500, max_labels_count=500)
 
@@ -41,18 +44,22 @@ minExtreme    = input.int(30, "Extreme minimal avant retournement (0-100)", grou
 extremeLookback = input.int(10, "Barres de recherche de l'extreme", group = grpSig, minval = 1)
 
 grpZone = "Validation par zones"
-useZoneFilter = input.bool(true, "Valider les signaux par une touche de zone", group = grpZone)
+useZoneFilter = input.bool(true, "Exiger la touche d'un niveau ACTIVATEUR", group = grpZone)
 validBars     = input.int(3, "Fenetre de validite apres la touche (barres)", minval = 0, maxval = 50, group = grpZone, tooltip = "0 = la touche doit avoir lieu sur la bougie du signal elle-meme.")
-dirTouch      = input.bool(true, "Touche directionnelle (reversal)", group = grpZone, tooltip = "Achat : le prix doit etre venu PAR LE HAUT (baisse jusqu'au niveau). Vente : le prix doit etre venu PAR LE BAS (hausse jusqu'au niveau). Desactive : toute touche valide les deux sens.")
-useJ1         = input.bool(true, "Zones SVP : niveaux de la veille (J-1)", group = grpZone)
-useUntouched  = input.bool(true, "Zones SVP : zones anciennes jamais touchees", group = grpZone)
-useHourly     = input.bool(true, "Niveaux d'ouverture horaires", group = grpZone)
-hlFirstTouchOnly = input.bool(false, "Niveaux horaires : premiere touche seulement", group = grpZone, tooltip = "Si active, un niveau horaire ne peut valider un signal qu'a sa premiere touche de la journee.")
+dirTouch      = input.bool(true, "Touche directionnelle (reversal)", group = grpZone, tooltip = "Achat : prix venu PAR LE HAUT (baisse jusqu'au niveau). Vente : prix venu PAR LE BAS (hausse jusqu'au niveau). Desactive : toute touche valide les deux sens.")
+useJ1         = input.bool(true, "Activateur : VAH/VAL de la veille (J-1)", group = grpZone)
+useUntouched  = input.bool(true, "Activateur : zones SVP jamais touchees", group = grpZone)
+useEvo        = input.bool(true, "Activateur : VAH/VAL evolutives (seance en cours)", group = grpZone)
+useHourly     = input.bool(true, "Confluence : niveaux d'ouverture horaires", group = grpZone)
+hlFirstTouchOnly = input.bool(false, "Niveaux horaires : premiere touche seulement", group = grpZone)
+confMax       = input.int(4, "Confluence pour la couleur la plus foncee", minval = 2, maxval = 10, group = grpZone, tooltip = "Nombre de niveaux touches dans la fenetre a partir duquel le point atteint sa couleur la plus foncee. 1 niveau = couleur claire.")
 
 grpSvp = "Session Volume Profile"
 calc_ticks = input.int(1,    "Precision du calcul (ticks par niveau)", minval=1, maxval=50, group = grpSvp)
 percent    = input.float(70.,"Value Area Volume %", minval=0, maxval=100, group = grpSvp)
 keepSess   = input.int(60,   "Seances conservees a l'ecran", minval=1, maxval=240, group = grpSvp)
+showEvo    = input.bool(true, "Afficher VAH/VAL evolutives", group = grpSvp)
+show_poc   = input.bool(true, "Afficher le POC evolutif", group = grpSvp)
 
 grpGen = "Niveaux horaires - reglages"
 tz          = input.string("Europe/Paris", "Fuseau horaire", options=["Europe/Paris", "Europe/London", "America/New_York", "UTC", "Exchange"], group=grpGen)
@@ -116,18 +123,22 @@ baseColor = normVal >= 0 ?
 
 haColor = strengthening ? baseColor : color.new(baseColor, dampAlpha)
 
-//========================== TOUCHES QUALIFIANTES (etat du bar courant) ==========================
-// touchBull = une zone a ete touchee PAR LE HAUT (le prix a baisse dessus) -> valide les achats
-// touchBear = une zone a ete touchee PAR LE BAS (le prix a monte dessus)  -> valide les ventes
-bool touchBull = false
-bool touchBear = false
+//========================== TOUCHES (etat du bar courant) ==========================
+// ACTIVATEURS : au moins une touche requise pour valider un signal.
+//   actBullTouch = activateur touche PAR LE HAUT (valide les achats)
+//   actBearTouch = activateur touche PAR LE BAS  (valide les ventes)
+// CONFLUENCE : nombre de touches "fraiches" (non repetees d'une barre sur
+// l'autre) de TOUS les niveaux (activateurs + horaires), pour la couleur.
+bool actBullTouch = false
+bool actBearTouch = false
+int  freshBull = 0
+int  freshBear = 0
 
-// Direction d'approche d'un niveau : d'ou venait le prix a la bougie precedente ?
+// Direction d'approche d'un niveau : d'ou venait le prix ?
 f_touchDir(lv) =>
     float ref = nz(close[1], open)
     bool fromAbove = ref > lv or (ref == lv and open > lv)
     bool fromBelow = ref < lv or (ref == lv and open < lv)
-    // cas parfaitement ambigu (ouverture pile sur le niveau) : compte dans les deux sens
     bool ambiguous = not fromAbove and not fromBelow
     [fromAbove or ambiguous, fromBelow or ambiguous]
 
@@ -154,6 +165,7 @@ var array<float> gTot  = array.new_float(20001, 0.)
 f_sessionVA() =>
     float _vah = na
     float _val = na
+    float _poc = na
     int n = array.size(sVo)
     if n > 0 and not na(sesLo) and not na(sesHi) and sesHi > sesLo
         float rng   = sesHi - sesLo
@@ -213,11 +225,15 @@ f_sessionVA() =>
         if tot > 0
             _vah := math.round_to_mintick(sesLo + fstep * u)
             _val := math.round_to_mintick(sesLo + fstep * d)
-    [_vah, _val]
+            _poc := math.round_to_mintick(sesLo + fstep * poc)
+    [_vah, _val, _poc]
 
 //========================== ETAT DES NIVEAUX SVP ==========================
+// VA evolutive (barre par barre) de la seance EN COURS
 var float shVah = na
 var float shVal = na
+var float shPoc = na
+bool vaNow = false
 
 var line  liveVah   = na
 var line  liveVal   = na
@@ -232,6 +248,12 @@ var array<float> oldVahL = array.new_float()
 var array<float> oldValL = array.new_float()
 var array<bool>  oldVahF = array.new_bool()
 var array<bool>  oldValF = array.new_bool()
+
+// Dernier bar de touche (pour ne compter en confluence que les touches fraiches)
+var int liveVahLastT = -10
+var int liveValLastT = -10
+var int evoVahLastT  = -10
+var int evoValLastT  = -10
 
 color cVah = #2962ff
 color cVal = #ff9800
@@ -253,6 +275,10 @@ if new_sess
     liveVal := na
     liveVahTouch := na
     liveValTouch := na
+    liveVahLastT := -10
+    liveValLastT := -10
+    evoVahLastT  := -10
+    evoValLastT  := -10
 
     if not na(shVah) and not na(sess_start_bar)
         liveVah   := line.new(sess_start_bar, shVah, bar_index, shVah, xloc=xloc.bar_index, color=color.new(cVah, 0), width=1)
@@ -278,6 +304,7 @@ if new_sess
     sesHi := na
     shVah := na
     shVal := na
+    shPoc := na
 
 //========================== ACCUMULATION SESSION ==========================
 if not na(d_start)
@@ -298,22 +325,48 @@ if not na(d_start)
         sesLo := na(sesLo) ? low  : math.min(sesLo, low)
         sesHi := na(sesHi) ? high : math.max(sesHi, high)
 
-//========================== CALCUL VA DE LA SEANCE EN COURS ==========================
+//========================== CALCUL VA EVOLUTIVE DE LA SEANCE ==========================
 if not na(d_start)
-    [w_vah, w_val] = f_sessionVA()
+    [w_vah, w_val, w_poc] = f_sessionVA()
     if not na(w_vah)
+        vaNow := true
         shVah := w_vah
         shVal := w_val
+        shPoc := w_poc
 
-//========================== EXTENSION / COUPURE + TOUCHES SVP ==========================
+//========================== TOUCHES ACTIVATRICES : VAH/VAL EVOLUTIVES ==========================
+// Le POC est affiche mais n'active rien.
+if vaNow and useEvo
+    if low <= shVah and high >= shVah
+        [fa, fb] = f_touchDir(shVah)
+        actBullTouch := actBullTouch or fa
+        actBearTouch := actBearTouch or fb
+        if bar_index > evoVahLastT + 1
+            freshBull += fa ? 1 : 0
+            freshBear += fb ? 1 : 0
+        evoVahLastT := bar_index
+    if low <= shVal and high >= shVal
+        [fa, fb] = f_touchDir(shVal)
+        actBullTouch := actBullTouch or fa
+        actBearTouch := actBearTouch or fb
+        if bar_index > evoValLastT + 1
+            freshBull += fa ? 1 : 0
+            freshBear += fb ? 1 : 0
+        evoValLastT := bar_index
+
+//========================== EXTENSION / COUPURE + TOUCHES ACTIVATRICES SVP FIGE ==========================
 // J-1 : prolonge jusqu'a la bougie courante, memorise la 1re touche sans couper.
 if not na(liveVah)
     line.set_x2(liveVah, bar_index)
     if low <= liveVahLv and high >= liveVahLv
         if useJ1
             [fa, fb] = f_touchDir(liveVahLv)
-            touchBull := touchBull or fa
-            touchBear := touchBear or fb
+            actBullTouch := actBullTouch or fa
+            actBearTouch := actBearTouch or fb
+            if bar_index > liveVahLastT + 1
+                freshBull += fa ? 1 : 0
+                freshBear += fb ? 1 : 0
+        liveVahLastT := bar_index
         if na(liveVahTouch)
             liveVahTouch := bar_index
 if not na(liveVal)
@@ -321,12 +374,17 @@ if not na(liveVal)
     if low <= liveValLv and high >= liveValLv
         if useJ1
             [fa, fb] = f_touchDir(liveValLv)
-            touchBull := touchBull or fa
-            touchBear := touchBear or fb
+            actBullTouch := actBullTouch or fa
+            actBearTouch := actBearTouch or fb
+            if bar_index > liveValLastT + 1
+                freshBull += fa ? 1 : 0
+                freshBear += fb ? 1 : 0
+        liveValLastT := bar_index
         if na(liveValTouch)
             liveValTouch := bar_index
 
-// J-2 et plus ancien : tant que non fige, on prolonge ; a la 1re touche on fige.
+// J-2 et plus ancien : tant que non fige, on prolonge ; a la 1re touche on fige
+// (touche forcement fraiche puisque premiere).
 if array.size(oldVah) > 0
     for i = 0 to array.size(oldVah) - 1
         if not array.get(oldVahF, i)
@@ -336,8 +394,10 @@ if array.size(oldVah) > 0
                 array.set(oldVahF, i, true)
                 if useUntouched
                     [fa, fb] = f_touchDir(lv)
-                    touchBull := touchBull or fa
-                    touchBear := touchBear or fb
+                    actBullTouch := actBullTouch or fa
+                    actBearTouch := actBearTouch or fb
+                    freshBull += fa ? 1 : 0
+                    freshBear += fb ? 1 : 0
 if array.size(oldVal) > 0
     for i = 0 to array.size(oldVal) - 1
         if not array.get(oldValF, i)
@@ -347,10 +407,12 @@ if array.size(oldVal) > 0
                 array.set(oldValF, i, true)
                 if useUntouched
                     [fa, fb] = f_touchDir(lv)
-                    touchBull := touchBull or fa
-                    touchBear := touchBear or fb
+                    actBullTouch := actBullTouch or fa
+                    actBearTouch := actBearTouch or fb
+                    freshBull += fa ? 1 : 0
+                    freshBear += fb ? 1 : 0
 
-//========================== NIVEAUX D'OUVERTURE HORAIRES ==========================
+//========================== NIVEAUX D'OUVERTURE HORAIRES (CONFLUENCE) ==========================
 tzEff = tz == "Exchange" ? syminfo.timezone : tz
 
 hlStyle = lineStyleIn == "Plein" ? line.style_solid : lineStyleIn == "Tirets" ? line.style_dashed : line.style_dotted
@@ -373,14 +435,15 @@ f_crossTime(hh, mm) =>
     prev = newDay ? -1 : hour(prevT, tzEff) * 60 + minute(prevT, tzEff)
     cur >= tgt and prev < tgt
 
-// Trace le niveau d'un horaire donne et renvoie la touche directionnelle du bar
-// courant : [touche par le haut (bull), touche par le bas (bear)]
+// Trace le niveau d'un horaire donne ; renvoie la touche directionnelle
+// FRAICHE du bar courant : [par le haut (bull), par le bas (bear)]
 f_level(enabled, hh, mm, col, txt) =>
     var line  ln = na
     var label lb = na
     var float lv = na
     var int   endT = na
     var int   bornBar = na
+    var int   lastT = -10
     var bool  touched = false
     bool tb = false
     bool ts = false
@@ -389,17 +452,18 @@ f_level(enabled, hh, mm, col, txt) =>
         ln := line.new(time, open, extendRight ? time + 1 : endT, open, xloc=xloc.bar_time, color=col, style=hlStyle, width=lineWidth, extend=extendRight ? extend.right : extend.none)
         lv := open
         bornBar := bar_index
+        lastT := -10
         touched := false
         if showLabels
             lbTxt = showPrice ? txt + "  " + str.tostring(open, format.mintick) : txt
             lb := label.new(time, open, lbTxt, xloc=xloc.bar_time, style=label.style_label_left, textcolor=col, color=color.new(color.black, 100), size=hlLabelSize)
-    // le niveau est actif de sa creation a la fin de sa journee (ou sans fin si prolonge)
     bool active = not na(lv) and (extendRight or na(endT) or time < endT)
     if active and bar_index != bornBar and low <= lv and high >= lv
-        if not hlFirstTouchOnly or not touched
+        if (not hlFirstTouchOnly or not touched) and bar_index > lastT + 1
             [fa, fb] = f_touchDir(lv)
             tb := fa
             ts := fb
+        lastT := bar_index
         touched := true
     if not na(lb) and not na(ln) and barstate.islast and extendRight
         label.set_x(lb, time)
@@ -412,9 +476,10 @@ f_level(enabled, hh, mm, col, txt) =>
 [tb1530, ts1530] = f_level(show1530, 15, 30, col1530, "15:30")
 [tb22, ts22]     = f_level(show22,  22,  0, col22,   "22:00")
 
+// Les niveaux horaires n'ACTIVENT pas : ils ajoutent uniquement de la confluence.
 if useHourly
-    touchBull := touchBull or tb00 or tb06 or tb09 or tb10 or tb1530 or tb22
-    touchBear := touchBear or ts00 or ts06 or ts09 or ts10 or ts1530 or ts22
+    freshBull += (tb00 ? 1 : 0) + (tb06 ? 1 : 0) + (tb09 ? 1 : 0) + (tb10 ? 1 : 0) + (tb1530 ? 1 : 0) + (tb22 ? 1 : 0)
+    freshBear += (ts00 ? 1 : 0) + (ts06 ? 1 : 0) + (ts09 ? 1 : 0) + (ts10 ? 1 : 0) + (ts1530 ? 1 : 0) + (ts22 ? 1 : 0)
 
 //========================== SIGNAUX DE RETOURNEMENT ==========================
 bullFlip = haClose > haOpen and haClose[1] <= haOpen[1]
@@ -426,10 +491,10 @@ momTurnDown = nz(val) < nz(val[1])
 cameFromDown = minExtreme == 0 or ta.lowest(normVal, extremeLookback)  <= -minExtreme
 cameFromUp   = minExtreme == 0 or ta.highest(normVal, extremeLookback) >=  minExtreme
 
-// Sans mode directionnel, toute touche valide les deux sens
-bool anyTouch = touchBull or touchBear
-int sinceBull = ta.barssince(dirTouch ? touchBull : anyTouch)
-int sinceBear = ta.barssince(dirTouch ? touchBear : anyTouch)
+// Validation : au moins un ACTIVATEUR touche dans la fenetre, dans le bon sens.
+bool anyActTouch = actBullTouch or actBearTouch
+int sinceBull = ta.barssince(dirTouch ? actBullTouch : anyActTouch)
+int sinceBear = ta.barssince(dirTouch ? actBearTouch : anyActTouch)
 
 bool zoneOKBull = not useZoneFilter or (not na(sinceBull) and sinceBull <= validBars)
 bool zoneOKBear = not useZoneFilter or (not na(sinceBear) and sinceBear <= validBars)
@@ -437,15 +502,35 @@ bool zoneOKBear = not useZoneFilter or (not na(sinceBear) and sinceBear <= valid
 bullSignal = showSignals and bullFlip and (not needMomentum or momTurnUp)   and cameFromDown and zoneOKBull
 bearSignal = showSignals and bearFlip and (not needMomentum or momTurnDown) and cameFromUp   and zoneOKBear
 
+//========================== CONFLUENCE -> COULEUR DES POINTS ==========================
+// Nombre de niveaux touches (activateurs + horaires) dans la fenetre de validite.
+float confBull = math.sum(freshBull * 1.0, validBars + 1)
+float confBear = math.sum(freshBear * 1.0, validBars + 1)
+if not dirTouch
+    confBull := confBull + confBear
+    confBear := confBull
+
+// 1 niveau = couleur claire ; confMax niveaux ou plus = couleur foncee.
+float gradBull = math.min(math.max(nz(confBull), 1), confMax)
+float gradBear = math.min(math.max(nz(confBear), 1), confMax)
+
+color bullCol = color.from_gradient(gradBull, 1, confMax, #a5d6a7, #1b5e20)
+color bearCol = color.from_gradient(gradBear, 1, confMax, #ef9a9a, #b71c1c)
+
 //========================== AFFICHAGE ==========================
 plotcandle(haOpen, haHigh, haLow, haClose, title = "Heiken Ashi", color = haColor, wickcolor = haColor, bordercolor = color.new(color.black, 40))
 
 sqzColor = noSqz ? color.blue : sqzOn ? color.black : color.gray
 plotshape(showSqzDots ? 0.0 : na, title = "Etat squeeze", style = shape.circle, location = location.belowbar, color = sqzColor, size = size.tiny)
 
-plotshape(bullSignal, title = "Retournement haussier (zone)", style = shape.circle, location = location.belowbar, color = color.new(color.green, 0), size = size.small)
-plotshape(bearSignal, title = "Retournement baissier (zone)", style = shape.circle, location = location.abovebar, color = color.new(color.red, 0),   size = size.small)
+plotshape(bullSignal, title = "Retournement haussier (zone)", style = shape.circle, location = location.belowbar, color = bullCol, size = size.small)
+plotshape(bearSignal, title = "Retournement baissier (zone)", style = shape.circle, location = location.abovebar, color = bearCol, size = size.small)
+
+// VAH / VAL / POC evolutifs de la seance en cours
+plot(showEvo and vaNow ? shVah : na, "VAH evolutive", color=color.new(#2962ff, 0), style=plot.style_linebr, linewidth=1)
+plot(showEvo and vaNow ? shVal : na, "VAL evolutive", color=color.new(#ff9800, 0), style=plot.style_linebr, linewidth=1)
+plot(show_poc and vaNow ? shPoc : na, "POC evolutif",  color=color.new(#e91e63, 0), style=plot.style_linebr, linewidth=1)
 
 //========================== ALERTES ==========================
-alertcondition(bullSignal, title = "Retournement haussier valide", message = "HA Zones : retournement haussier valide (prix venu par le haut sur une zone) sur {{ticker}} {{interval}}")
-alertcondition(bearSignal, title = "Retournement baissier valide", message = "HA Zones : retournement baissier valide (prix venu par le bas sur une zone) sur {{ticker}} {{interval}}")
+alertcondition(bullSignal, title = "Retournement haussier valide", message = "HA Zones : retournement haussier valide par un activateur sur {{ticker}} {{interval}}")
+alertcondition(bearSignal, title = "Retournement baissier valide", message = "HA Zones : retournement baissier valide par un activateur sur {{ticker}} {{interval}}")

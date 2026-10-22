@@ -25,19 +25,31 @@ from ..providers.yahoo import Bar
 from ..timeutil import PARIS, measure_end_paris, measure_start_ny
 
 
-def classify_direction(change_pct: float | None, neutral_band_pct: float) -> str | None:
+def classify_direction(change_pct: float | None, neutral_band_pct: float,
+                       strong_band_pct: float = 0.50) -> str | None:
+    """Classement en CINQ niveaux : |chg| <= bande neutre -> neutral ;
+    au-delà de strong_band_pct -> affirmé (strong_*) ; sinon modéré."""
     if change_pct is None:
         return None
+    if change_pct > strong_band_pct:
+        return "strong_bullish"
     if change_pct > neutral_band_pct:
         return "bullish"
+    if change_pct < -strong_band_pct:
+        return "strong_bearish"
     if change_pct < -neutral_band_pct:
         return "bearish"
     return "neutral"
 
 
+DIRECTION_OF = {"strong_bullish": "up", "bullish": "up", "neutral": "flat",
+                "bearish": "down", "strong_bearish": "down"}
+
+
 def measure_session(bars: list[Bar], session_date: date, *,
                     measure_start_hhmm: str = "09:30",
                     neutral_band_pct: float = 0.10,
+                    strong_band_pct: float = 0.50,
                     contract_note: str = "") -> dict:
     start_at = measure_start_ny(session_date, measure_start_hhmm)
     end_at = measure_end_paris(session_date)
@@ -90,16 +102,17 @@ def measure_session(bars: list[Bar], session_date: date, *,
         "open_price": round(open_price, 2), "open_at": open_ts.isoformat(),
         "close_price": round(close_price, 2), "close_at": close_ts.isoformat(),
         "change_points": round(change_points, 2), "change_pct": round(change_pct, 4),
-        "actual": classify_direction(change_pct, neutral_band_pct),
+        "actual": classify_direction(change_pct, neutral_band_pct, strong_band_pct),
         "measurable": True, "contract_note": contract_note,
         "limitations": limitations,
         "measure_start_at": start_at.isoformat(), "measure_end_at": end_at.isoformat(),
     }
 
 
-def prediction_outcome(predicted: str, actual: str | None) -> bool | None:
-    """Correct si biais prédit == direction observée (y compris neutre/neutre).
-    None si la séance n'est pas mesurable."""
+def prediction_outcome(predicted: str, actual: str | None) -> tuple[bool | None, bool | None]:
+    """(correct, exact) : `correct` compare la DIRECTION (hausse/baisse/neutre,
+    intensité ignorée), `exact` exige la même classe parmi les cinq.
+    (None, None) si la séance n'est pas mesurable."""
     if actual is None:
-        return None
-    return predicted == actual
+        return None, None
+    return DIRECTION_OF[predicted] == DIRECTION_OF[actual], predicted == actual

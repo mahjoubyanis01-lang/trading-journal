@@ -6,7 +6,7 @@ import io
 import json
 
 CSV_COLUMNS = [
-    "date", "predicted", "score", "confidence", "actual", "correct",
+    "date", "predicted", "score", "confidence", "actual", "correct", "exact",
     "open_price", "open_at", "close_price", "close_at",
     "change_points", "change_pct", "data_quality", "insufficient",
     "cutoff_at", "coverage", "bias_reason",
@@ -21,7 +21,7 @@ def to_csv(results: list[dict]) -> str:
         m = r["measurement"]
         w.writerow([
             r["date"], r["predicted"], r["score"], r["confidence"],
-            m["actual"], m["correct"],
+            m["actual"], m["correct"], m.get("exact"),
             m["open_price"], m["open_at"], m["close_price"], m["close_at"],
             m["change_points"], m["change_pct"], r["data_quality"],
             r["insufficient"], r["cutoff_at"], r["coverage"], r["bias_reason"],

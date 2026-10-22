@@ -9,7 +9,9 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 
-CATS = ["bullish", "bearish", "neutral"]
+from .backtest.measurement import DIRECTION_OF
+
+CATS = ["strong_bullish", "bullish", "neutral", "bearish", "strong_bearish"]
 
 DISCLAIMER = (
     "Résultats exploratoires : avec un échantillon de quelques dizaines de séances, "
@@ -23,22 +25,36 @@ DISCLAIMER = (
 
 
 def _hit_rate(pairs: list[tuple[str, str]]) -> float | None:
+    """Taux de justesse DIRECTIONNELLE (hausse/baisse/neutre, intensité ignorée)."""
+    if not pairs:
+        return None
+    return round(sum(1 for p, a in pairs if DIRECTION_OF[p] == DIRECTION_OF[a])
+                 / len(pairs), 4)
+
+
+def _exact_rate(pairs: list[tuple[str, str]]) -> float | None:
+    """Taux de classe EXACTE parmi les cinq niveaux."""
     if not pairs:
         return None
     return round(sum(1 for p, a in pairs if p == a) / len(pairs), 4)
 
 
-def _classify_pre(move_pct: float | None, band: float) -> str | None:
+def _classify_pre(move_pct: float | None, band: float, strong_band: float = 0.50) -> str | None:
     if move_pct is None:
         return None
+    if move_pct > strong_band:
+        return "strong_bullish"
     if move_pct > band:
         return "bullish"
+    if move_pct < -strong_band:
+        return "strong_bearish"
     if move_pct < -band:
         return "bearish"
     return "neutral"
 
 
-def compute_stats(results: list[dict], neutral_band_pct: float) -> dict:
+def compute_stats(results: list[dict], neutral_band_pct: float,
+                  strong_band_pct: float = 0.50) -> dict:
     evaluated = [r for r in results
                  if r["measurement"]["measurable"] and r["measurement"]["actual"]]
     insufficient = [r for r in results if r.get("insufficient")]
@@ -51,10 +67,12 @@ def compute_stats(results: list[dict], neutral_band_pct: float) -> dict:
     for cat in CATS:
         sel = [r for r in evaluated if r["predicted"] == cat]
         changes = [r["measurement"]["change_pct"] for r in sel]
+        spairs = [(r["predicted"], r["measurement"]["actual"]) for r in sel]
         by_cat[cat] = {
             "predicted": len(sel),
-            "correct": sum(1 for r in sel if r["measurement"]["actual"] == cat),
-            "hit_rate": _hit_rate([(r["predicted"], r["measurement"]["actual"]) for r in sel]),
+            "correct": sum(1 for p, a in spairs if DIRECTION_OF[p] == DIRECTION_OF[a]),
+            "exact": sum(1 for p, a in spairs if p == a),
+            "hit_rate": _hit_rate(spairs),
             "avg_change_pct": round(sum(changes) / len(changes), 3) if changes else None,
         }
 
@@ -93,7 +111,7 @@ def compute_stats(results: list[dict], neutral_band_pct: float) -> dict:
         ("always_down", "Toujours baissier", lambda r: "bearish"),
         ("follow_preopen", "Suivre le mouvement préouverture du ES",
          lambda r: _classify_pre(r.get("preopen_market", {}).get("es_move_pct"),
-                                 neutral_band_pct)),
+                                 neutral_band_pct, strong_band_pct)),
         ("prior_day_momentum", "Momentum : direction de la séance précédente",
          None),
     ):
@@ -135,6 +153,7 @@ def compute_stats(results: list[dict], neutral_band_pct: float) -> dict:
         "n_insufficient": len(insufficient),
         "hit_rate": _hit_rate(pairs),
         "hit_rate_excl_neutral": _hit_rate(pairs_excl),
+        "exact_rate": _exact_rate(pairs),
         "n_excl_neutral": len(pairs_excl),
         "by_category": by_cat,
         "confusion_matrix": {"rows": CATS, "matrix": matrix},
@@ -157,7 +176,7 @@ def summary(results: list[dict]) -> dict:
     pairs = [(r["predicted"], r["measurement"]["actual"]) for r in evaluated
              if r["measurement"]["actual"]]
     pairs_excl = [(p, a) for p, a in pairs if p != "neutral"]
-    correct = sum(1 for p, a in pairs if p == a)
+    correct = sum(1 for p, a in pairs if DIRECTION_OF[p] == DIRECTION_OF[a])
     return {
         "period": {"start": results[0]["date"], "end": results[-1]["date"],
                    "sessions": len(results)},
@@ -165,6 +184,7 @@ def summary(results: list[dict]) -> dict:
         "insufficient_sessions": sum(1 for r in results if r.get("insufficient")),
         "hit_rate": round(correct / len(pairs), 4) if pairs else None,
         "hit_rate_excl_neutral_pred": _hit_rate(pairs_excl),
+        "exact_rate": _exact_rate(pairs),
         "predictions": {c: sum(1 for r in results if r["predicted"] == c) for c in CATS},
         "correct": correct,
         "incorrect": len(pairs) - correct,
@@ -174,6 +194,7 @@ def summary(results: list[dict]) -> dict:
         "daily": [{"date": r["date"], "predicted": r["predicted"],
                    "actual": r["measurement"]["actual"],
                    "correct": r["measurement"]["correct"],
+                   "exact": r["measurement"].get("exact"),
                    "score": r["score"], "confidence": r["confidence"],
                    "change_pct": r["measurement"]["change_pct"]} for r in results],
     }

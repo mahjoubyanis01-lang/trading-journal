@@ -3,10 +3,18 @@
 Application locale de **backtest historique** : pour chacune des N dernières
 séances de bourse (10/30/60/90/252), elle reconstruit les informations
 économiques, financières et géopolitiques **réellement disponibles avant
-15 h 29, heure de Paris**, attribue un biais — **HAUSSIER / BAISSIER /
-NEUTRE** — puis le compare à l'évolution réelle du contrat E-mini S&P 500 (ES)
-entre **9 h 30, heure de New York** (ouverture de la séance régulière) et
-**minuit, heure de Paris**.
+15 h 29, heure de Paris**, tranche un verdict en **cinq niveaux** —
+**HAUSSE AFFIRMÉE / HAUSSE MODÉRÉE / NEUTRE / BAISSE MODÉRÉE / BAISSE
+AFFIRMÉE** — puis le compare à l'évolution réelle du contrat E-mini S&P 500
+(ES) entre **9 h 30, heure de New York** (ouverture de la séance régulière)
+et **minuit, heure de Paris**.
+
+Verdict prédit (score −100..+100) : ≥ +55 → hausse affirmée ; ≥ +25 → hausse
+modérée ; ≤ −55 → baisse affirmée ; ≤ −25 → baisse modérée ; sinon neutre.
+Direction réelle (variation mesurée) : au-delà de ±0,50 % → affirmée ; au-delà
+de ±0,10 % → modérée ; sinon neutre. Tous ces seuils sont configurables. Deux
+notions de justesse sont affichées : **direction** (hausse/baisse/neutre,
+intensité ignorée) et **exact** (même classe parmi les cinq).
 
 > Outil de recherche : il mesure si l'analyse macro/informationnelle a une
 > valeur prédictive directionnelle. Ce n'est **pas** un outil de
@@ -41,8 +49,23 @@ backtester/
 
 ## Installation et lancement (Windows)
 
-Prérequis : [Python 3.11+](https://www.python.org/downloads/) (cocher
-« Add python.exe to PATH ») et [Node.js 18+](https://nodejs.org/).
+### Mode application de bureau (recommandé — un double-clic)
+
+Prérequis : uniquement [Python 3.11+](https://www.python.org/downloads/)
+(cocher « Add python.exe to PATH » à l'installation). Node.js n'est **pas**
+nécessaire : l'interface compilée (`frontend/dist`) est incluse et servie par
+le backend.
+
+1. Télécharger/cloner ce dossier `backtester` sur le PC.
+2. Double-cliquer sur **`Installer sur le Bureau.bat`** (une fois) : un
+   raccourci « S&P 500 Backtester » apparaît sur le Bureau.
+3. Double-cliquer sur le raccourci : au premier lancement, l'environnement
+   Python s'installe tout seul, puis le navigateur s'ouvre sur
+   http://127.0.0.1:8000. Fermer la fenêtre noire pour arrêter l'application.
+
+### Mode développement (backend + frontend séparés)
+
+Prérequis : Python 3.11+ et [Node.js 18+](https://nodejs.org/).
 
 ```bat
 :: 1. Backend — depuis le dossier backtester\
@@ -138,8 +161,8 @@ jamais présentés comme des prix ES.
 Asie, VIX, taux 2a/10a, dollar, publications macro, sentiment presse,
 géopolitique (asymétrique risk-off), résultats d'entreprises. Le score
 [-100, +100] est la somme des contributions renormalisée sur les poids
-**disponibles** ; seuils initiaux ±25 (configurables — valeurs de départ, pas
-des seuils optimisés). La confiance 0–100 reflète complétude + nombre de
+**disponibles** ; seuils initiaux ±25 (modéré) et ±55 (affirmé) —
+configurables, valeurs de départ, pas des seuils optimisés. La confiance 0–100 reflète complétude + nombre de
 facteurs + cohérence des signaux ; **ce n'est pas une probabilité calibrée**.
 L'interprétation macro n'est pas mécanique : une inflation chaude est lue via
 le canal des taux (défavorable), une activité très forte est ambivalente

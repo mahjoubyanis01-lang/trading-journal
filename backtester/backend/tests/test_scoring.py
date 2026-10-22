@@ -10,16 +10,31 @@ def mk(fid, weight, score, available=True) -> Factor:
     return f
 
 
-def test_biais_haussier_au_dessus_du_seuil():
+def test_biais_hausse_affirmee_au_dessus_du_seuil_fort():
+    # 35/45 points -> score ~ +78, au-dessus du seuil fort (+55).
     factors = [mk("a", 25, 20), mk("b", 10, 8), mk("c", 10, 7)]
-    agg = aggregate(factors, 25, -25)
-    assert agg["score"] >= 25
+    agg = aggregate(factors, 25, -25, 55, -55)
+    assert agg["score"] >= 55
+    assert agg["bias"] == "strong_bullish"
+
+
+def test_biais_hausse_moderee_entre_les_deux_seuils():
+    # 16/45 points -> score ~ +36 : entre +25 et +55.
+    factors = [mk("a", 25, 10), mk("b", 10, 3), mk("c", 10, 3)]
+    agg = aggregate(factors, 25, -25, 55, -55)
+    assert 25 <= agg["score"] < 55
     assert agg["bias"] == "bullish"
 
 
-def test_biais_baissier():
+def test_biais_baisse_affirmee():
     factors = [mk("a", 25, -20), mk("b", 10, -8), mk("c", 10, -5)]
-    agg = aggregate(factors, 25, -25)
+    agg = aggregate(factors, 25, -25, 55, -55)
+    assert agg["bias"] == "strong_bearish"
+
+
+def test_biais_baisse_moderee():
+    factors = [mk("a", 25, -10), mk("b", 10, -3), mk("c", 10, -3)]
+    agg = aggregate(factors, 25, -25, 55, -55)
     assert agg["bias"] == "bearish"
 
 
@@ -44,6 +59,7 @@ def test_score_borne_100():
     factors = [mk("a", 10, 10), mk("b", 10, 10), mk("c", 10, 10)]
     agg = aggregate(factors, 25, -25)
     assert agg["score"] == 100
+    assert agg["bias"] == "strong_bullish"
 
 
 def test_confiance_entre_0_et_100_et_sensible_a_la_completude():

@@ -27,8 +27,11 @@ DB_PATH = DATA_DIR / "backtest.db"
 DEFAULT_SETTINGS: dict = {
     "lookback_sessions": 30,
     "bullish_threshold": 25,
+    "strong_bullish_threshold": 55,
     "bearish_threshold": -25,
+    "strong_bearish_threshold": -55,
     "neutral_band_pct": 0.10,
+    "strong_band_pct": 0.50,
     "cutoff_paris": "15:29",
     "measure_start_ny": "09:30",
     "factor_weights": {
@@ -81,9 +84,10 @@ def save_settings(update: dict) -> dict:
                 if int(v) not in ALLOWED_LOOKBACKS:
                     raise ValueError(f"lookback_sessions doit être parmi {sorted(ALLOWED_LOOKBACKS)}")
                 s[k] = int(v)
-            elif k in ("bullish_threshold", "bearish_threshold"):
+            elif k in ("bullish_threshold", "bearish_threshold",
+                       "strong_bullish_threshold", "strong_bearish_threshold"):
                 s[k] = float(v)
-            elif k == "neutral_band_pct":
+            elif k in ("neutral_band_pct", "strong_band_pct"):
                 s[k] = max(0.0, float(v))
             elif k in ("cutoff_paris", "measure_start_ny"):
                 h, m = str(v).split(":")
@@ -98,8 +102,12 @@ def save_settings(update: dict) -> dict:
                 if v not in ("yahoo", "databento"):
                     raise ValueError("es_provider doit être 'yahoo' ou 'databento'")
                 s[k] = v
-        if s["bullish_threshold"] <= s["bearish_threshold"]:
-            raise ValueError("bullish_threshold doit être > bearish_threshold")
+        if not (s["strong_bearish_threshold"] < s["bearish_threshold"] < 0
+                < s["bullish_threshold"] < s["strong_bullish_threshold"]):
+            raise ValueError(
+                "ordre requis : strong_bearish < bearish < 0 < bullish < strong_bullish")
+        if s["strong_band_pct"] <= s["neutral_band_pct"]:
+            raise ValueError("strong_band_pct doit être > neutral_band_pct")
         SETTINGS_PATH.write_text(json.dumps(s, indent=2))
         return s
 

@@ -6,6 +6,24 @@ Le frontend (Vite, port 5173) proxifie `/api` vers le backend.
 Toutes les dates sont `YYYY-MM-DD` (date de séance, fuseau New York).
 Tous les horodatages sont ISO-8601 avec offset (ex: `2026-10-21T15:29:00+02:00`).
 
+## Verdict en 5 niveaux
+
+Les biais prédits ET les directions réelles prennent leurs valeurs parmi :
+`"strong_bullish" | "bullish" | "neutral" | "bearish" | "strong_bearish"`
+(libellés français : Hausse affirmée, Hausse modérée, Neutre, Baisse modérée,
+Baisse affirmée).
+
+- Prédiction (score −100..+100) : `>= strong_bullish_threshold` (défaut +55) →
+  strong_bullish ; `>= bullish_threshold` (+25) → bullish ;
+  `<= strong_bearish_threshold` (−55) → strong_bearish ;
+  `<= bearish_threshold` (−25) → bearish ; sinon neutral.
+- Direction réelle (variation %) : `|chg| <= neutral_band_pct` (0,10) →
+  neutral ; `> strong_band_pct` (0,50) → strong_bullish ; `> neutral_band` →
+  bullish ; symétrique à la baisse.
+- Deux notions de justesse : `correct` = même DIRECTION (hausse/baisse/neutre,
+  intensité ignorée) ; `exact` = même classe parmi les 5. `null` = non évaluable.
+- Les facteurs individuels (`factors[].direction`) restent sur 3 niveaux.
+
 ## GET /api/health
 `{ "status": "ok", "version": "0.1.0" }`
 
@@ -13,9 +31,12 @@ Tous les horodatages sont ISO-8601 avec offset (ex: `2026-10-21T15:29:00+02:00`)
 ```json
 {
   "lookback_sessions": 30,              // 10|30|60|90|252
-  "bullish_threshold": 25,              // score >= => HAUSSIER
-  "bearish_threshold": -25,             // score <= => BAISSIER
-  "neutral_band_pct": 0.10,             // seuil direction réelle en %
+  "bullish_threshold": 25,              // score >= => hausse modérée
+  "strong_bullish_threshold": 55,       // score >= => hausse affirmée
+  "bearish_threshold": -25,             // score <= => baisse modérée
+  "strong_bearish_threshold": -55,      // score <= => baisse affirmée
+  "neutral_band_pct": 0.10,             // bande neutre direction réelle en %
+  "strong_band_pct": 0.50,              // au-delà => direction affirmée
   "cutoff_paris": "15:29",              // heure limite info (Paris)
   "measure_start_ny": "09:30",          // début mesure (New York)
   "factor_weights": { "es_preopen": 25, "nq_preopen": 10, "europe": 10, "asia": 5,
@@ -66,12 +87,13 @@ Body `{ "sessions": 30, "force": false }` → `202 { "run_id": "…", "already_r
   "evaluated_sessions": 27, "insufficient_sessions": 3,
   "hit_rate": 0.52,                      // sur séances évaluables
   "hit_rate_excl_neutral_pred": 0.55,
-  "predictions": { "bullish": 11, "bearish": 7, "neutral": 12 },
+  "predictions": { "strong_bullish": 2, "bullish": 9, "neutral": 12, "bearish": 5, "strong_bearish": 2 },
   "correct": 14, "incorrect": 13,
   "data_completeness_pct": 78.5,
   "last_processed_date": "2026-10-21",
-  "daily": [ { "date": "…", "predicted": "bullish|bearish|neutral", "actual": "…",
-               "correct": true|false|null, "score": 31, "confidence": 62, "change_pct": 0.42 } ]
+  "daily": [ { "date": "…", "predicted": "<5 niveaux>", "actual": "<5 niveaux>",
+               "correct": true|false|null, "exact": true|false|null,
+               "score": 31, "confidence": 62, "change_pct": 0.42 } ]
 }
 ```
 `null` partout si aucun backtest. `correct: null` = séance non évaluable.
@@ -81,7 +103,8 @@ Query params optionnels: `predicted`, `actual`, `correct` (`true|false`), `min_c
 ```json
 { "sessions": [ {
   "date": "2026-10-21", "predicted": "bullish", "score": 31, "confidence": 62,
-  "actual": "bearish", "change_points": -18.5, "change_pct": -0.27, "correct": false,
+  "actual": "bearish", "change_points": -18.5, "change_pct": -0.27,
+  "correct": false, "exact": false,
   "open_price": 6935.25, "close_price": 6916.75,
   "data_quality": 72, "insufficient": false,
   "bullish_summary": "…", "bearish_summary": "…"
@@ -115,7 +138,8 @@ Query params optionnels: `predicted`, `actual`, `correct` (`true|false`), `min_c
   "measurement": {
     "open_price": 6935.25, "open_at": "…", "close_price": 6916.75, "close_at": "…",
     "change_points": -18.5, "change_pct": -0.27, "actual": "bearish",
-    "correct": false, "contract_note": "ES=F continu Yahoo (front month)…"
+    "correct": false, "exact": false,
+    "contract_note": "ES=F continu Yahoo (front month)…"
   },
   "intraday": [ { "t": "2026-10-21T09:30:00-04:00", "o": 6935.25, "h": …, "l": …, "c": … } ],
   "data_quality": 72, "insufficient": false,
@@ -129,15 +153,15 @@ Query params optionnels: `predicted`, `actual`, `correct` (`true|false`), `min_c
 ```json
 {
   "n_sessions": 30, "n_evaluated": 27, "n_insufficient": 3,
-  "hit_rate": 0.52, "hit_rate_excl_neutral": 0.55,
-  "by_category": { "bullish": { "predicted": 11, "correct": 6, "hit_rate": 0.55, "avg_change_pct": 0.21 },
-                   "bearish": { … }, "neutral": { … } },
-  "confusion_matrix": { "rows": ["bullish","bearish","neutral"],
-    "matrix": [[6,3,2],[2,4,1],[3,4,5]] },   // lignes = prédit, colonnes = réel
+  "hit_rate": 0.52, "hit_rate_excl_neutral": 0.55, "exact_rate": 0.33,
+  "by_category": { "strong_bullish": { "predicted": 2, "correct": 1, "exact": 1, "hit_rate": 0.5, "avg_change_pct": 0.6 },
+                   "bullish": { … }, "neutral": { … }, "bearish": { … }, "strong_bearish": { … } },
+  "confusion_matrix": { "rows": ["strong_bullish","bullish","neutral","bearish","strong_bearish"],
+    "matrix": [[…5…],…5 lignes…] },          // lignes = prédit, colonnes = réel (5×5)
   "by_confidence": [ { "bucket": "0-33", "n": 5, "hit_rate": 0.4 }, { "bucket": "34-66", … }, { "bucket": "67-100", … } ],
   "by_week": [ { "week": "2026-W41", "n": 5, "correct": 3, "hit_rate": 0.6 } ],
   "change_distribution": [ { "bin": "-1.0% à -0.5%", "count": 4 } ],
-  "avg_change_by_prediction": { "bullish": 0.21, "bearish": -0.05, "neutral": 0.08 },
+  "avg_change_by_prediction": { "strong_bullish": 0.6, "bullish": 0.21, "neutral": 0.08, "bearish": -0.05, "strong_bearish": -0.4 },
   "baselines": [ { "id": "always_up", "label": "Toujours haussier", "hit_rate": 0.48, "n": 27 },
                  { "id": "always_down", … }, { "id": "follow_preopen", … }, { "id": "prior_day_momentum", … } ],
   "disclaimer": "Résultats exploratoires sur un petit échantillon…"

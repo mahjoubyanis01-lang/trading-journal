@@ -57,7 +57,7 @@ def test_variation_points_et_pourcentage():
     m = measure_session(bars, SESSION)
     assert m["change_points"] == pytest.approx(60.0)
     assert m["change_pct"] == pytest.approx(1.0)
-    assert m["actual"] == "bullish"
+    assert m["actual"] == "strong_bullish"  # +1,0 % > bande forte (0,50 %)
 
 
 def test_seuil_neutre_ne_modifie_pas_les_prix():
@@ -70,12 +70,27 @@ def test_seuil_neutre_ne_modifie_pas_les_prix():
     assert m["change_points"] == pytest.approx(3.0)  # …mais la variation reste affichée
 
 
-def test_classification_directionnelle():
-    assert classify_direction(0.25, 0.10) == "bullish"
-    assert classify_direction(-0.25, 0.10) == "bearish"
-    assert classify_direction(0.05, 0.10) == "neutral"
-    assert classify_direction(-0.10, 0.10) == "neutral"  # borne incluse dans le neutre
-    assert classify_direction(None, 0.10) is None
+def test_classification_directionnelle_cinq_niveaux():
+    assert classify_direction(0.25, 0.10, 0.50) == "bullish"          # hausse modérée
+    assert classify_direction(0.80, 0.10, 0.50) == "strong_bullish"   # hausse affirmée
+    assert classify_direction(-0.25, 0.10, 0.50) == "bearish"         # baisse modérée
+    assert classify_direction(-0.80, 0.10, 0.50) == "strong_bearish"  # baisse affirmée
+    assert classify_direction(0.05, 0.10, 0.50) == "neutral"
+    assert classify_direction(-0.10, 0.10, 0.50) == "neutral"  # borne incluse dans le neutre
+    assert classify_direction(0.50, 0.10, 0.50) == "bullish"   # borne forte incluse au modéré
+    assert classify_direction(None, 0.10, 0.50) is None
+
+
+def test_outcome_direction_vs_exact():
+    from app.backtest.measurement import prediction_outcome
+    # Bonne direction mais intensité différente : correct sans être exact.
+    assert prediction_outcome("strong_bullish", "bullish") == (True, False)
+    assert prediction_outcome("bearish", "strong_bearish") == (True, False)
+    assert prediction_outcome("bullish", "bullish") == (True, True)
+    assert prediction_outcome("neutral", "neutral") == (True, True)
+    assert prediction_outcome("bullish", "bearish") == (False, False)
+    assert prediction_outcome("neutral", "strong_bullish") == (False, False)
+    assert prediction_outcome("bullish", None) == (None, None)
 
 
 def test_seance_non_mesurable():

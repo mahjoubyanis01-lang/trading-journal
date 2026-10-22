@@ -52,7 +52,9 @@ CONTRACT_NOTE_DATABENTO = (
 
 def params_hash(settings: dict) -> str:
     relevant = {k: settings[k] for k in
-                ("bullish_threshold", "bearish_threshold", "neutral_band_pct",
+                ("bullish_threshold", "bearish_threshold",
+                 "strong_bullish_threshold", "strong_bearish_threshold",
+                 "neutral_band_pct", "strong_band_pct",
                  "cutoff_paris", "measure_start_ny", "factor_weights", "es_provider")}
     return hashlib.sha256(json.dumps(relevant, sort_keys=True).encode()).hexdigest()[:16]
 
@@ -340,15 +342,19 @@ def analyze_session(session_date: date, settings: dict,
         F.earnings_factor(earnings, weights["earnings"], finnhub_ok),
     ]
 
-    agg = aggregate(flist, settings["bullish_threshold"], settings["bearish_threshold"])
+    agg = aggregate(flist, settings["bullish_threshold"], settings["bearish_threshold"],
+                    settings["strong_bullish_threshold"], settings["strong_bearish_threshold"])
     reasoning = build_reasoning(flist, agg, settings["bullish_threshold"],
-                                settings["bearish_threshold"])
+                                settings["bearish_threshold"],
+                                settings["strong_bullish_threshold"],
+                                settings["strong_bearish_threshold"])
 
     meas = measure_session(es_bars, session_date,
                            measure_start_hhmm=settings["measure_start_ny"],
                            neutral_band_pct=settings["neutral_band_pct"],
+                           strong_band_pct=settings["strong_band_pct"],
                            contract_note=contract_note)
-    correct = prediction_outcome(agg["bias"], meas["actual"])
+    correct, exact = prediction_outcome(agg["bias"], meas["actual"])
 
     limitations = list(meas["limitations"])
     limitations.append("Consensus des économistes historiquement indisponible sur les "
@@ -402,7 +408,7 @@ def analyze_session(session_date: date, settings: dict,
         "measurement": {k: meas[k] for k in
                         ("open_price", "open_at", "close_price", "close_at",
                          "change_points", "change_pct", "actual", "measurable",
-                         "contract_note")} | {"correct": correct},
+                         "contract_note")} | {"correct": correct, "exact": exact},
         "intraday": intraday,
         "data_quality": quality,
         "limitations": limitations,

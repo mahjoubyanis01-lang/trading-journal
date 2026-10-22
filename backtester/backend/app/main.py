@@ -1,11 +1,17 @@
-"""API FastAPI du S&P 500 Macro Bias Backtester (application locale)."""
+"""API FastAPI du S&P 500 Macro Bias Backtester (application locale).
+
+Sert aussi l'interface compilée (frontend/dist) : en double-cliquant sur le
+lanceur Windows, un seul processus Python suffit (pas besoin de Node.js),
+l'application s'ouvre sur http://127.0.0.1:8000.
+"""
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
 from . import db, export, stats
@@ -155,7 +161,8 @@ def results_summary():
 
 @app.get("/api/results/sessions")
 def results_sessions(predicted: str | None = None, actual: str | None = None,
-                     correct: bool | None = None, min_confidence: int | None = None,
+                     correct: bool | None = None, exact: bool | None = None,
+                     min_confidence: int | None = None,
                      min_quality: int | None = None, date_from: str | None = None,
                      date_to: str | None = None):
     results, settings = _results()
@@ -169,6 +176,8 @@ def results_sessions(predicted: str | None = None, actual: str | None = None,
             continue
         if correct is not None and m["correct"] != correct:
             continue
+        if exact is not None and m.get("exact") != exact:
+            continue
         if min_confidence is not None and r["confidence"] < min_confidence:
             continue
         if min_quality is not None and r["data_quality"] < min_quality:
@@ -181,7 +190,8 @@ def results_sessions(predicted: str | None = None, actual: str | None = None,
             "date": r["date"], "predicted": r["predicted"], "score": r["score"],
             "confidence": r["confidence"], "actual": m["actual"],
             "change_points": m["change_points"], "change_pct": m["change_pct"],
-            "correct": m["correct"], "open_price": m["open_price"],
+            "correct": m["correct"], "exact": m.get("exact"),
+            "open_price": m["open_price"],
             "close_price": m["close_price"], "data_quality": r["data_quality"],
             "insufficient": r["insufficient"],
             "bullish_summary": " · ".join(r["bullish_factors"][:2]) or "—",
@@ -203,7 +213,8 @@ def result_detail(session_date: str):
 def results_stats():
     results, settings = _results()
     results = results[-settings["lookback_sessions"]:]
-    return stats.compute_stats(results, settings["neutral_band_pct"])
+    return stats.compute_stats(results, settings["neutral_band_pct"],
+                               settings["strong_band_pct"])
 
 
 @app.get("/api/errors")
@@ -229,3 +240,19 @@ def export_json():
     return Response(
         export.to_json(results), media_type="application/json",
         headers={"Content-Disposition": "attachment; filename=backtest_analyses.json"})
+
+
+# --------------------------------------------------- frontend compilé (SPA)
+# Déclaré en dernier : les routes /api ci-dessus restent prioritaires.
+
+DIST_DIR = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+
+if DIST_DIR.is_dir():
+    @app.get("/{path:path}", include_in_schema=False)
+    def spa(path: str):
+        if path.startswith("api/"):
+            raise HTTPException(404)
+        candidate = (DIST_DIR / path).resolve()
+        if path and candidate.is_file() and candidate.is_relative_to(DIST_DIR):
+            return FileResponse(candidate)
+        return FileResponse(DIST_DIR / "index.html")

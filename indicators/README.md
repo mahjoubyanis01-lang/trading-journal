@@ -86,7 +86,12 @@ notée sur 5 critères de qualité (1 point chacun, désactivables un à un) :
    aucun achat sans structure 15m haussière, aucune vente sans structure
    baissière, quel que soit le score. La touche reste en attente : si la
    tendance bascule dans la fenêtre de validité, le signal peut encore se
-   déclencher ;
+   déclencher. Deux définitions de la tendance au choix — **Souple** (le
+   dernier P4 suffit à la faire basculer) ou **Strict** (par défaut : un P4
+   isolé ne change rien, il faut qu'un P3 de continuation confirme le
+   nouveau sens — un simple rebond dans une baisse reste « baissier »).
+   Un **fond coloré** discret (vert/rouge, désactivable) montre en continu
+   la tendance que le filtre utilise ;
 3. **Corps de la bougie de confirmation** ≥ 0,5 × ATR(14) — élimine les
    confirmations sur doji ;
 4. **Clôture au-delà de la zone** touchée (le niveau est repris, pas juste

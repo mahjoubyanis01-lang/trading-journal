@@ -84,6 +84,8 @@ useFMom     = input.bool(true, "Momentum Squeeze (LazyBear) dans le sens", group
 momLen      = input.int(20,    "Longueur du momentum", group = grpFilt, minval = 5)
 useFTrend   = input.bool(true, "Tendance 15m (P1-P4) alignée", group = grpFilt)
 trendHard   = input.bool(true, "Tendance 15m OBLIGATOIRE", group = grpFilt, tooltip = "Activé : aucun signal d'achat sans structure 15m haussière, aucun signal de vente sans structure 15m baissière — quel que soit le score. La touche reste en attente : si la tendance bascule dans la fenêtre de validité, le signal peut encore se déclencher. Désactivé : la tendance n'est qu'un point de score.")
+trendMode   = input.string("Strict (P4 confirmé par un P3)", "Définition de la tendance 15m", options = ["Souple (le dernier P4 suffit)", "Strict (P4 confirmé par un P3)"], group = grpFilt, tooltip = "Souple : la tendance bascule dès qu'un P4 inverse la structure (réactif mais sensible aux rebonds). Strict : un P4 isolé ne change pas la tendance, il faut qu'un P3 (cassure de continuation) confirme le nouveau sens — un simple rebond dans une baisse reste 'baissier'.")
+showTrendBg = input.bool(true,  "Fond coloré selon la tendance 15m", group = grpFilt, tooltip = "Teinte discrète du graphique : verte quand le filtre considère la structure 15m haussière, rouge quand il la considère baissière. Permet de vérifier d'un coup d'œil ce que le filtre autorise.")
 useFBody    = input.bool(true, "Corps de la bougie de confirmation fort", group = grpFilt, inline = "fb")
 bodyMinAtr  = input.float(0.5, "x ATR(14)", group = grpFilt, inline = "fb", minval = 0.1, step = 0.1)
 useFClose   = input.bool(true, "Clôture au-delà de la zone touchée", group = grpFilt)
@@ -211,6 +213,16 @@ new15mBar = timeframe.change(tfFVG)
 // P3 -> continuation, P4 -> retournement, sinon selon la tendance 15m.
 bullType = p3up ? "C" : p4up ? "R" : stTrend == 1  ? "C" : "R"
 bearType = p3dn ? "C" : p4dn ? "R" : stTrend == -1 ? "C" : "R"
+
+// Tendance 15m utilisée par le FILTRE des signaux.
+// Mode strict : seul un P3 (cassure de continuation) valide la tendance dans
+// son sens ; un P4 isolé (simple retournement de cassure) ne la change pas.
+var int confTrend = 0
+if p3up
+    confTrend := 1
+if p3dn
+    confTrend := -1
+effTrend = trendMode == "Souple (le dernier P4 suffit)" ? stTrend : confTrend == 0 ? stTrend : confTrend
 f_pass(string typ) =>
     fvgFilter == "Tous" or (fvgFilter == "Continuation" and typ == "C") or (fvgFilter == "Retournement" and typ == "R")
 
@@ -337,7 +349,7 @@ f_score(bool isBuy, float zTop, float zBot) =>
         why += (ok1 ? "✓" : "✗") + " Momentum dans le sens\n"
     if useFTrend
         mx += 1
-        bool ok2 = isBuy ? stTrend == 1 : stTrend == -1
+        bool ok2 = isBuy ? effTrend == 1 : effTrend == -1
         sc += ok2 ? 1 : 0
         why += (ok2 ? "✓" : "✗") + " Tendance 15m alignée\n"
     if useFBody
@@ -387,7 +399,7 @@ if showSignals and not na(pendBullBar) and bar_index - pendBullBar <= sigWindow
     bool sweepUp = useSweep and low < pendBullBot and close > pendBullBot
     bool confUp  = needFlip ? flipUp : close > open
     // Tendance 15m obligatoire : pas d'achat sans structure haussière.
-    if (sweepUp or confUp) and (not trendHard or stTrend == 1)
+    if (sweepUp or confUp) and (not trendHard or effTrend == 1)
         [sc, mx, why] = f_score(true, pendBullTop, pendBullBot)
         // Score insuffisant : la touche reste en attente, une meilleure
         // confirmation peut encore arriver dans la fenêtre.
@@ -403,7 +415,7 @@ if showSignals and not na(pendBearBar) and bar_index - pendBearBar <= sigWindow
     bool sweepDn = useSweep and high > pendBearTop and close < pendBearTop
     bool confDn  = needFlip ? flipDown : close < open
     // Tendance 15m obligatoire : pas de vente sans structure baissière.
-    if (sweepDn or confDn) and (not trendHard or stTrend == -1)
+    if (sweepDn or confDn) and (not trendHard or effTrend == -1)
         [sc, mx, why] = f_score(false, pendBearTop, pendBearBot)
         if not useScore or sc >= math.min(minScore, mx)
             sellSig   := true
@@ -421,6 +433,9 @@ if sellSig
     color sCol = gradeColor and sellMax > 0 ? color.from_gradient(sellScore, 0, sellMax, #ef9a9a, #b71c1c) : bearSigCol
     string sTip = (sellTxt == "PL" ? "Prise de liquidité sur FVG baissier" : sellTxt == "C" ? "Retournement sur FVG baissier de continuation" : "Retournement sur FVG baissier de retournement") + "\nScore " + str.tostring(sellScore) + "/" + str.tostring(sellMax) + "\n" + sellWhy
     label.new(bar_index, high, "▼ " + sellTxt + (useScore ? " " + str.tostring(sellScore) + "/" + str.tostring(sellMax) : ""), style = label.style_label_down, color = sCol, textcolor = color.white, size = size.small, tooltip = sTip)
+
+// ── Fond coloré : tendance 15m vue par le filtre ───────────────────────────
+bgcolor(showTrendBg ? (effTrend == 1 ? color.new(color.teal, 92) : effTrend == -1 ? color.new(color.red, 92) : na) : na, title = "Tendance 15m (filtre)")
 
 // ── Alertes ────────────────────────────────────────────────────────────────
 alertcondition(buySig,  "Signal ACHAT sur FVG",  "Signal haussier au toucher d'un FVG 15m (confirmation ou prise de liquidité)")

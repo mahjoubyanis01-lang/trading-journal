@@ -1,0 +1,20 @@
+# secrets et données locales
+backend/.env
+backend/data/
+*.env
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# node
+frontend/node_modules/
+frontend/dist/
+
+# divers
+nohup.out
+*.log

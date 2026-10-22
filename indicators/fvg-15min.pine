@@ -10,13 +10,18 @@
 //   - Dès que le prix vient toucher la zone (mitigation), la box est soit
 //     conservée en grisé et figée (option par défaut), soit supprimée du
 //     graphique.
+//   - Chaque FVG est classé CONTINUATION (C) ou RETOURNEMENT (R) grâce à un
+//     moteur de structure P1->P4 calculé sur les bougies 15m clôturées :
+//       * P3 (cassure dans le sens de la tendance)  -> continuation
+//       * P4 (cassure qui inverse la tendance)      -> retournement
+//       * sinon : FVG dans le sens de la tendance 15m = C, à contre-sens = R.
 //
 // Remarque : l'indicateur fonctionne sur n'importe quelle unité de temps du
 // graphique inférieure ou égale à 15 minutes. Sur une unité de temps
 // supérieure, certains FVG 15m intrabars ne peuvent pas être détectés
 // (limitation de request.security).
 
-indicator("FVG 15min (mitigation au toucher)", shorttitle = "FVG 15m", overlay = true, max_boxes_count = 500)
+indicator("FVG 15min (mitigation au toucher)", shorttitle = "FVG 15m", overlay = true, max_boxes_count = 500, max_labels_count = 500)
 
 // ── Paramètres ──────────────────────────────────────────────────────────────
 grpDetect   = "Détection"
@@ -37,6 +42,13 @@ mitigColor  = input.color(color.new(color.gray, 85), "Fond zone mitigée",   gro
 mitigBorder = input.color(color.new(color.gray, 60), "Bordure zone mitigée", group = grpMitig)
 maxMitig    = input.int(30,          "Nombre max de zones mitigées",        group = grpMitig, minval = 1, maxval = 200)
 
+grpStruct   = "Structure (continuation / retournement)"
+fvgFilter   = input.string("Tous", "FVG affichés", options = ["Tous", "Continuation", "Retournement"], group = grpStruct, tooltip = "Continuation = FVG créé par un P3 15m ou dans le sens de la tendance 15m. Retournement = FVG créé par un P4 15m ou à contre-tendance.")
+showTag     = input.bool(true,  "Étiquette C / R dans la box",           group = grpStruct)
+showStruct  = input.bool(false, "Labels de structure 15m (P3 / P4)",     group = grpStruct)
+p3Color     = input.color(color.red,  "Couleur P3 (continuation)",       group = grpStruct)
+p4Color     = input.color(color.lime, "Couleur P4 (retournement)",       group = grpStruct)
+
 // ── Stockage des FVG actifs ────────────────────────────────────────────────
 // Chaque FVG actif = une box + son sens (true = haussier) + sa ligne médiane.
 var array<box>  fvgBoxes  = array.new<box>()
@@ -46,14 +58,109 @@ var array<line> fvgMid    = array.new<line>()
 // Zones déjà touchées, conservées en grisé (si l'option est activée).
 var array<box>  mitigBoxes = array.new<box>()
 
+// ── Moteur de structure P1-P4 (repris du LIQUIDITY DETECTOR) ──────────────
+// Pas de dessin : retourne la tendance et les événements P3 (continuation,
+// cassure dans le sens de la tendance) / P4 (retournement, cassure qui
+// inverse la tendance), calculés sur les bougies 15m clôturées.
+f_structure(float o, float h, float l, float c, bool do_step) =>
+    var int   tr  = 1
+    var int   stt = 0
+    var float p1e = na
+    var float p1o = na
+    var float p2e = na
+    var float pp2 = na
+    var float pp1 = na
+    var bool  hp1 = false
+    bool e_p3up = false
+    bool e_p3dn = false
+    bool e_p4up = false
+    bool e_p4dn = false
+    if do_step
+        if na(p1e)
+            tr  := c >= o ? 1 : -1
+            p1e := c >= o ? h : l
+            p1o := c >= o ? l : h
+            pp2 := c >= o ? h : l
+        if tr == 1
+            if stt == 0 and h > p1e
+                p1e := h
+                p1o := l
+                hp1 := true
+            if stt == 0 and h <= p1e and l < p1o
+                p2e := l
+                stt := 1
+            if stt == 1 and l < p2e
+                p2e := l
+            if stt == 1 and c > p1e
+                e_p3up := true
+                pp2 := p2e
+                pp1 := na
+                hp1 := false
+                p1e := h
+                p1o := l
+                p2e := na
+                stt := 0
+            bool tdn = (not na(pp2) and c < pp2) or (hp1 and not na(pp1) and c < pp1)
+            if stt == 1 and tdn and not (c > p1e)
+                e_p4dn := true
+                pp2 := na
+                pp1 := p1e
+                hp1 := true
+                tr  := -1
+                stt := 0
+                p1e := l
+                p1o := h
+                p2e := na
+        if tr == -1
+            if stt == 0 and l < p1e
+                p1e := l
+                p1o := h
+                hp1 := true
+            if stt == 0 and l >= p1e and h > p1o
+                p2e := h
+                stt := 1
+            if stt == 1 and h > p2e
+                p2e := h
+            if stt == 1 and c < p1e
+                e_p3dn := true
+                pp2 := p2e
+                pp1 := na
+                hp1 := false
+                p1e := l
+                p1o := h
+                p2e := na
+                stt := 0
+            bool tup = (not na(pp2) and c > pp2) or (hp1 and not na(pp1) and c > pp1)
+            if stt == 1 and tup and not (c < p1e)
+                e_p4up := true
+                pp2 := na
+                pp1 := p1e
+                hp1 := true
+                tr  := 1
+                stt := 0
+                p1e := h
+                p1o := l
+                p2e := na
+    [tr, e_p3up, e_p3dn, e_p4up, e_p4dn]
+
 // ── Données 15 minutes ─────────────────────────────────────────────────────
 // À l'ouverture d'une nouvelle bougie 15m, la bougie [1] vient de clôturer.
 // Le pattern FVG complet utilise donc les bougies [1] (C), [2] (B) et [3] (A).
-[h1, l1, h3, l3, t1] = request.security(syminfo.tickerid, tfFVG,
-     [high[1], low[1], high[3], low[3], time[1]],
+[h1, l1, h3, l3, t1, o1, c1] = request.security(syminfo.tickerid, tfFVG,
+     [high[1], low[1], high[3], low[3], time[1], open[1], close[1]],
      lookahead = barmerge.lookahead_off)
 
 new15mBar = timeframe.change(tfFVG)
+
+// Structure 15m mise à jour à chaque bougie 15m clôturée.
+[stTrend, p3up, p3dn, p4up, p4dn] = f_structure(o1, h1, l1, c1, new15mBar and not na(c1))
+
+// Classement du FVG qui vient de se former (bougie C = la cassure) :
+// P3 -> continuation, P4 -> retournement, sinon selon la tendance 15m.
+bullType = p3up ? "C" : p4up ? "R" : stTrend == 1  ? "C" : "R"
+bearType = p3dn ? "C" : p4dn ? "R" : stTrend == -1 ? "C" : "R"
+f_pass(string typ) =>
+    fvgFilter == "Tous" or (fvgFilter == "Continuation" and typ == "C") or (fvgFilter == "Retournement" and typ == "R")
 
 // FVG haussier : le low de C est au-dessus du high de A → gap [h3 ; l1]
 bullFVG = new15mBar and l1 > h3
@@ -66,13 +173,18 @@ gapBottom = bullFVG ? h3 : h1
 gapSizeOk = (gapTop - gapBottom) / close * 100 >= minSizePct
 
 // ── Création des boxes ─────────────────────────────────────────────────────
-createFVG(bool isBull, float top, float bottom, int startTime) =>
+createFVG(bool isBull, float top, float bottom, int startTime, string tag) =>
     b = box.new(startTime, top, time, bottom,
          xloc         = xloc.bar_time,
          extend       = extend.right,
          bgcolor      = isBull ? bullColor  : bearColor,
          border_color = isBull ? bullBorder : bearBorder,
-         border_width = 1)
+         border_width = 1,
+         text         = showTag ? tag : "",
+         text_color   = isBull ? bullBorder : bearBorder,
+         text_size    = size.tiny,
+         text_halign  = text.align_right,
+         text_valign  = isBull ? text.align_top : text.align_bottom)
     m = showMidline ?
          line.new(startTime, (top + bottom) / 2, time, (top + bottom) / 2,
              xloc   = xloc.bar_time,
@@ -84,10 +196,20 @@ createFVG(bool isBull, float top, float bottom, int startTime) =>
     array.push(fvgMid,    m)
 
 if barstate.isconfirmed or barstate.ishistory
-    if bullFVG and gapSizeOk
-        createFVG(true, l1, h3, t1)
-    if bearFVG and gapSizeOk
-        createFVG(false, l3, h1, t1)
+    if bullFVG and gapSizeOk and f_pass(bullType)
+        createFVG(true, l1, h3, t1, bullType)
+    if bearFVG and gapSizeOk and f_pass(bearType)
+        createFVG(false, l3, h1, t1, bearType)
+    // Labels de structure 15m (optionnels)
+    if showStruct
+        if p3up
+            label.new(bar_index, low,  "P3+", style = label.style_label_up,   color = p3Color, textcolor = color.white, size = size.tiny)
+        if p3dn
+            label.new(bar_index, high, "P3-", style = label.style_label_down, color = p3Color, textcolor = color.white, size = size.tiny)
+        if p4up
+            label.new(bar_index, low,  "P4^", style = label.style_label_up,   color = p4Color, textcolor = color.white, size = size.tiny)
+        if p4dn
+            label.new(bar_index, high, "P4v", style = label.style_label_down, color = p4Color, textcolor = color.white, size = size.tiny)
 
 // Limite du nombre de FVG affichés : on supprime les plus anciens.
 while array.size(fvgBoxes) > maxActive
@@ -124,3 +246,9 @@ if array.size(fvgBoxes) > 0
 // Limite du nombre de zones mitigées conservées : les plus anciennes partent.
 while array.size(mitigBoxes) > maxMitig
     box.delete(array.shift(mitigBoxes))
+
+// ── Alertes ────────────────────────────────────────────────────────────────
+alertcondition(bullFVG and gapSizeOk and bullType == "C", "FVG haussier — continuation", "Nouveau FVG 15m haussier de continuation (P3)")
+alertcondition(bullFVG and gapSizeOk and bullType == "R", "FVG haussier — retournement", "Nouveau FVG 15m haussier de retournement (P4)")
+alertcondition(bearFVG and gapSizeOk and bearType == "C", "FVG baissier — continuation", "Nouveau FVG 15m baissier de continuation (P3)")
+alertcondition(bearFVG and gapSizeOk and bearType == "R", "FVG baissier — retournement", "Nouveau FVG 15m baissier de retournement (P4)")

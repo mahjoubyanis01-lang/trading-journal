@@ -31,6 +31,22 @@ l'unité de temps **15 minutes**, quel que soit le timeframe du graphique
 | Garder les zones touchées en grisé | activé | Conserve les zones mitigées en gris au lieu de les supprimer |
 | Couleurs zone mitigée | gris | Fond et bordure des zones touchées |
 | Nombre max de zones mitigées | 30 | Les plus anciennes sont supprimées au-delà |
+| FVG affichés | Tous | Filtre : tous / continuation seulement / retournement seulement |
+| Étiquette C / R dans la box | activé | Affiche « C » ou « R » dans chaque zone |
+| Labels de structure 15m (P3 / P4) | désactivé | Affiche les événements de structure sur le graphique |
+
+### Continuation / Retournement
+
+Chaque FVG est classé grâce à un moteur de structure **P1→P4** (le même que
+celui du LIQUIDITY DETECTOR) calculé sur les bougies 15m clôturées :
+
+- **C — Continuation** : le FVG est créé par un **P3** (cassure dans le sens
+  de la tendance 15m), ou se forme dans le sens de la tendance en cours.
+- **R — Retournement** : le FVG est créé par un **P4** (cassure qui inverse
+  la tendance 15m), ou se forme à contre-tendance.
+
+Quatre alertes sont disponibles (menu « Alertes » de TradingView) : FVG
+haussier/baissier × continuation/retournement.
 
 ### Installation
 

@@ -1,9 +1,32 @@
-# Indicateur TradingView — Biais Macro S&P 500 (5 niveaux)
+# Indicateur TradingView — Biais Macro S&P 500 (5 niveaux, v2)
 
 Portage Pine Script (v5) du moteur de l'application : verdict quotidien
 **Hausse affirmée / Hausse modérée / Neutre / Baisse modérée / Baisse
 affirmée**, figé à l'heure limite (15 h 29, heure de Paris, configurable),
 puis confronté au mouvement réel du ES entre 9 h 30 New York et minuit Paris.
+
+## Ce qui rend la v2 plus précise
+
+Mécanismes documentés — aucun paramètre ajusté sur l'historique :
+
+1. **Échelles adaptatives à la volatilité** : les mouvements préouverture de
+   l'ES et du NQ sont normalisés par leur ATR(14) quotidien — un −0,4 % pèse
+   lourd en régime calme, peu en régime agité.
+2. **Pondération par cohérence** : signaux discordants ⇒ score contracté
+   vers zéro (×0,7 à ×1,0 selon l'accord) — moins de verdicts tranchés à tort.
+3. **Confiance explicite** (couverture des données × cohérence) : un verdict
+   AFFIRMÉ exige une confiance minimale (55 par défaut), sinon il est
+   rétrogradé en modéré.
+4. **Garde-fou de régime** : VIX ≥ niveau de stress (28) ou structure par
+   terme inversée (VIX > VIX3M) ⇒ seuils « affirmé » relevés (×1,25) et fond
+   rouge discret — les signaux sont moins fiables dans la tempête.
+5. **5 facteurs de risque supplémentaires** : structure par terme VIX/VIX3M,
+   variation veille du 2 ans US (anticipations Fed), poussée de l'or
+   (refuge), choc pétrolier haussier, tendance de fond (dérive 5 jours +
+   position vs moyenne 50 jours).
+
+Le tableau affiche en plus : confiance, régime, statistiques des verdicts
+affirmés seuls, et variation moyenne observée après chaque type de verdict.
 
 ## Installation (2 minutes)
 
@@ -28,11 +51,12 @@ puis confronté au mouvement réel du ES entre 9 h 30 New York et minuit Paris.
 
 ## Facteurs portés (et non portés)
 
-Portés — mêmes échelles et poids par défaut que l'application :
-ES préouverture (25), NQ (10), Europe/DAX (10), Asie/Nikkei (5),
-VIX vs moyenne 20 séances (10), variation veille du 10 ans US (10),
-variation veille du dollar (5). Le score est renormalisé sur les facteurs
-disponibles, comme dans l'application.
+Portés (12 facteurs) : ES préouverture (22, adaptatif ATR), NQ (9,
+adaptatif ATR), Europe/DAX (9), Asie/Nikkei (5), VIX vs moyenne 20 séances
+(8), structure par terme VIX/VIX3M (7), 10 ans US (8), 2 ans US (5),
+dollar (5), or-refuge (4), choc pétrolier (4), tendance de fond (6).
+Le score est renormalisé sur les facteurs disponibles, comme dans
+l'application.
 
 **Non portables dans Pine** (pas d'accès API externe) : actualités,
 géopolitique, publications macro point-in-time, résultats d'entreprises.

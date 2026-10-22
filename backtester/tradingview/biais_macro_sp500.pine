@@ -1,66 +1,88 @@
 //@version=5
 // ============================================================================
-// Biais Macro S&P 500 — verdict en 5 niveaux (portage TradingView)
+// Biais Macro S&P 500 — verdict en 5 niveaux (v2 « intelligente »)
 //
-// Portage de l'application "S&P 500 Macro Bias Backtester" :
-// à 15h29 (heure de Paris, configurable), l'indicateur fige un verdict —
+// Verdict quotidien figé à l'heure limite (15h29 Paris par défaut) :
 // HAUSSE AFFIRMÉE / HAUSSE MODÉRÉE / NEUTRE / BAISSE MODÉRÉE / BAISSE
-// AFFIRMÉE — à partir des facteurs de MARCHÉ disponibles à cet instant,
-// puis mesure le mouvement réel entre 9h30 New York et minuit Paris et
-// tient les statistiques (direction correcte / classe exacte).
+// AFFIRMÉE, puis mesure réelle 9h30 New York -> minuit Paris et statistiques.
+// À utiliser sur CME_MINI:ES1! en 30 min ou moins.
 //
-// À utiliser sur CME_MINI:ES1! (ou ES continu), unité 30 min ou moins.
+// CE QUI REND CETTE VERSION PLUS PRÉCISE (mécanismes documentés, pas de
+// sur-ajustement sur l'historique) :
+// 1. Échelles ADAPTATIVES à la volatilité : les mouvements préouverture de
+//    l'ES et du NQ sont normalisés par leur ATR(14) quotidien — un -0,4 %
+//    pèse lourd en régime calme, peu en régime agité.
+// 2. Pondération par COHÉRENCE : quand les facteurs se contredisent, le
+//    score est contracté vers zéro (×0,7 à ×1,0 selon l'accord) — moins de
+//    verdicts tranchés sur des signaux discordants.
+// 3. CONFIANCE explicite (couverture des données × cohérence) : un verdict
+//    AFFIRMÉ exige une confiance minimale, sinon il est rétrogradé en modéré.
+// 4. Garde-fou de RÉGIME : VIX au-dessus du niveau de stress ou structure
+//    par terme du VIX inversée (VIX > VIX3M) => les seuils « affirmé »
+//    sont relevés (signaux moins fiables dans la tempête).
+// 5. Facteurs de risque supplémentaires : structure par terme du VIX,
+//    variation veille du 2 ans US (anticipations Fed), poussée de l'or
+//    (demande de refuge), choc pétrolier haussier, et tendance de fond
+//    (dérive 5 jours + position vs moyenne 50 jours).
 //
-// LIMITES ASSUMÉES (différences avec l'application complète) :
-// - Pine ne peut pas interroger d'API externes : les facteurs actualités,
-//   géopolitique, publications macro et résultats d'entreprises de
-//   l'application ne sont PAS reproductibles ici. Le score est renormalisé
-//   sur les facteurs disponibles, comme dans l'application.
-// - Les clôtures quotidiennes de référence (ES, NQ) sont les règlements
-//   quotidiens TradingView (17h00 ET), pas la clôture cash de 16h00.
-// - Le facteur Europe utilise l'ouverture quotidienne de l'indice via
-//   lookahead : valide au moment du verdict (l'Europe est ouverte depuis
-//   des heures), mais la courbe de score tracée pendant la nuit peut
-//   utiliser cette ouverture par anticipation. Le VERDICT, lui, est figé
-//   à l'heure limite uniquement.
-// - L'historique intraday dépend de votre abonnement TradingView.
-// Résultats exploratoires : un taux de réussite sur quelques dizaines de
-// séances n'est pas une preuve statistique ni de rentabilité.
+// LIMITES ASSUMÉES : Pine n'accède à aucune API externe — les facteurs
+// actualités / géopolitique / publications macro / résultats d'entreprises
+// de l'application complète ne sont PAS reproductibles ici. Clôtures de
+// référence = règlement quotidien TradingView (17h00 ET). Le facteur Europe
+// est exact au moment du verdict mais la courbe nocturne peut anticiper
+// l'ouverture européenne. Statistiques exploratoires : ni preuve
+// statistique, ni preuve de rentabilité.
 // ============================================================================
-indicator("Biais Macro S&P 500 — 5 niveaux", shorttitle="Biais ES 5N",
+indicator("Biais Macro S&P 500 — 5 niveaux (v2)", shorttitle="Biais ES 5N v2",
      overlay=false, max_labels_count=500)
 
 // ---------------------------------------------------------------- Réglages
 grpH = "Horaires"
-cutH  = input.int(15, "Heure limite — heure (Paris)",  minval=0, maxval=23, group=grpH)
-cutM  = input.int(29, "Heure limite — minute (Paris)", minval=0, maxval=59, group=grpH)
+cutH = input.int(15, "Heure limite — heure (Paris)",  minval=0, maxval=23, group=grpH)
+cutM = input.int(29, "Heure limite — minute (Paris)", minval=0, maxval=59, group=grpH)
 
 grpS = "Seuils du verdict (score -100..+100)"
-thBull   = input.float(25.0,  "Seuil hausse modérée (≥)",  group=grpS)
-thSBull  = input.float(55.0,  "Seuil hausse affirmée (≥)", group=grpS)
-thBear   = input.float(-25.0, "Seuil baisse modérée (≤)",  group=grpS)
-thSBear  = input.float(-55.0, "Seuil baisse affirmée (≤)", group=grpS)
+thBull  = input.float(25.0,  "Seuil hausse modérée (≥)",  group=grpS)
+thSBull = input.float(55.0,  "Seuil hausse affirmée (≥)", group=grpS)
+thBear  = input.float(-25.0, "Seuil baisse modérée (≤)",  group=grpS)
+thSBear = input.float(-55.0, "Seuil baisse affirmée (≤)", group=grpS)
+
+grpI = "Intelligence"
+cohMin     = input.float(0.70, "Contraction mini par incohérence (0.5-1)", minval=0.5, maxval=1.0, step=0.05, group=grpI,
+     tooltip="Score multiplié par [mini + (1-mini)×accord]. 1 = désactivé.")
+minConfAff = input.int(55, "Confiance mini pour un verdict AFFIRMÉ", minval=0, maxval=100, group=grpI)
+vixStress  = input.float(28.0, "Niveau de stress VIX", minval=10, group=grpI)
+stressMult = input.float(1.25, "Relèvement des seuils affirmés en stress (×)", minval=1.0, maxval=2.0, step=0.05, group=grpI)
 
 grpB = "Classement du mouvement réel (%)"
-bandNeutral = input.float(0.10, "Bande neutre (± %)",          minval=0, step=0.05, group=grpB)
+bandNeutral = input.float(0.10, "Bande neutre (± %)",             minval=0, step=0.05, group=grpB)
 bandStrong  = input.float(0.50, "Bande direction affirmée (± %)", minval=0, step=0.05, group=grpB)
 
 grpW = "Poids des facteurs"
-wEs   = input.float(25, "ES avant ouverture",        minval=0, group=grpW)
-wNq   = input.float(10, "Nasdaq-100 (NQ)",           minval=0, group=grpW)
-wEu   = input.float(10, "Europe (séance en cours)",  minval=0, group=grpW)
-wAs   = input.float(5,  "Asie (clôture Nikkei)",     minval=0, group=grpW)
-wVx   = input.float(10, "VIX vs moyenne 20 séances", minval=0, group=grpW)
-wYl   = input.float(10, "US 10 ans (variation veille)", minval=0, group=grpW)
-wDx   = input.float(5,  "Dollar (variation veille)", minval=0, group=grpW)
+wEs = input.float(22, "ES avant ouverture (adaptatif ATR)", minval=0, group=grpW)
+wNq = input.float(9,  "Nasdaq-100 (adaptatif ATR)",         minval=0, group=grpW)
+wEu = input.float(9,  "Europe (séance en cours)",           minval=0, group=grpW)
+wAs = input.float(5,  "Asie (clôture Nikkei)",              minval=0, group=grpW)
+wVx = input.float(8,  "VIX vs moyenne 20 séances",          minval=0, group=grpW)
+wVt = input.float(7,  "Structure par terme VIX/VIX3M",      minval=0, group=grpW)
+wYl = input.float(8,  "US 10 ans (variation veille)",       minval=0, group=grpW)
+wY2 = input.float(5,  "US 2 ans (variation veille)",        minval=0, group=grpW)
+wDx = input.float(5,  "Dollar (variation veille)",          minval=0, group=grpW)
+wAu = input.float(4,  "Or (poussée refuge)",                minval=0, group=grpW)
+wOi = input.float(4,  "Pétrole (choc haussier)",            minval=0, group=grpW)
+wTr = input.float(6,  "Tendance de fond (5j + MM50)",       minval=0, group=grpW)
 
 grpSym = "Symboles"
-nqSym  = input.symbol("CME_MINI:NQ1!", "Nasdaq-100 futures", group=grpSym)
-euSym  = input.symbol("XETR:DAX",      "Indice Europe",      group=grpSym)
-asSym  = input.symbol("TVC:NI225",     "Indice Asie",        group=grpSym)
-vxSym  = input.symbol("TVC:VIX",       "VIX",                group=grpSym)
-ylSym  = input.symbol("TVC:US10Y",     "Rendement US 10 ans",group=grpSym)
-dxSym  = input.symbol("TVC:DXY",       "Dollar index",       group=grpSym)
+nqSym = input.symbol("CME_MINI:NQ1!", "Nasdaq-100 futures",  group=grpSym)
+euSym = input.symbol("XETR:DAX",      "Indice Europe",       group=grpSym)
+asSym = input.symbol("TVC:NI225",     "Indice Asie",         group=grpSym)
+vxSym = input.symbol("TVC:VIX",       "VIX",                 group=grpSym)
+vtSym = input.symbol("TVC:VIX3M",     "VIX 3 mois",          group=grpSym)
+ylSym = input.symbol("TVC:US10Y",     "Rendement US 10 ans", group=grpSym)
+y2Sym = input.symbol("TVC:US02Y",     "Rendement US 2 ans",  group=grpSym)
+dxSym = input.symbol("TVC:DXY",       "Dollar index",        group=grpSym)
+auSym = input.symbol("COMEX:GC1!",    "Or (futures)",        group=grpSym)
+oiSym = input.symbol("NYMEX:CL1!",    "Pétrole WTI (futures)", group=grpSym)
 
 tzP = "Europe/Paris"
 tzN = "America/New_York"
@@ -70,45 +92,101 @@ f_tanh(x) =>
     e = math.exp(2 * x)
     (e - 1) / (e + 1)
 
-// Clôture quotidienne précédente (règlement) du symbole affiché et du NQ.
+// Références de la veille (pattern non-repeignant : [1] + lookahead_on).
 esPrevClose = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_on)
-nqPrev      = request.security(nqSym, "D", close[1],            lookahead=barmerge.lookahead_on)
-nqNow       = request.security(nqSym, timeframe.period, close)
+esAtrPct    = request.security(syminfo.tickerid, "D", ta.atr(14)[1] / close[1] * 100, lookahead=barmerge.lookahead_on)
+esSma50     = request.security(syminfo.tickerid, "D", ta.sma(close, 50)[1], lookahead=barmerge.lookahead_on)
+esDrift5    = request.security(syminfo.tickerid, "D", (close[1] / close[6] - 1) * 100, lookahead=barmerge.lookahead_on)
 
-// Europe : variation du jour (prix courant vs ouverture quotidienne).
+nqPrev   = request.security(nqSym, "D", close[1], lookahead=barmerge.lookahead_on)
+nqAtrPct = request.security(nqSym, "D", ta.atr(14)[1] / close[1] * 100, lookahead=barmerge.lookahead_on)
+nqNow    = request.security(nqSym, timeframe.period, close)
+
 euOpen = request.security(euSym, "D", open, lookahead=barmerge.lookahead_on)
 euNow  = request.security(euSym, timeframe.period, close)
 
-// Asie : variation de la dernière séance TERMINÉE du Nikkei (sans lookahead :
-// la clôture du jour n'apparaît qu'une fois la bougie quotidienne finie).
+// Asie : dernière séance TERMINÉE (sans lookahead, la clôture du jour
+// n'apparaît qu'une fois la bougie quotidienne finie, ~8h15 Paris).
 asChg = request.security(asSym, "D", close / close[1] - 1)
 
-// VIX, taux, dollar : valeurs de la VEILLE uniquement (pattern [1] + lookahead).
 [vxPrev, vxSma20] = request.security(vxSym, "D", [close[1], ta.sma(close, 20)[1]], lookahead=barmerge.lookahead_on)
-ylChgBp = request.security(ylSym, "D", (close[1] - close[2]) * 100,       lookahead=barmerge.lookahead_on)
-dxChgPc = request.security(dxSym, "D", (close[1] / close[2] - 1) * 100,   lookahead=barmerge.lookahead_on)
+vtPrev  = request.security(vtSym, "D", close[1], lookahead=barmerge.lookahead_on)
+ylChgBp = request.security(ylSym, "D", (close[1] - close[2]) * 100, lookahead=barmerge.lookahead_on)
+y2ChgBp = request.security(y2Sym, "D", (close[1] - close[2]) * 100, lookahead=barmerge.lookahead_on)
+dxChgPc = request.security(dxSym, "D", (close[1] / close[2] - 1) * 100, lookahead=barmerge.lookahead_on)
+
+auPrev = request.security(auSym, "D", close[1], lookahead=barmerge.lookahead_on)
+auNow  = request.security(auSym, timeframe.period, close)
+oiPrev = request.security(oiSym, "D", close[1], lookahead=barmerge.lookahead_on)
+oiNow  = request.security(oiSym, timeframe.period, close)
 
 // ---------------------------------------------------------------- Facteurs
-// Chaque facteur est borné par son poids via tanh (mêmes échelles que l'app).
-fEs = na(esPrevClose) ? na : wEs * f_tanh((close / esPrevClose - 1) * 100 / 0.6)
-fNq = na(nqPrev) or na(nqNow) ? na : wNq * f_tanh((nqNow / nqPrev - 1) * 100 / 0.8)
+// Échelle adaptative : pleine saturation vers ~1 ATR quotidien, bornée.
+esScale = na(esAtrPct) ? 0.6 : math.max(0.30, math.min(1.50, esAtrPct * 0.55))
+nqScale = na(nqAtrPct) ? 0.8 : math.max(0.40, math.min(2.00, nqAtrPct * 0.55))
+
+esChgPc = na(esPrevClose) ? na : (close / esPrevClose - 1) * 100
+nqChgPc = na(nqPrev) or na(nqNow) ? na : (nqNow / nqPrev - 1) * 100
+auChgPc = na(auPrev) or na(auNow) ? na : (auNow / auPrev - 1) * 100
+oiChgPc = na(oiPrev) or na(oiNow) ? na : (oiNow / oiPrev - 1) * 100
+
+fEs = na(esChgPc) ? na : wEs * f_tanh(esChgPc / esScale)
+fNq = na(nqChgPc) ? na : wNq * f_tanh(nqChgPc / nqScale)
 fEu = na(euOpen) or na(euNow) ? na : wEu * f_tanh((euNow / euOpen - 1) * 100 / 0.9)
 fAs = na(asChg) ? na : wAs * f_tanh(asChg * 100 / 1.2)
 fVx = na(vxPrev) or na(vxSma20) or vxSma20 == 0 ? na :
      -wVx * f_tanh((vxPrev - vxSma20) / vxSma20 * 100 / 12.0)
+// Structure par terme : VIX > VIX3M (backwardation) = stress immédiat.
+vtRatio = na(vxPrev) or na(vtPrev) or vtPrev == 0 ? na : (vxPrev / vtPrev - 1) * 100
+fVt = na(vtRatio) ? na : -wVt * f_tanh(vtRatio / 5.0)
 fYl = na(ylChgBp) ? na : -wYl * f_tanh(ylChgBp / 9.0)
+fY2 = na(y2ChgBp) ? na : -wY2 * f_tanh(y2ChgBp / 8.0)
 fDx = na(dxChgPc) ? na : -wDx * f_tanh(dxChgPc / 0.7)
+// Or : seule une POUSSÉE pèse (demande de refuge) ; l'or en baisse est muet.
+fAu = na(auChgPc) ? na : -wAu * f_tanh(math.max(auChgPc, 0.0) / 1.2)
+// Pétrole : seul un CHOC haussier marqué pèse (inflation / géopolitique).
+fOi = na(oiChgPc) ? na : -wOi * f_tanh(math.max(oiChgPc - 2.0, 0.0) / 2.5)
+// Tendance de fond : dérive 5 jours + position vs MM50 (régime d'achat de repli).
+fTr = na(esDrift5) or na(esSma50) or na(esPrevClose) ? na :
+     wTr * (0.6 * f_tanh(esDrift5 / 3.0) + 0.4 * (esPrevClose >= esSma50 ? 0.5 : -0.5))
 
-raw    = nz(fEs) + nz(fNq) + nz(fEu) + nz(fAs) + nz(fVx) + nz(fYl) + nz(fDx)
+raw = nz(fEs) + nz(fNq) + nz(fEu) + nz(fAs) + nz(fVx) + nz(fVt) + nz(fYl) +
+     nz(fY2) + nz(fDx) + nz(fAu) + nz(fOi) + nz(fTr)
+absSum = math.abs(nz(fEs)) + math.abs(nz(fNq)) + math.abs(nz(fEu)) + math.abs(nz(fAs)) +
+     math.abs(nz(fVx)) + math.abs(nz(fVt)) + math.abs(nz(fYl)) + math.abs(nz(fY2)) +
+     math.abs(nz(fDx)) + math.abs(nz(fAu)) + math.abs(nz(fOi)) + math.abs(nz(fTr))
 availW = (na(fEs) ? 0 : wEs) + (na(fNq) ? 0 : wNq) + (na(fEu) ? 0 : wEu) +
-         (na(fAs) ? 0 : wAs) + (na(fVx) ? 0 : wVx) + (na(fYl) ? 0 : wYl) +
-         (na(fDx) ? 0 : wDx)
-score = availW > 0 ? math.max(-100.0, math.min(100.0, raw / availW * 100)) : na
+     (na(fAs) ? 0 : wAs) + (na(fVx) ? 0 : wVx) + (na(fVt) ? 0 : wVt) +
+     (na(fYl) ? 0 : wYl) + (na(fY2) ? 0 : wY2) + (na(fDx) ? 0 : wDx) +
+     (na(fAu) ? 0 : wAu) + (na(fOi) ? 0 : wOi) + (na(fTr) ? 0 : wTr)
+totalW = wEs + wNq + wEu + wAs + wVx + wVt + wYl + wY2 + wDx + wAu + wOi + wTr
+
+// Cohérence (0..1) et contraction du score en cas de signaux discordants.
+agreement = absSum > 0 ? math.abs(raw) / absSum : 0.0
+rawScore  = availW > 0 ? raw / availW * 100 : na
+score     = na(rawScore) ? na :
+     math.max(-100.0, math.min(100.0, rawScore * (cohMin + (1 - cohMin) * agreement)))
+
+// Confiance 0..100 : couverture des poids × cohérence (pas une probabilité).
+coverage   = totalW > 0 ? availW / totalW : 0.0
+confidence = math.round(100 * (0.5 * coverage + 0.5 * agreement))
+
+// Régime de stress : VIX haut ou structure par terme inversée.
+stress = (not na(vxPrev) and vxPrev >= vixStress) or (not na(vtRatio) and vtRatio > 2.0)
+thMult = stress ? stressMult : 1.0
 
 // ---------------------------------------------------------------- Verdicts
-verdictOf(s) =>
-    na(s) ? "n.d." : s >= thSBull ? "HAUSSE AFFIRMÉE" : s >= thBull ? "HAUSSE MODÉRÉE" :
-         s <= thSBear ? "BAISSE AFFIRMÉE" : s <= thBear ? "BAISSE MODÉRÉE" : "NEUTRE"
+verdictOf(s, conf, mult) =>
+    string v = "n.d."
+    if not na(s)
+        sb = thSBull * mult
+        sx = thSBear * mult
+        v := s >= sb ? "HAUSSE AFFIRMÉE" : s >= thBull ? "HAUSSE MODÉRÉE" :
+             s <= sx ? "BAISSE AFFIRMÉE" : s <= thBear ? "BAISSE MODÉRÉE" : "NEUTRE"
+        // Un verdict affirmé exige une confiance minimale.
+        if conf < minConfAff
+            v := v == "HAUSSE AFFIRMÉE" ? "HAUSSE MODÉRÉE" : v == "BAISSE AFFIRMÉE" ? "BAISSE MODÉRÉE" : v
+    v
 
 classifyMove(chg) =>
     chg >  bandStrong  ? "HAUSSE AFFIRMÉE" : chg >  bandNeutral ? "HAUSSE MODÉRÉE" :
@@ -137,28 +215,30 @@ tOpen = timestamp(tzN, yN, mN, dN, 9, 30)
 cutCross  = time >= tCut  and time[1] < tCut    // 1re bougie à/après la limite
 openCross = time >= tOpen and time[1] < tOpen   // 1re bougie à/après 9h30 NY
 
-// Ouverture 9h30 NY du jour courant (sert au cas décalage 5 h où la limite
-// tombe APRÈS l'ouverture américaine).
 var float dayOpenPx = na
 if openCross
     dayOpenPx := open
 
-// État de la séance en cours de test.
-var bool   pend        = false
-var float  pendScore   = na
-var string pendVerdict = na
-var float  pendOpen    = na
+var bool   pend         = false
+var float  pendScore    = na
+var string pendVerdict  = na
+var float  pendOpen     = na
 var int    pendMidnight = na
 
-// Compteurs.
 var int nSess = 0
 var int nDir = 0
 var int nExact = 0
+var int nAff = 0
+var int nAffDir = 0
+var int nBullV = 0
+var float sumChgBullV = 0.0
+var int nBearV = 0
+var float sumChgBearV = 0.0
 
 if cutCross and not pend
     pend         := true
     pendScore    := score[1]              // seule la dernière bougie TERMINÉE compte
-    pendVerdict  := verdictOf(score[1])
+    pendVerdict  := verdictOf(score[1], confidence[1], thMult[1])
     pendOpen     := time >= tOpen ? dayOpenPx : na   // déjà ouvert (semaines à 5 h)
     pendMidnight := timestamp(tzP, yP, mP, dP, 0, 0) + 86400000
 
@@ -172,9 +252,18 @@ if pend and not na(pendMidnight) and time >= pendMidnight
         realV = classifyMove(chg)
         okDir   = directionOf(pendVerdict) == directionOf(realV)
         okExact = pendVerdict == realV
+        isAff = pendVerdict == "HAUSSE AFFIRMÉE" or pendVerdict == "BAISSE AFFIRMÉE"
         nSess  += 1
         nDir   += okDir ? 1 : 0
         nExact += okExact ? 1 : 0
+        nAff    += isAff ? 1 : 0
+        nAffDir += isAff and okDir ? 1 : 0
+        if directionOf(pendVerdict) == 1
+            nBullV += 1
+            sumChgBullV += chg
+        if directionOf(pendVerdict) == -1
+            nBearV += 1
+            sumChgBearV += chg
         label.new(bar_index, score,
              text=pendVerdict + " → " + realV + (okDir ? " ✓" : " ✗") +
                   "\n" + (chg >= 0 ? "+" : "") + str.tostring(chg, "0.00") + " %",
@@ -184,47 +273,56 @@ if pend and not na(pendMidnight) and time >= pendMidnight
     pendOpen := na
 
 // ---------------------------------------------------------------- Tracés
-vNow = verdictOf(score)
+vNow = verdictOf(score, confidence, thMult)
 plot(score, "Score directionnel", color=colorOf(vNow), linewidth=2)
-hline(0,  "Zéro",            color=color.new(color.gray, 60))
+hline(0,  "Zéro", color=color.new(color.gray, 60))
 hline(thBull,  "Hausse modérée",  color=color.new(#8fd48f, 50), linestyle=hline.style_dotted)
 hline(thSBull, "Hausse affirmée", color=color.new(#0ca30c, 50), linestyle=hline.style_dotted)
 hline(thBear,  "Baisse modérée",  color=color.new(#f09999, 50), linestyle=hline.style_dotted)
 hline(thSBear, "Baisse affirmée", color=color.new(#c73535, 50), linestyle=hline.style_dotted)
 bgcolor(cutCross ? color.new(colorOf(pendVerdict), 82) : na)
+bgcolor(stress ? color.new(#c73535, 94) : na, title="Régime de stress")
 
 // ---------------------------------------------------------------- Tableau
-var table t = table.new(position.top_right, 2, 12, border_width=1)
+var table t = table.new(position.top_right, 2, 24, border_width=1)
 fmtF(f, w) => na(f) ? "n.d." : (f >= 0 ? "+" : "") + str.tostring(f, "0.0") + " / " + str.tostring(w, "#")
+fRow(row, lbl, f, w) =>
+    table.cell(t, 0, row, lbl, text_color=color.silver, text_size=size.small)
+    table.cell(t, 1, row, fmtF(f, w), text_color=color.white, text_size=size.small)
+sRow(row, lbl, val) =>
+    table.cell(t, 0, row, lbl, text_color=color.silver, text_size=size.small)
+    table.cell(t, 1, row, val, text_color=color.white, text_size=size.small)
 if barstate.islast
-    table.cell(t, 0, 0, "Biais Macro S&P 500", text_color=color.white, bgcolor=color.new(color.gray, 40))
-    table.cell(t, 1, 0, verdictOf(score), text_color=color.white, bgcolor=colorOf(verdictOf(score)))
-    table.cell(t, 0, 1, "Score", text_color=color.silver)
-    table.cell(t, 1, 1, na(score) ? "n.d." : (score >= 0 ? "+" : "") + str.tostring(score, "0.0"), text_color=color.white)
-    table.cell(t, 0, 2, "ES préouverture",  text_color=color.silver)
-    table.cell(t, 1, 2, fmtF(fEs, wEs), text_color=color.white)
-    table.cell(t, 0, 3, "NQ préouverture",  text_color=color.silver)
-    table.cell(t, 1, 3, fmtF(fNq, wNq), text_color=color.white)
-    table.cell(t, 0, 4, "Europe",           text_color=color.silver)
-    table.cell(t, 1, 4, fmtF(fEu, wEu), text_color=color.white)
-    table.cell(t, 0, 5, "Asie (Nikkei)",    text_color=color.silver)
-    table.cell(t, 1, 5, fmtF(fAs, wAs), text_color=color.white)
-    table.cell(t, 0, 6, "VIX",              text_color=color.silver)
-    table.cell(t, 1, 6, fmtF(fVx, wVx), text_color=color.white)
-    table.cell(t, 0, 7, "US 10 ans",        text_color=color.silver)
-    table.cell(t, 1, 7, fmtF(fYl, wYl), text_color=color.white)
-    table.cell(t, 0, 8, "Dollar",           text_color=color.silver)
-    table.cell(t, 1, 8, fmtF(fDx, wDx), text_color=color.white)
-    table.cell(t, 0, 9, "Séances testées",  text_color=color.silver)
-    table.cell(t, 1, 9, str.tostring(nSess), text_color=color.white)
-    table.cell(t, 0, 10, "Direction correcte", text_color=color.silver)
-    table.cell(t, 1, 10, nSess > 0 ? str.tostring(100.0 * nDir / nSess, "#.#") + " %" : "n.d.", text_color=color.white)
-    table.cell(t, 0, 11, "Classe exacte (5 niv.)", text_color=color.silver)
-    table.cell(t, 1, 11, nSess > 0 ? str.tostring(100.0 * nExact / nSess, "#.#") + " %" : "n.d.", text_color=color.white)
+    table.cell(t, 0, 0, "Biais Macro S&P 500 v2", text_color=color.white, bgcolor=color.new(color.gray, 40))
+    table.cell(t, 1, 0, vNow, text_color=color.white, bgcolor=colorOf(vNow))
+    sRow(1, "Score", na(score) ? "n.d." : (score >= 0 ? "+" : "") + str.tostring(score, "0.0"))
+    sRow(2, "Confiance", str.tostring(confidence) + " / 100")
+    sRow(3, "Régime", stress ? "STRESS (seuils relevés)" : "normal")
+    fRow(4,  "ES préouverture (ATR)", fEs, wEs)
+    fRow(5,  "NQ préouverture (ATR)", fNq, wNq)
+    fRow(6,  "Europe", fEu, wEu)
+    fRow(7,  "Asie (Nikkei)", fAs, wAs)
+    fRow(8,  "VIX vs moy. 20", fVx, wVx)
+    fRow(9,  "VIX / VIX3M", fVt, wVt)
+    fRow(10, "US 10 ans", fYl, wYl)
+    fRow(11, "US 2 ans", fY2, wY2)
+    fRow(12, "Dollar", fDx, wDx)
+    fRow(13, "Or (refuge)", fAu, wAu)
+    fRow(14, "Pétrole (choc)", fOi, wOi)
+    fRow(15, "Tendance 5j/MM50", fTr, wTr)
+    sRow(16, "Séances testées", str.tostring(nSess))
+    sRow(17, "Direction correcte", nSess > 0 ? str.tostring(100.0 * nDir / nSess, "#.#") + " %" : "n.d.")
+    sRow(18, "Classe exacte (5 niv.)", nSess > 0 ? str.tostring(100.0 * nExact / nSess, "#.#") + " %" : "n.d.")
+    sRow(19, "Verdicts affirmés", str.tostring(nAff) + (nAff > 0 ? " (" + str.tostring(100.0 * nAffDir / nAff, "#.#") + " % dir.)" : ""))
+    sRow(20, "Var. moy. après verdict haussier", nBullV > 0 ? (sumChgBullV / nBullV >= 0 ? "+" : "") + str.tostring(sumChgBullV / nBullV, "0.00") + " %" : "n.d.")
+    sRow(21, "Var. moy. après verdict baissier", nBearV > 0 ? (sumChgBearV / nBearV >= 0 ? "+" : "") + str.tostring(sumChgBearV / nBearV, "0.00") + " %" : "n.d.")
+    sRow(22, "Mesure", "9h30 NY → minuit Paris")
+    sRow(23, "Hors Pine", "actualités/macro : voir app")
 
 // ---------------------------------------------------------------- Alertes
 alertcondition(cutCross, "Verdict du jour figé",
-     "Biais Macro S&P 500 : verdict figé à l'heure limite (voir le graphique).")
-strongCut = cutCross and (verdictOf(score[1]) == "HAUSSE AFFIRMÉE" or verdictOf(score[1]) == "BAISSE AFFIRMÉE")
+     "Biais Macro S&P 500 v2 : verdict figé à l'heure limite (voir le graphique).")
+strongCut = cutCross and (verdictOf(score[1], confidence[1], thMult[1]) == "HAUSSE AFFIRMÉE" or
+     verdictOf(score[1], confidence[1], thMult[1]) == "BAISSE AFFIRMÉE")
 alertcondition(strongCut, "Verdict AFFIRMÉ au cutoff",
-     "Biais Macro S&P 500 : verdict AFFIRMÉ (hausse ou baisse) figé à l'heure limite.")
+     "Biais Macro S&P 500 v2 : verdict AFFIRMÉ figé à l'heure limite.")

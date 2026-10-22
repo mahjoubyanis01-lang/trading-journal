@@ -67,6 +67,8 @@ entCol     = input.color(color.new(color.gray, 0),   "Entree", group = grpTrade,
 showPD     = input.bool(true, "Afficher PDH / PDL (extremes de la veille)", group = grpTrade)
 fallbackRR = input.float(2.0, "RR par defaut si aucun niveau cible", minval = 0.5, step = 0.5, group = grpTrade, tooltip = "Quand aucun niveau TP n'existe dans le sens du trade (ou que le plus proche depasse la distance max ci-dessous), le TP est place a ce multiple du risque (distance entree-SL). La box TP est alors marquee 'TP RR'.")
 maxTPatr   = input.float(0.0, "Distance max du TP niveau (x ATR, 0 = sans limite)", minval = 0.0, step = 0.5, group = grpTrade, tooltip = "Si le niveau cible le plus proche est plus loin que ce multiple de l'ATR(14), il est ignore et le TP RR par defaut est utilise. Evite les box TP geantes vers un niveau tres lointain.")
+useBE      = input.bool(true, "Break-even : SL ramene a l'entree des +1 R", group = grpTrade, tooltip = "Des que le gain latent atteint le seuil (en R), le stop passe a l'entree. Un retour sur l'entree cloture alors le trade a 0 R (BE) au lieu de -1 R.")
+beTrigger  = input.float(1.0, "Declenchement du break-even (en R)", minval = 0.1, step = 0.25, group = grpTrade)
 
 grpSvp = "Session Volume Profile"
 calc_ticks = input.int(1,    "Precision du calcul (ticks par niveau)", minval=1, maxval=50, group = grpSvp)
@@ -589,30 +591,48 @@ var float trEnt      = na
 var float trSl       = na
 var float trTp       = na
 var int   trStartBar = na
+var bool  trBE       = false  // break-even actif (SL ramene a l'entree)
 var box   trBoxSl    = na
 var box   trBoxTp    = na
 var line  trLine     = na
+var line  trBeLine   = na
 
 // ATR pour la distance max du TP (calcule a chaque barre, hors fonction)
 float atrTrade = ta.atr(14)
 
-// 1) suivi du trade actif : extension des box, detection TP / SL
+// 1) suivi du trade actif : extension des box, detection TP / SL, break-even
 if trDir != 0
     box.set_right(trBoxSl, bar_index)
     box.set_right(trBoxTp, bar_index)
     line.set_x2(trLine, bar_index)
+    if not na(trBeLine)
+        line.set_x2(trBeLine, bar_index)
     if bar_index > trStartBar
-        bool slHit = trDir == 1 ? low <= trSl : high >= trSl
+        // stop courant : l'entree si le break-even est actif, sinon le SL initial
+        float slLevel = trBE ? trEnt : trSl
+        bool slHit = trDir == 1 ? low <= slLevel : high >= slLevel
         bool tpHit = trDir == 1 ? high >= trTp : low <= trTp
         if slHit or tpHit
             // si TP et SL sont touches dans la meme bougie, le SL prime (conservateur)
             bool isSl = slHit
             float rr  = math.abs(trTp - trEnt) / math.max(math.abs(trEnt - trSl), syminfo.mintick)
-            float res = isSl ? -1.0 : rr
-            float px  = isSl ? trSl : trTp
+            float res = isSl ? (trBE ? 0.0 : -1.0) : rr
+            float px  = isSl ? slLevel : trTp
             bool belowBar = (trDir == 1 and isSl) or (trDir == -1 and not isSl)
-            label.new(bar_index, px, (res >= 0 ? "+" : "") + str.tostring(res, "#.##") + " R", color = isSl ? color.new(color.red, 0) : color.new(color.green, 0), textcolor = color.white, style = belowBar ? label.style_label_up : label.style_label_down, size = size.small)
+            string resTxt = isSl and trBE ? "BE 0 R" : (res >= 0 ? "+" : "") + str.tostring(res, "#.##") + " R"
+            color resCol = isSl ? (trBE ? color.new(color.gray, 0) : color.new(color.red, 0)) : color.new(color.green, 0)
+            label.new(bar_index, px, resTxt, color = resCol, textcolor = color.white, style = belowBar ? label.style_label_up : label.style_label_down, size = size.small)
             trDir := 0
+        // declenchement du break-even a +N R de gain latent
+        // (applique a partir de la bougie SUIVANTE : dans la bougie du
+        // declenchement, l'ordre des mouvements est inconnu -> conservateur)
+        if trDir != 0 and useBE and not trBE
+            float risk0 = math.abs(trEnt - trSl)
+            bool beNow = trDir == 1 ? high >= trEnt + beTrigger * risk0 : low <= trEnt - beTrigger * risk0
+            if beNow
+                trBE := true
+                trBeLine := line.new(bar_index, trEnt, bar_index + 1, trEnt, color = color.new(color.orange, 0), width = 2, style = line.style_dashed)
+                label.new(bar_index, trEnt, "BE", color = color.new(color.orange, 0), textcolor = color.white, style = trDir == 1 ? label.style_label_down : label.style_label_up, size = size.tiny)
 
 // 2) nouveaux signaux : uniquement s'il n'y a pas de trade en cours
 bool sigBull = bullSignal and (not showTrade or trDir == 0)
@@ -639,6 +659,8 @@ if openDir != 0
         trSl       := sl
         trTp       := tp
         trStartBar := bar_index
+        trBE       := false
+        trBeLine   := na
         trBoxSl := box.new(bar_index, math.max(ent, sl), bar_index + 1, math.min(ent, sl), bgcolor = slCol, border_color = color.new(slCol, 0), text = "SL " + str.tostring(sl, format.mintick), text_color = color.new(slCol, 0), text_size = size.tiny, text_halign = text.align_center)
         trBoxTp := box.new(bar_index, math.max(ent, tp), bar_index + 1, math.min(ent, tp), bgcolor = tpCol, border_color = color.new(tpCol, 0), text = (tpIsLevel ? "TP " : "TP RR " + str.tostring(fallbackRR, "#.#") + " ") + str.tostring(tp, format.mintick), text_color = color.new(tpCol, 0), text_size = size.tiny, text_halign = text.align_center)
         trLine  := line.new(bar_index, ent, bar_index + 1, ent, color = entCol, width = 2)

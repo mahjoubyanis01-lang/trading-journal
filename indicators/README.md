@@ -81,7 +81,12 @@ Pour ne garder que les signaux les plus pertinents, chaque confirmation est
 notée sur 5 critères de qualité (1 point chacun, désactivables un à un) :
 
 1. **Momentum Squeeze (LazyBear)** tourné dans le sens du signal ;
-2. **Tendance 15m** (moteur P1→P4) alignée avec le signal ;
+2. **Tendance 15m** (moteur P1→P4) alignée avec le signal — et par défaut
+   cette condition est **obligatoire** (option « Tendance 15m OBLIGATOIRE ») :
+   aucun achat sans structure 15m haussière, aucune vente sans structure
+   baissière, quel que soit le score. La touche reste en attente : si la
+   tendance bascule dans la fenêtre de validité, le signal peut encore se
+   déclencher ;
 3. **Corps de la bougie de confirmation** ≥ 0,5 × ATR(14) — élimine les
    confirmations sur doji ;
 4. **Clôture au-delà de la zone** touchée (le niveau est repris, pas juste

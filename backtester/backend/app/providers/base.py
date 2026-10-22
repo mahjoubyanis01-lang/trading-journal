@@ -20,6 +20,12 @@ log = logging.getLogger("backtester.providers")
 _throttle_lock = threading.Lock()
 _last_call: dict[str, float] = {}
 
+# Disjoncteur par domaine : après plusieurs épuisements de quota (429)
+# consécutifs, on ne fait plus qu'une tentative par requête au lieu de
+# retries longs — le cache local reste utilisé et un succès réarme tout.
+_domain_429_failures: dict[str, int] = {}
+_BREAKER_THRESHOLD = 3
+
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) macro-bias-backtester/0.1"
 
 
@@ -72,11 +78,19 @@ def cached_get(
                 time_mod.sleep(2 * attempts)
                 continue
             raise ProviderError(f"erreur réseau {domain}: {e}") from e
-        if resp.status_code == 429 and attempts < 6:
+        breaker_open = _domain_429_failures.get(domain, 0) >= _BREAKER_THRESHOLD
+        max_429_attempts = 1 if breaker_open else 6
+        if resp.status_code == 429 and attempts < max_429_attempts:
             time_mod.sleep(8 * attempts)
             continue
         if resp.status_code != 200:
+            if resp.status_code == 429:
+                _domain_429_failures[domain] = _domain_429_failures.get(domain, 0) + 1
+                suffix = (" — quota dépassé de façon répétée, tentatives réduites "
+                          "pour le reste de l'exécution" if breaker_open else "")
+                raise ProviderError(f"{domain} HTTP 429 (quota){suffix}")
             raise ProviderError(f"{domain} HTTP {resp.status_code}: {resp.text[:200]}")
+        _domain_429_failures[domain] = 0
         db.cache_put(cache_key, str(httpx.URL(url).copy_merge_params(key_params)), 200, resp.content)
         return resp.content
 

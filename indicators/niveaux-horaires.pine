@@ -1,0 +1,83 @@
+//@version=6
+indicator("Niveaux d'ouverture horaires", shorttitle="Niveaux Horaires", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// ============================================================
+// Niveaux d'ouverture horaires
+// Trace le prix d'ouverture de la bougie de chaque horaire clé
+// (00:00, 06:00, 09:00, 10:00, 15:30, 22:00) et le prolonge en
+// ligne horizontale jusqu'à la fin de la journée (ou au-delà).
+// Fuseau horaire configurable (Europe/Paris par défaut).
+// ============================================================
+
+// ---------- Réglages généraux ----------
+grpGen = "Réglages généraux"
+tz          = input.string("Europe/Paris", "Fuseau horaire", options=["Europe/Paris", "Europe/London", "America/New_York", "UTC", "Exchange"], group=grpGen)
+extendRight = input.bool(false, "Prolonger les lignes à droite (infini)", group=grpGen)
+showLabels  = input.bool(true, "Afficher les étiquettes", group=grpGen)
+showPrice   = input.bool(true, "Afficher le prix dans l'étiquette", group=grpGen)
+lineWidth   = input.int(1, "Épaisseur des lignes", minval=1, maxval=4, group=grpGen)
+lineStyleIn = input.string("Pointillés", "Style des lignes", options=["Plein", "Pointillés", "Tirets"], group=grpGen)
+labelSizeIn = input.string("Petit", "Taille des étiquettes", options=["Minuscule", "Petit", "Normal"], group=grpGen)
+histDays    = input.int(5, "Nombre de jours d'historique", minval=1, maxval=30, group=grpGen)
+
+// ---------- Activation et couleurs par niveau ----------
+grpLvl = "Niveaux"
+show00  = input.bool(true, "Minuit (00:00)",  group=grpLvl, inline="l00")
+col00   = input.color(color.new(color.white, 0),  "", group=grpLvl, inline="l00")
+show06  = input.bool(true, "06:00",           group=grpLvl, inline="l06")
+col06   = input.color(color.new(color.aqua, 0),   "", group=grpLvl, inline="l06")
+show09  = input.bool(true, "09:00",           group=grpLvl, inline="l09")
+col09   = input.color(color.new(color.orange, 0), "", group=grpLvl, inline="l09")
+show10  = input.bool(true, "10:00",           group=grpLvl, inline="l10")
+col10   = input.color(color.new(color.yellow, 0), "", group=grpLvl, inline="l10")
+show1530 = input.bool(true, "15:30",          group=grpLvl, inline="l1530")
+col1530  = input.color(color.new(color.lime, 0),  "", group=grpLvl, inline="l1530")
+show22  = input.bool(true, "22:00",           group=grpLvl, inline="l22")
+col22   = input.color(color.new(color.fuchsia, 0), "", group=grpLvl, inline="l22")
+
+// ---------- Helpers ----------
+tzEff = tz == "Exchange" ? syminfo.timezone : tz
+
+lineStyle = lineStyleIn == "Plein" ? line.style_solid : lineStyleIn == "Tirets" ? line.style_dashed : line.style_dotted
+labelSize = labelSizeIn == "Minuscule" ? size.tiny : labelSizeIn == "Normal" ? size.normal : size.small
+
+// Limite d'historique : on ne dessine que sur les N derniers jours
+msPerDay = 86400000
+withinHistory = (timenow - time) <= histDays * msPerDay
+
+// Fin de journée (minuit suivant) dans le fuseau choisi, pour borner les lignes
+f_endOfDay() =>
+    y = year(time, tzEff)
+    m = month(time, tzEff)
+    d = dayofmonth(time, tzEff)
+    timestamp(tzEff, y, m, d, 0, 0, 0) + msPerDay
+
+// Détecte la première bougie dont l'heure locale atteint hh:mm
+f_crossTime(hh, mm) =>
+    tgt = hh * 60 + mm
+    cur = hour(time, tzEff) * 60 + minute(time, tzEff)
+    prevT = nz(time[1], time - 1)
+    newDay = dayofmonth(prevT, tzEff) != dayofmonth(time, tzEff)
+    prev = newDay ? -1 : hour(prevT, tzEff) * 60 + minute(prevT, tzEff)
+    cur >= tgt and prev < tgt
+
+// Dessine / met à jour le niveau d'un horaire donné
+f_level(enabled, hh, mm, col, txt) =>
+    var line  ln = na
+    var label lb = na
+    if enabled and withinHistory and f_crossTime(hh, mm)
+        endT = f_endOfDay()
+        ln := line.new(time, open, extendRight ? time + 1 : endT, open, xloc=xloc.bar_time, color=col, style=lineStyle, width=lineWidth, extend=extendRight ? extend.right : extend.none)
+        if showLabels
+            lbTxt = showPrice ? txt + "  " + str.tostring(open, format.mintick) : txt
+            lb := label.new(time, open, lbTxt, xloc=xloc.bar_time, style=label.style_label_left, textcolor=col, color=color.new(color.black, 100), size=labelSize)
+    // Déplace l'étiquette au bout de la ligne pour la lisibilité
+    if not na(lb) and not na(ln) and barstate.islast and extendRight
+        label.set_x(lb, time)
+
+f_level(show00,   0,  0, col00,   "00:00")
+f_level(show06,   6,  0, col06,   "06:00")
+f_level(show09,   9,  0, col09,   "09:00")
+f_level(show10,  10,  0, col10,   "10:00")
+f_level(show1530, 15, 30, col1530, "15:30")
+f_level(show22,  22,  0, col22,   "22:00")

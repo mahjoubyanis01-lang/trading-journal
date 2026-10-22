@@ -1,0 +1,103 @@
+//@version=6
+// FVG 15 Minutes — Fair Value Gaps détectés sur l'unité de temps 15 minutes.
+//
+// Fonctionnement :
+//   - Détection des FVG haussiers et baissiers sur les bougies 15m clôturées
+//     (pattern 3 bougies : gap entre le high de la bougie A et le low de la
+//     bougie C, ou l'inverse pour un FVG baissier).
+//   - Les zones restent affichées et s'étendent vers la droite tant qu'elles
+//     ne sont pas touchées (conservation d'affichage).
+//   - Dès que le prix vient toucher la zone (mitigation), la box est
+//     supprimée du graphique.
+//
+// Remarque : l'indicateur fonctionne sur n'importe quelle unité de temps du
+// graphique inférieure ou égale à 15 minutes. Sur une unité de temps
+// supérieure, certains FVG 15m intrabars ne peuvent pas être détectés
+// (limitation de request.security).
+
+indicator("FVG 15min (mitigation au toucher)", shorttitle = "FVG 15m", overlay = true, max_boxes_count = 500)
+
+// ── Paramètres ──────────────────────────────────────────────────────────────
+grpDetect   = "Détection"
+tfFVG       = input.timeframe("15",  "Unité de temps des FVG",              group = grpDetect)
+minSizePct  = input.float(0.0,       "Taille minimale du gap (%)",          group = grpDetect, minval = 0.0, step = 0.01, tooltip = "Ignore les FVG dont la hauteur est inférieure à ce pourcentage du prix. 0 = tous les FVG.")
+maxActive   = input.int(50,          "Nombre max de FVG affichés",          group = grpDetect, minval = 1, maxval = 200)
+
+grpStyle    = "Style"
+bullColor   = input.color(color.new(color.teal,   80), "Fond FVG haussier", group = grpStyle)
+bearColor   = input.color(color.new(color.red,    80), "Fond FVG baissier", group = grpStyle)
+bullBorder  = input.color(color.new(color.teal,   40), "Bordure haussière", group = grpStyle)
+bearBorder  = input.color(color.new(color.red,    40), "Bordure baissière", group = grpStyle)
+showMidline = input.bool(false,      "Afficher la ligne médiane (CE)",      group = grpStyle)
+
+// ── Stockage des FVG actifs ────────────────────────────────────────────────
+// Chaque FVG actif = une box + son sens (true = haussier) + sa ligne médiane.
+var array<box>  fvgBoxes  = array.new<box>()
+var array<bool> fvgIsBull = array.new<bool>()
+var array<line> fvgMid    = array.new<line>()
+
+// ── Données 15 minutes ─────────────────────────────────────────────────────
+// À l'ouverture d'une nouvelle bougie 15m, la bougie [1] vient de clôturer.
+// Le pattern FVG complet utilise donc les bougies [1] (C), [2] (B) et [3] (A).
+[h1, l1, h3, l3, t1] = request.security(syminfo.tickerid, tfFVG,
+     [high[1], low[1], high[3], low[3], time[1]],
+     lookahead = barmerge.lookahead_off)
+
+new15mBar = timeframe.change(tfFVG)
+
+// FVG haussier : le low de C est au-dessus du high de A → gap [h3 ; l1]
+bullFVG = new15mBar and l1 > h3
+// FVG baissier : le high de C est en dessous du low de A → gap [h1 ; l3]
+bearFVG = new15mBar and h1 < l3
+
+// Filtre de taille minimale
+gapTop    = bullFVG ? l1 : l3
+gapBottom = bullFVG ? h3 : h1
+gapSizeOk = (gapTop - gapBottom) / close * 100 >= minSizePct
+
+// ── Création des boxes ─────────────────────────────────────────────────────
+createFVG(bool isBull, float top, float bottom, int startTime) =>
+    b = box.new(startTime, top, time, bottom,
+         xloc         = xloc.bar_time,
+         extend       = extend.right,
+         bgcolor      = isBull ? bullColor  : bearColor,
+         border_color = isBull ? bullBorder : bearBorder,
+         border_width = 1)
+    m = showMidline ?
+         line.new(startTime, (top + bottom) / 2, time, (top + bottom) / 2,
+             xloc   = xloc.bar_time,
+             extend = extend.right,
+             color  = isBull ? bullBorder : bearBorder,
+             style  = line.style_dotted) : line(na)
+    array.push(fvgBoxes,  b)
+    array.push(fvgIsBull, isBull)
+    array.push(fvgMid,    m)
+
+if barstate.isconfirmed or barstate.ishistory
+    if bullFVG and gapSizeOk
+        createFVG(true, l1, h3, t1)
+    if bearFVG and gapSizeOk
+        createFVG(false, l3, h1, t1)
+
+// Limite du nombre de FVG affichés : on supprime les plus anciens.
+while array.size(fvgBoxes) > maxActive
+    box.delete(array.shift(fvgBoxes))
+    line.delete(array.shift(fvgMid))
+    array.shift(fvgIsBull)
+
+// ── Mitigation : suppression dès que le prix touche la zone ───────────────
+// FVG haussier (zone sous le prix)  → touché quand le low revient à son top.
+// FVG baissier (zone au-dessus)     → touché quand le high revient à son bottom.
+if array.size(fvgBoxes) > 0
+    for i = array.size(fvgBoxes) - 1 to 0
+        b      = array.get(fvgBoxes, i)
+        isBull = array.get(fvgIsBull, i)
+        topLvl = box.get_top(b)
+        botLvl = box.get_bottom(b)
+        touched = isBull ? low <= topLvl : high >= botLvl
+        if touched
+            box.delete(b)
+            line.delete(array.get(fvgMid, i))
+            array.remove(fvgBoxes, i)
+            array.remove(fvgIsBull, i)
+            array.remove(fvgMid, i)

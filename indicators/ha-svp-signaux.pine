@@ -61,8 +61,6 @@ sigSession    = input.session("1530-0000", "Plage horaire (fuseau des niveaux ho
 grpTrade = "Entree / SL / TP (box)"
 showTrade  = input.bool(true, "Afficher entree + box SL/TP sur chaque signal", group = grpTrade)
 slLen      = input.int(5, "Bougies pour le SL (plus bas / plus haut)", minval = 1, maxval = 50, group = grpTrade, tooltip = "Achat : SL = plus bas des N dernieres bougies. Vente : SL = plus haut des N dernieres bougies.")
-boxLen     = input.int(20, "Longueur des box (barres)", minval = 1, maxval = 200, group = grpTrade)
-keepTrades = input.int(8, "Signaux conserves a l'ecran", minval = 1, maxval = 50, group = grpTrade)
 tpCol      = input.color(color.new(color.green, 80), "Box TP", group = grpTrade, inline = "tc")
 slCol      = input.color(color.new(color.red, 80),   "Box SL", group = grpTrade, inline = "tc")
 entCol     = input.color(color.new(color.gray, 0),   "Entree", group = grpTrade, inline = "tc")
@@ -580,16 +578,52 @@ f_findTP(float ent, int dir) =>
     tp := f_nearest(tp, pdl, ent, dir)
     tp
 
-var array<box>  trBoxes = array.new<box>()
-var array<line> trLines = array.new<line>()
+//========================== TRADE UNIQUE : OUVERTURE, SUIVI, CLOTURE EN R ==========================
+// Regle : tant que le trade en cours n'a pas atteint son TP ou son SL,
+// AUCUN nouveau signal n'est affiche. A la cloture, le resultat s'affiche
+// en R : -1 R sur SL ; +RR sur TP (taille du TP rapportee a celle du SL).
+// Les box des trades clotures restent a l'ecran (limite TradingView :
+// 500 box au total, les plus anciennes sont alors retirees par la plateforme).
+var int   trDir      = 0      // 0 = pas de trade en cours
+var float trEnt      = na
+var float trSl       = na
+var float trTp       = na
+var int   trStartBar = na
+var box   trBoxSl    = na
+var box   trBoxTp    = na
+var line  trLine     = na
 
 // ATR pour la distance max du TP (calcule a chaque barre, hors fonction)
 float atrTrade = ta.atr(14)
 
-f_drawTrade(int dir) =>
+// 1) suivi du trade actif : extension des box, detection TP / SL
+if trDir != 0
+    box.set_right(trBoxSl, bar_index)
+    box.set_right(trBoxTp, bar_index)
+    line.set_x2(trLine, bar_index)
+    if bar_index > trStartBar
+        bool slHit = trDir == 1 ? low <= trSl : high >= trSl
+        bool tpHit = trDir == 1 ? high >= trTp : low <= trTp
+        if slHit or tpHit
+            // si TP et SL sont touches dans la meme bougie, le SL prime (conservateur)
+            bool isSl = slHit
+            float rr  = math.abs(trTp - trEnt) / math.max(math.abs(trEnt - trSl), syminfo.mintick)
+            float res = isSl ? -1.0 : rr
+            float px  = isSl ? trSl : trTp
+            bool belowBar = (trDir == 1 and isSl) or (trDir == -1 and not isSl)
+            label.new(bar_index, px, (res >= 0 ? "+" : "") + str.tostring(res, "#.##") + " R", color = isSl ? color.new(color.red, 0) : color.new(color.green, 0), textcolor = color.white, style = belowBar ? label.style_label_up : label.style_label_down, size = size.small)
+            trDir := 0
+
+// 2) nouveaux signaux : uniquement s'il n'y a pas de trade en cours
+bool sigBull = bullSignal and (not showTrade or trDir == 0)
+bool sigBear = bearSignal and (not showTrade or trDir == 0)
+
+// 3) ouverture d'un nouveau trade sur le signal retenu
+int openDir = showTrade and sigBull ? 1 : showTrade and sigBear ? -1 : 0
+if openDir != 0
     float ent = close
-    float sl  = dir == 1 ? slLow : slHigh
-    float tp  = f_findTP(ent, dir)
+    float sl  = openDir == 1 ? slLow : slHigh
+    float tp  = f_findTP(ent, openDir)
     float risk = math.abs(ent - sl)
     // niveau trop lointain -> ignore (option)
     if not na(tp) and maxTPatr > 0 and math.abs(tp - ent) > maxTPatr * atrTrade
@@ -598,24 +632,16 @@ f_drawTrade(int dir) =>
     // pour que la box TP soit TOUJOURS affichee
     bool tpIsLevel = not na(tp)
     if not tpIsLevel and risk > 0
-        tp := dir == 1 ? ent + fallbackRR * risk : ent - fallbackRR * risk
-    box bSl = box.new(bar_index, math.max(ent, sl), bar_index + boxLen, math.min(ent, sl), bgcolor = slCol, border_color = color.new(slCol, 0), text = "SL " + str.tostring(sl, format.mintick), text_color = color.new(slCol, 0), text_size = size.tiny, text_halign = text.align_center)
-    array.push(trBoxes, bSl)
-    if not na(tp)
-        string tpTxt = (tpIsLevel ? "TP " : "TP RR " + str.tostring(fallbackRR, "#.#") + " ") + str.tostring(tp, format.mintick)
-        box bTp = box.new(bar_index, math.max(ent, tp), bar_index + boxLen, math.min(ent, tp), bgcolor = tpCol, border_color = color.new(tpCol, 0), text = tpTxt, text_color = color.new(tpCol, 0), text_size = size.tiny, text_halign = text.align_center)
-        array.push(trBoxes, bTp)
-    array.push(trLines, line.new(bar_index, ent, bar_index + boxLen, ent, color = entCol, width = 2))
-    // elagage : on ne garde que les derniers signaux
-    while array.size(trBoxes) > keepTrades * 2
-        box.delete(array.shift(trBoxes))
-    while array.size(trLines) > keepTrades
-        line.delete(array.shift(trLines))
-
-if showTrade and bullSignal
-    f_drawTrade(1)
-if showTrade and bearSignal
-    f_drawTrade(-1)
+        tp := openDir == 1 ? ent + fallbackRR * risk : ent - fallbackRR * risk
+    if not na(tp) and risk > 0
+        trDir      := openDir
+        trEnt      := ent
+        trSl       := sl
+        trTp       := tp
+        trStartBar := bar_index
+        trBoxSl := box.new(bar_index, math.max(ent, sl), bar_index + 1, math.min(ent, sl), bgcolor = slCol, border_color = color.new(slCol, 0), text = "SL " + str.tostring(sl, format.mintick), text_color = color.new(slCol, 0), text_size = size.tiny, text_halign = text.align_center)
+        trBoxTp := box.new(bar_index, math.max(ent, tp), bar_index + 1, math.min(ent, tp), bgcolor = tpCol, border_color = color.new(tpCol, 0), text = (tpIsLevel ? "TP " : "TP RR " + str.tostring(fallbackRR, "#.#") + " ") + str.tostring(tp, format.mintick), text_color = color.new(tpCol, 0), text_size = size.tiny, text_halign = text.align_center)
+        trLine  := line.new(bar_index, ent, bar_index + 1, ent, color = entCol, width = 2)
 
 //========================== AFFICHAGE ==========================
 plotcandle(haOpen, haHigh, haLow, haClose, title = "Heiken Ashi", color = haColor, wickcolor = haColor, bordercolor = color.new(color.black, 40))
@@ -623,8 +649,8 @@ plotcandle(haOpen, haHigh, haLow, haClose, title = "Heiken Ashi", color = haColo
 sqzColor = noSqz ? color.blue : sqzOn ? color.black : color.gray
 plotshape(showSqzDots ? 0.0 : na, title = "Etat squeeze", style = shape.circle, location = location.belowbar, color = sqzColor, size = size.tiny)
 
-plotshape(bullSignal, title = "Retournement haussier (zone)", style = shape.circle, location = location.belowbar, color = bullCol, size = size.small)
-plotshape(bearSignal, title = "Retournement baissier (zone)", style = shape.circle, location = location.abovebar, color = bearCol, size = size.small)
+plotshape(sigBull, title = "Retournement haussier (zone)", style = shape.circle, location = location.belowbar, color = bullCol, size = size.small)
+plotshape(sigBear, title = "Retournement baissier (zone)", style = shape.circle, location = location.abovebar, color = bearCol, size = size.small)
 
 // VAH / VAL / POC evolutifs de la seance en cours
 plot(showEvo and vaNow ? shVah : na, "VAH evolutive", color=color.new(#2962ff, 0), style=plot.style_linebr, linewidth=1)
@@ -636,5 +662,5 @@ plot(showPD ? pdh : na, "PDH", color=color.new(color.teal, 0),   style=plot.styl
 plot(showPD ? pdl : na, "PDL", color=color.new(color.maroon, 0), style=plot.style_linebr, linewidth=1)
 
 //========================== ALERTES ==========================
-alertcondition(bullSignal, title = "Retournement haussier valide", message = "HA Zones : retournement haussier valide par un activateur sur {{ticker}} {{interval}}")
-alertcondition(bearSignal, title = "Retournement baissier valide", message = "HA Zones : retournement baissier valide par un activateur sur {{ticker}} {{interval}}")
+alertcondition(sigBull, title = "Retournement haussier valide", message = "HA Zones : retournement haussier valide par un activateur sur {{ticker}} {{interval}}")
+alertcondition(sigBear, title = "Retournement baissier valide", message = "HA Zones : retournement baissier valide par un activateur sur {{ticker}} {{interval}}")

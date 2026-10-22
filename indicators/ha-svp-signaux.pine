@@ -548,11 +548,12 @@ color bearCol = color.from_gradient(gradBear, 1, confMax, #ef9a9a, #b71c1c)
 float slLow  = ta.lowest(low, slLen)
 float slHigh = ta.highest(high, slLen)
 
-// TP : parmi tous les niveaux de prix SAUF la VAH/VAL/POC evolutive :
+// TP : UNIQUEMENT les zones VAH/VAL du SVP fige et les extremes de la veille :
 //   - VAH/VAL de la veille (J-1)
 //   - zones SVP anciennes encore actives (jamais touchees)
-//   - niveaux d'ouverture horaires actifs
 //   - PDH / PDL (plus haut / plus bas de la veille)
+// Ni plus ni moins : les niveaux horaires et la VAH/VAL/POC evolutive
+// ne sont PAS des cibles.
 // La cible retenue est LE NIVEAU LE PLUS PROCHE dans le sens du trade.
 f_nearest(float best, float cand, float ent, int dir) =>
     float r = best
@@ -573,12 +574,6 @@ f_findTP(float ent, int dir) =>
         for i = 0 to array.size(oldValL) - 1
             if not array.get(oldValF, i)
                 tp := f_nearest(tp, array.get(oldValL, i), ent, dir)
-    tp := f_nearest(tp, hlv00,   ent, dir)
-    tp := f_nearest(tp, hlv06,   ent, dir)
-    tp := f_nearest(tp, hlv09,   ent, dir)
-    tp := f_nearest(tp, hlv10,   ent, dir)
-    tp := f_nearest(tp, hlv1530, ent, dir)
-    tp := f_nearest(tp, hlv22,   ent, dir)
     tp := f_nearest(tp, pdh, ent, dir)
     tp := f_nearest(tp, pdl, ent, dir)
     tp

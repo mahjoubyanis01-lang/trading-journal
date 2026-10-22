@@ -16,8 +16,9 @@ import {
 import { api, BackendUnreachableError } from '../api'
 import type { BacktestStatus, DailyResult, Summary } from '../api'
 import { useApi } from '../hooks'
-import { Card, EmptyState, ErrorBanner, Loading, StatTile } from '../components/ui'
+import { BIAS_ICONS, Card, EmptyState, ErrorBanner, Loading, StatTile } from '../components/ui'
 import {
+  BIAS_ORDER,
   biasLabel,
   correctLabel,
   fmtDate,
@@ -32,6 +33,15 @@ const SESSION_CHOICES = [10, 30, 60, 90, 252]
 const COLOR_BULL = 'var(--bull)'
 const COLOR_BEAR = 'var(--bear)'
 const COLOR_NEUTRAL = 'var(--neutral)'
+
+/** Couleurs de l'échelle divergente à 5 niveaux (voir index.css). */
+const BIAS_COLORS: Record<string, string> = {
+  strong_bullish: 'var(--bull-strong)',
+  bullish: 'var(--bull-mod)',
+  neutral: 'var(--neutral)',
+  bearish: 'var(--bear-mod)',
+  strong_bearish: 'var(--bear-strong)',
+}
 
 // ---------------------------------------------------------------
 // Lancement du backtest + suivi de progression
@@ -202,12 +212,14 @@ function BacktestRunner({ onFinished }: { onFinished: () => void }) {
 function PredictionsDonut({ summary }: { summary: Summary }) {
   const p = summary.predictions
   if (!p) return <EmptyState message="Aucune donnée" />
-  const data = [
-    { key: 'bullish', name: biasLabel('bullish'), value: p.bullish, color: COLOR_BULL },
-    { key: 'bearish', name: biasLabel('bearish'), value: p.bearish, color: COLOR_BEAR },
-    { key: 'neutral', name: biasLabel('neutral'), value: p.neutral, color: COLOR_NEUTRAL },
-  ]
-  const total = p.bullish + p.bearish + p.neutral
+  const data = BIAS_ORDER.map((b) => ({
+    key: b,
+    name: biasLabel(b),
+    icon: BIAS_ICONS[b],
+    value: p[b] ?? 0,
+    color: BIAS_COLORS[b],
+  }))
+  const total = data.reduce((acc, d) => acc + d.value, 0)
   return (
     <div>
       <ResponsiveContainer width="100%" height={240}>
@@ -221,7 +233,7 @@ function PredictionsDonut({ summary }: { summary: Summary }) {
             paddingAngle={2}
             stroke="var(--surface-1)"
             strokeWidth={2}
-            label={(entry) => `${String(entry.name)} : ${String(entry.value)}`}
+            label={(entry) => String(entry.value)}
             labelLine={false}
           >
             {data.map((d) => (
@@ -250,7 +262,7 @@ function PredictionsDonut({ summary }: { summary: Summary }) {
         {data.map((d) => (
           <span key={d.key} className="legend-item">
             <span className="legend-swatch" style={{ background: d.color }} />
-            {d.name} ({fmtInt(d.value)})
+            <span aria-hidden="true">{d.icon}</span> {d.name} ({fmtInt(d.value)})
           </span>
         ))}
       </div>
@@ -299,7 +311,10 @@ function DailyChart({ daily }: { daily: DailyResult[] }) {
                   <div className="t-row">Variation : {fmtPct(d.change_pct, true)}</div>
                   <div className="t-row">Prédit : {biasLabel(d.predicted)}</div>
                   <div className="t-row">Réel : {biasLabel(d.actual)}</div>
-                  <div className="t-row">{correctLabel(d.correct)}</div>
+                  <div className="t-row">Direction : {correctLabel(d.correct)}</div>
+                  <div className="t-row">
+                    Exact (5 niveaux) : {d.exact == null ? 'n.d.' : d.exact ? 'oui' : 'non'}
+                  </div>
                 </div>
               )
             }}
@@ -323,11 +338,11 @@ function DailyChart({ daily }: { daily: DailyResult[] }) {
       <div className="legend">
         <span className="legend-item">
           <span className="legend-swatch" style={{ background: COLOR_BULL }} />
-          Prédiction correcte
+          Direction correcte
         </span>
         <span className="legend-item">
           <span className="legend-swatch" style={{ background: COLOR_BEAR }} />
-          Prédiction incorrecte
+          Direction incorrecte
         </span>
         <span className="legend-item">
           <span className="legend-swatch" style={{ background: COLOR_NEUTRAL }} />

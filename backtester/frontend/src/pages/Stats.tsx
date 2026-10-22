@@ -12,24 +12,27 @@ import {
 import { api } from '../api'
 import type { Bias, StatsResponse } from '../api'
 import { useApi } from '../hooks'
-import { Card, EmptyState, ErrorBanner, Loading, StatTile } from '../components/ui'
-import { BIAS_LABELS, biasLabel, fmtInt, fmtPct, fmtRate } from '../format'
+import { BIAS_ICONS, Card, EmptyState, ErrorBanner, Loading, StatTile } from '../components/ui'
+import { BIAS_LABELS, BIAS_ORDER, biasLabel, fmtInt, fmtPct, fmtRate } from '../format'
 
-const BIASES: Bias[] = ['bullish', 'bearish', 'neutral']
+const BIASES: Bias[] = BIAS_ORDER
 
 // ---------------------------------------------------------------
 
-/** Matrice de confusion 3×3, intensité = part de la ligne (ramp séquentiel bleu). */
+/** Matrice de confusion 5×5, intensité = ramp séquentiel bleu. */
 function ConfusionMatrix({ stats }: { stats: StatsResponse }) {
   const { rows, matrix } = stats.confusion_matrix
   const maxVal = Math.max(1, ...matrix.flat())
   return (
     <div className="table-wrap">
-      <div className="confusion">
+      <div
+        className="confusion"
+        style={{ ['--conf-cols' as string]: String(rows.length) } as React.CSSProperties}
+      >
         <div className="conf-corner">Prédit ↓ / Réel →</div>
         {rows.map((c) => (
-          <div key={`col-${c}`} className="conf-label">
-            {biasLabel(c as Bias)}
+          <div key={`col-${c}`} className="conf-label" title={biasLabel(c as Bias)}>
+            {BIAS_ICONS[c as Bias] ?? c}
           </div>
         ))}
         {rows.map((r, i) => (
@@ -53,8 +56,9 @@ function ConfusionMatrix({ stats }: { stats: StatsResponse }) {
         ))}
       </div>
       <p className="chart-note">
-        Lignes : biais prédit · Colonnes : direction réelle. La diagonale (encadrée) compte les
-        prédictions correctes.
+        Lignes : biais prédit · Colonnes : direction réelle (▲▲ hausse affirmée, ▲ hausse modérée,
+        ◆ neutre, ▼ baisse modérée, ▼▼ baisse affirmée). La diagonale (encadrée) compte les
+        prédictions exactes.
       </p>
     </div>
   )
@@ -195,8 +199,10 @@ export default function Stats() {
               label="Taux de réussite (hors neutres)"
               value={fmtRate(stats.hit_rate_excl_neutral)}
               sub={`n = ${fmtInt(
-                (stats.by_category.bullish?.predicted ?? 0) +
-                  (stats.by_category.bearish?.predicted ?? 0),
+                BIASES.filter((b) => b !== 'neutral').reduce(
+                  (acc, b) => acc + (stats.by_category[b]?.predicted ?? 0),
+                  0,
+                ),
               )}`}
               tone={
                 stats.hit_rate_excl_neutral == null
@@ -205,6 +211,12 @@ export default function Stats() {
                     ? 'ok'
                     : 'ko'
               }
+            />
+            <StatTile
+              label="Taux exact (5 niveaux)"
+              value={fmtRate(stats.exact_rate)}
+              sub="Même classe prédite et observée"
+              tone="neutral"
             />
           </div>
 
@@ -216,7 +228,8 @@ export default function Stats() {
                     <tr>
                       <th>Prédiction</th>
                       <th className="num">Prédites</th>
-                      <th className="num">Correctes</th>
+                      <th className="num">Direction correcte</th>
+                      <th className="num">Exactes</th>
                       <th className="num">Taux de réussite</th>
                       <th className="num">Variation moy.</th>
                     </tr>
@@ -230,6 +243,7 @@ export default function Stats() {
                           <td>{BIAS_LABELS[b]}</td>
                           <td className="num">{fmtInt(c.predicted)}</td>
                           <td className="num">{fmtInt(c.correct)}</td>
+                          <td className="num">{fmtInt(c.exact)}</td>
                           <td className="num">{fmtRate(c.hit_rate)}</td>
                           <td
                             className={`num ${
@@ -325,8 +339,9 @@ export default function Stats() {
                 </table>
               </div>
               <p className="chart-note">
-                Un modèle informatif devrait montrer une variation moyenne positive après une
-                prédiction haussière et négative après une prédiction baissière.
+                Un modèle informatif devrait montrer des variations moyennes ordonnées : plus
+                positives pour les prédictions haussières (surtout affirmées), plus négatives pour
+                les baissières.
               </p>
             </Card>
           </div>

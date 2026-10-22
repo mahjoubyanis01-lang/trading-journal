@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import type { Bias, Sentiment } from '../api'
-import { biasLabel, SENTIMENT_LABELS } from '../format'
+import type { Bias, FactorDirection, Sentiment } from '../api'
+import { biasLabel, FACTOR_DIRECTION_LABELS, SENTIMENT_LABELS } from '../format'
 
 /** Bandeau "backend injoignable" / erreur HTTP. */
 export function ErrorBanner({
@@ -30,13 +30,34 @@ export function ErrorBanner({
   )
 }
 
-/** Badge coloré de biais : vert haussier, rouge baissier, gris neutre. */
+export const BIAS_ICONS: Record<Bias, string> = {
+  strong_bullish: '▲▲',
+  bullish: '▲',
+  neutral: '◆',
+  bearish: '▼',
+  strong_bearish: '▼▼',
+}
+
+/**
+ * Badge coloré de verdict (5 niveaux) : verts pour la hausse, rouges pour la
+ * baisse, gris neutre. L'intensité est portée par la couleur ET l'icône
+ * (▲▲ affirmée vs ▲ modérée), jamais par la couleur seule.
+ */
 export function BiasBadge({ bias, big = false }: { bias: Bias | null | undefined; big?: boolean }) {
   if (!bias) return <span className="muted">n.d.</span>
-  const arrow = bias === 'bullish' ? '▲' : bias === 'bearish' ? '▼' : '◆'
   return (
     <span className={`badge badge-${bias}${big ? ' badge-big' : ''}`}>
-      <span aria-hidden="true">{arrow}</span> {biasLabel(bias)}
+      <span aria-hidden="true">{BIAS_ICONS[bias]}</span> {biasLabel(bias)}
+    </span>
+  )
+}
+
+/** Badge 3 niveaux pour la direction d'un facteur individuel. */
+export function DirectionBadge({ direction }: { direction: FactorDirection }) {
+  const arrow = direction === 'bullish' ? '▲' : direction === 'bearish' ? '▼' : '◆'
+  return (
+    <span className={`badge badge-${direction}`}>
+      <span aria-hidden="true">{arrow}</span> {FACTOR_DIRECTION_LABELS[direction]}
     </span>
   )
 }

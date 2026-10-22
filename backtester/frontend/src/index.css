@@ -18,10 +18,15 @@
   --baseline: #383835;
   --border: rgba(255, 255, 255, 0.1);
 
-  /* Direction / statut (vert haussier, rouge baissier, gris neutre) */
+  /* Direction / statut (vert hausse, rouge baisse, gris neutre).
+     Échelle divergente à 5 niveaux validée (mode sombre) :
+     affirmé = teinte saturée/foncée, modéré = pas clair de la même teinte. */
   --bull: #0ca30c;
+  --bull-strong: #0ca30c;
+  --bull-mod: #8fd48f;
   --bear: #e66767;
-  --bear-strong: #d03b3b;
+  --bear-strong: #c73535;
+  --bear-mod: #f09999;
   --neutral: #898781;
   --warning: #fab219;
 
@@ -302,19 +307,35 @@ h3 {
   white-space: nowrap;
 }
 
+/* Niveaux modérés : lavis léger, teinte claire. */
 .badge-bullish {
   background: var(--bull-wash);
-  color: #3fc43f;
+  color: var(--bull-mod);
 }
 
 .badge-bearish {
   background: var(--bear-wash);
-  color: var(--bear);
+  color: var(--bear-mod);
 }
 
 .badge-neutral {
   background: var(--neutral-wash);
   color: var(--text-secondary);
+}
+
+/* Niveaux affirmés : lavis plus dense, bordure teintée, graisse renforcée. */
+.badge-strong_bullish {
+  background: rgba(12, 163, 12, 0.3);
+  color: #4ecb4e;
+  border: 1px solid rgba(12, 163, 12, 0.55);
+  font-weight: 700;
+}
+
+.badge-strong_bearish {
+  background: rgba(199, 53, 53, 0.3);
+  color: #f08080;
+  border: 1px solid rgba(199, 53, 53, 0.6);
+  font-weight: 700;
 }
 
 .badge-big {
@@ -728,12 +749,33 @@ tr.row-link:hover td {
   background: var(--baseline);
 }
 
+/* Repères des seuils (±25, ±55 par défaut) sur la jauge. */
+.gauge-tick {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 1px;
+  background: var(--text-muted);
+  opacity: 0.75;
+  transform: translateX(-50%);
+}
+
+.gauge-tick-label {
+  position: absolute;
+  top: 14px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .gauge-labels {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 18px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -780,7 +822,8 @@ tr.row-link:hover td {
 
 .confusion {
   display: grid;
-  grid-template-columns: auto repeat(3, minmax(72px, 110px));
+  /* le nombre de colonnes est fourni en style inline (--conf-cols) */
+  grid-template-columns: auto repeat(var(--conf-cols, 5), minmax(58px, 96px));
   gap: 4px;
   align-items: center;
   font-size: 13px;

@@ -4,12 +4,13 @@ import { api } from '../api'
 import type { Bias, SessionsFilters } from '../api'
 import { useApi } from '../hooks'
 import { BiasBadge, Card, CorrectMark, EmptyState, ErrorBanner, Loading } from '../components/ui'
-import { biasLabel, fmtDate, fmtInt, fmtPct, fmtPoints } from '../format'
+import { BIAS_ORDER, biasLabel, fmtDate, fmtInt, fmtPct, fmtPoints } from '../format'
 
 const EMPTY_FILTERS: SessionsFilters = {
   predicted: '',
   actual: '',
   correct: '',
+  exact: '',
   min_confidence: '',
   min_quality: '',
   date_from: '',
@@ -18,9 +19,7 @@ const EMPTY_FILTERS: SessionsFilters = {
 
 const BIAS_OPTIONS: Array<{ value: Bias | ''; label: string }> = [
   { value: '', label: 'Tous' },
-  { value: 'bullish', label: biasLabel('bullish') },
-  { value: 'bearish', label: biasLabel('bearish') },
-  { value: 'neutral', label: biasLabel('neutral') },
+  ...BIAS_ORDER.map((b) => ({ value: b, label: biasLabel(b) })),
 ]
 
 export default function Sessions() {
@@ -84,15 +83,27 @@ export default function Sessions() {
             </select>
           </div>
           <div className="field">
-            <label htmlFor="f-correct">Résultat</label>
+            <label htmlFor="f-correct">Direction</label>
             <select
               id="f-correct"
               value={draft.correct ?? ''}
               onChange={(e) => set({ correct: e.target.value as 'true' | 'false' | '' })}
             >
+              <option value="">Toutes</option>
+              <option value="true">Correcte</option>
+              <option value="false">Incorrecte</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="f-exact">Exact (5 niveaux)</label>
+            <select
+              id="f-exact"
+              value={draft.exact ?? ''}
+              onChange={(e) => set({ exact: e.target.value as 'true' | 'false' | '' })}
+            >
               <option value="">Tous</option>
-              <option value="true">Correct</option>
-              <option value="false">Incorrect</option>
+              <option value="true">Exact</option>
+              <option value="false">Inexact</option>
             </select>
           </div>
           <div className="field">
@@ -168,7 +179,8 @@ export default function Sessions() {
                   <th>Direction réelle</th>
                   <th className="num">Variation (pts)</th>
                   <th className="num">Variation (%)</th>
-                  <th style={{ textAlign: 'center' }}>Correct</th>
+                  <th style={{ textAlign: 'center' }}>Direction</th>
+                  <th style={{ textAlign: 'center' }}>Exact</th>
                   <th className="num">Qualité données</th>
                 </tr>
               </thead>
@@ -201,6 +213,9 @@ export default function Sessions() {
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <CorrectMark correct={s.correct} />
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <CorrectMark correct={s.exact} />
                     </td>
                     <td className="num">
                       {fmtInt(s.data_quality)} %{' '}

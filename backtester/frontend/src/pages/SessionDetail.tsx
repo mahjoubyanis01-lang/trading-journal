@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   CartesianGrid,
@@ -13,7 +13,15 @@ import {
 import { api } from '../api'
 import type { Candle, PreopenMarket, SessionDetail } from '../api'
 import { useApi } from '../hooks'
-import { BiasBadge, Card, EmptyState, ErrorBanner, Loading, SentimentBadge } from '../components/ui'
+import {
+  BiasBadge,
+  Card,
+  DirectionBadge,
+  EmptyState,
+  ErrorBanner,
+  Loading,
+  SentimentBadge,
+} from '../components/ui'
 import {
   CATEGORY_LABELS,
   ND,
@@ -32,27 +40,61 @@ import {
 
 // ---------------------------------------------------------------
 
-/** Jauge horizontale du score directionnel, de -100 à +100. */
-function ScoreGauge({ score }: { score: number }) {
+/** Seuils de classement du score (défauts du contrat si la config est absente). */
+export interface ScoreThresholds {
+  bullish: number
+  strongBullish: number
+  bearish: number
+  strongBearish: number
+}
+
+const DEFAULT_THRESHOLDS: ScoreThresholds = {
+  bullish: 25,
+  strongBullish: 55,
+  bearish: -25,
+  strongBearish: -55,
+}
+
+const toPos = (v: number) => ((Math.max(-100, Math.min(100, v)) + 100) / 200) * 100
+
+/**
+ * Jauge horizontale du score directionnel, de -100 à +100, avec repères aux
+ * 4 seuils de classement (±25, ±55 par défaut).
+ */
+function ScoreGauge({ score, thresholds }: { score: number; thresholds: ScoreThresholds }) {
   const clamped = Math.max(-100, Math.min(100, score))
-  const pos = ((clamped + 100) / 200) * 100 // 0..100 %
+  const pos = toPos(clamped)
   const fillColor = clamped > 0 ? 'var(--bull)' : clamped < 0 ? 'var(--bear)' : 'var(--neutral)'
   const left = clamped >= 0 ? 50 : pos
   const width = Math.abs(pos - 50)
+  const ticks = [
+    thresholds.strongBearish,
+    thresholds.bearish,
+    thresholds.bullish,
+    thresholds.strongBullish,
+  ]
   return (
     <div className="gauge" aria-label={`Score directionnel : ${fmtInt(clamped)} sur une échelle de −100 à +100`}>
       <div className="gauge-track">
         <div className="gauge-zero" />
+        {ticks.map((t) => (
+          <div key={t} className="gauge-tick" style={{ left: `${toPos(t)}%` }} />
+        ))}
         <div
           className="gauge-fill"
           style={{ left: `${left}%`, width: `${width}%`, background: fillColor }}
         />
         <div className="gauge-marker" style={{ left: `${pos}%` }} />
+        {ticks.map((t) => (
+          <span key={`l-${t}`} className="gauge-tick-label" style={{ left: `${toPos(t)}%` }}>
+            {fmtInt(t)}
+          </span>
+        ))}
       </div>
       <div className="gauge-labels">
-        <span>−100 (baissier)</span>
+        <span>−100 (baisse)</span>
         <span>0</span>
-        <span>+100 (haussier)</span>
+        <span>+100 (hausse)</span>
       </div>
     </div>
   )
@@ -171,7 +213,7 @@ function preopenValue(v: PreopenMarket[keyof PreopenMarket], unit: 'pct' | 'num'
 
 // ---------------------------------------------------------------
 
-function PreOpeningZone({ d }: { d: SessionDetail }) {
+function PreOpeningZone({ d, thresholds }: { d: SessionDetail; thresholds: ScoreThresholds }) {
   return (
     <section className="zone zone-pre">
       <div className="zone-head">
@@ -188,7 +230,7 @@ function PreOpeningZone({ d }: { d: SessionDetail }) {
         </div>
         <div className="hero-metric" style={{ flex: '1 1 260px', minWidth: 240 }}>
           <span className="lbl">Score directionnel : {fmtInt(d.score)}</span>
-          <ScoreGauge score={d.score} />
+          <ScoreGauge score={d.score} thresholds={thresholds} />
         </div>
         <div className="hero-metric">
           <span className="lbl">Confiance</span>
@@ -242,7 +284,7 @@ function PreOpeningZone({ d }: { d: SessionDetail }) {
                       {f.score == null ? ND : fmtNum(f.score)} / {fmtInt(f.max_weight)}
                     </td>
                     <td>
-                      <BiasBadge bias={f.direction} />
+                      <DirectionBadge direction={f.direction} />
                     </td>
                     <td style={{ maxWidth: 420 }}>{f.rationale ?? ND}</td>
                     <td>
@@ -474,11 +516,18 @@ function ResultZone({ d }: { d: SessionDetail }) {
               </span>
             </div>
             <div className="kv">
-              <span className="k">Prédiction</span>
+              <span className="k">Direction (intensité ignorée)</span>
               <span
                 className={`v ${m.correct == null ? 'muted' : m.correct ? 'pos' : 'neg'}`}
               >
                 {correctSymbol(m.correct)} {correctLabel(m.correct)}
+              </span>
+            </div>
+            <div className="kv">
+              <span className="k">Exact (classe parmi les 5)</span>
+              <span className={`v ${m.exact == null ? 'muted' : m.exact ? 'pos' : 'neg'}`}>
+                {correctSymbol(m.exact)}{' '}
+                {m.exact == null ? 'Non évaluable' : m.exact ? 'Exact' : 'Inexact'}
               </span>
             </div>
           </div>
@@ -527,6 +576,29 @@ export default function SessionDetailPage() {
   const fetcher = useCallback(() => api.sessionDetail(date ?? ''), [date])
   const { data, loading, error, unreachable, reload } = useApi(fetcher)
 
+  // Seuils de la jauge depuis la config ; défauts du contrat en cas d'échec.
+  const [thresholds, setThresholds] = useState<ScoreThresholds>(DEFAULT_THRESHOLDS)
+  useEffect(() => {
+    let cancelled = false
+    api
+      .getConfig()
+      .then((c) => {
+        if (cancelled) return
+        setThresholds({
+          bullish: c.bullish_threshold ?? DEFAULT_THRESHOLDS.bullish,
+          strongBullish: c.strong_bullish_threshold ?? DEFAULT_THRESHOLDS.strongBullish,
+          bearish: c.bearish_threshold ?? DEFAULT_THRESHOLDS.bearish,
+          strongBearish: c.strong_bearish_threshold ?? DEFAULT_THRESHOLDS.strongBearish,
+        })
+      })
+      .catch(() => {
+        /* backend absent ou ancienne config : on garde les défauts */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <>
       <p style={{ margin: '0 0 8px' }}>
@@ -552,7 +624,7 @@ export default function SessionDetailPage() {
 
       {data && (
         <>
-          <PreOpeningZone d={data} />
+          <PreOpeningZone d={data} thresholds={thresholds} />
           <ResultZone d={data} />
         </>
       )}

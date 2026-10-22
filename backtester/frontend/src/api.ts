@@ -1,7 +1,10 @@
 // Client API typé — contrat: backtester/API_CONTRACT.md
 // Backend FastAPI sur http://127.0.0.1:8000, proxifié par Vite sous /api.
 
-export type Bias = 'bullish' | 'bearish' | 'neutral'
+/** Verdict en 5 niveaux (biais prédit ET direction réelle). */
+export type Bias = 'strong_bullish' | 'bullish' | 'neutral' | 'bearish' | 'strong_bearish'
+/** Direction d'un facteur individuel — reste sur 3 niveaux. */
+export type FactorDirection = 'bullish' | 'bearish' | 'neutral'
 export type Sentiment = 'positive' | 'negative' | 'neutral'
 export type Relevance = 'high' | 'medium' | 'low'
 
@@ -15,8 +18,11 @@ export interface Health {
 export interface AppConfig {
   lookback_sessions: number
   bullish_threshold: number
+  strong_bullish_threshold: number
   bearish_threshold: number
+  strong_bearish_threshold: number
   neutral_band_pct: number
+  strong_band_pct: number
   cutoff_paris: string
   measure_start_ny: string
   factor_weights: Record<string, number>
@@ -75,7 +81,10 @@ export interface DailyResult {
   date: string
   predicted: Bias
   actual: Bias | null
+  /** Même direction (hausse/baisse/neutre, intensité ignorée). */
   correct: boolean | null
+  /** Même classe parmi les 5 niveaux. */
+  exact: boolean | null
   score: number
   confidence: number
   change_pct: number | null
@@ -111,6 +120,7 @@ export interface SessionRow {
   change_points: number | null
   change_pct: number | null
   correct: boolean | null
+  exact: boolean | null
   open_price: number | null
   close_price: number | null
   data_quality: number
@@ -127,6 +137,7 @@ export interface SessionsFilters {
   predicted?: Bias | ''
   actual?: Bias | ''
   correct?: 'true' | 'false' | ''
+  exact?: 'true' | 'false' | ''
   min_confidence?: string
   min_quality?: string
   date_from?: string
@@ -140,7 +151,7 @@ export interface Factor {
   value: string | null
   score: number | null
   max_weight: number
-  direction: Bias
+  direction: FactorDirection
   rationale: string | null
   available: boolean
   as_of: string | null
@@ -194,6 +205,7 @@ export interface Measurement {
   change_pct: number | null
   actual: Bias | null
   correct: boolean | null
+  exact: boolean | null
   contract_note: string | null
 }
 
@@ -241,6 +253,7 @@ export interface SessionDetail {
 export interface CategoryStats {
   predicted: number
   correct: number
+  exact: number
   hit_rate: number | null
   avg_change_pct: number | null
 }
@@ -281,6 +294,7 @@ export interface StatsResponse {
   n_insufficient: number
   hit_rate: number | null
   hit_rate_excl_neutral: number | null
+  exact_rate: number | null
   by_category: Record<Bias, CategoryStats>
   confusion_matrix: ConfusionMatrix
   by_confidence: ConfidenceBucket[]
@@ -383,6 +397,7 @@ export const api = {
         predicted: filters.predicted || undefined,
         actual: filters.actual || undefined,
         correct: filters.correct || undefined,
+        exact: filters.exact || undefined,
         min_confidence: filters.min_confidence || undefined,
         min_quality: filters.min_quality || undefined,
         date_from: filters.date_from || undefined,

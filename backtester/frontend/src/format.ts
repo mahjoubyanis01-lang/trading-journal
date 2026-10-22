@@ -1,5 +1,5 @@
 // Formatage des nombres et dates en français (fr-FR).
-import type { Bias, Sentiment } from './api'
+import type { Bias, FactorDirection, Sentiment } from './api'
 
 const nf2 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const nf2Signed = new Intl.NumberFormat('fr-FR', {
@@ -86,14 +86,26 @@ export function fmtTimeTZ(iso: string, timeZone: string): string {
 
 // ---------- Libellés français ----------
 
+/** Les 5 niveaux, du plus haussier au plus baissier (ordre d'affichage). */
+export const BIAS_ORDER: Bias[] = ['strong_bullish', 'bullish', 'neutral', 'bearish', 'strong_bearish']
+
 export const BIAS_LABELS: Record<Bias, string> = {
-  bullish: 'Haussier',
-  bearish: 'Baissier',
+  strong_bullish: 'Hausse affirmée',
+  bullish: 'Hausse modérée',
   neutral: 'Neutre',
+  bearish: 'Baisse modérée',
+  strong_bearish: 'Baisse affirmée',
 }
 
 export function biasLabel(b: Bias | null | undefined): string {
   return b ? BIAS_LABELS[b] : ND
+}
+
+/** Libellés 3 niveaux pour la direction des facteurs individuels. */
+export const FACTOR_DIRECTION_LABELS: Record<FactorDirection, string> = {
+  bullish: 'Haussier',
+  bearish: 'Baissier',
+  neutral: 'Neutre',
 }
 
 export const SENTIMENT_LABELS: Record<Sentiment, string> = {

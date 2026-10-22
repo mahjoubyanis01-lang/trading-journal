@@ -66,7 +66,7 @@ function ConfigForm({ initial, onSaved }: { initial: AppConfig; onSaved: (c: App
           </select>
         </div>
         <div className="field">
-          <label htmlFor="c-bull">Seuil score haussier (≥)</label>
+          <label htmlFor="c-bull">Seuil hausse modérée (score ≥)</label>
           <input
             id="c-bull"
             type="number"
@@ -75,12 +75,30 @@ function ConfigForm({ initial, onSaved }: { initial: AppConfig; onSaved: (c: App
           />
         </div>
         <div className="field">
-          <label htmlFor="c-bear">Seuil score baissier (≤)</label>
+          <label htmlFor="c-sbull">Seuil hausse affirmée (score ≥)</label>
+          <input
+            id="c-sbull"
+            type="number"
+            value={cfg.strong_bullish_threshold}
+            onChange={(e) => setField('strong_bullish_threshold', Number(e.target.value))}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="c-bear">Seuil baisse modérée (score ≤)</label>
           <input
             id="c-bear"
             type="number"
             value={cfg.bearish_threshold}
             onChange={(e) => setField('bearish_threshold', Number(e.target.value))}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="c-sbear">Seuil baisse affirmée (score ≤)</label>
+          <input
+            id="c-sbear"
+            type="number"
+            value={cfg.strong_bearish_threshold}
+            onChange={(e) => setField('strong_bearish_threshold', Number(e.target.value))}
           />
         </div>
         <div className="field">
@@ -92,6 +110,17 @@ function ConfigForm({ initial, onSaved }: { initial: AppConfig; onSaved: (c: App
             min="0"
             value={cfg.neutral_band_pct}
             onChange={(e) => setField('neutral_band_pct', Number(e.target.value))}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="c-strongband">Seuil direction affirmée (± %)</label>
+          <input
+            id="c-strongband"
+            type="number"
+            step="0.01"
+            min="0"
+            value={cfg.strong_band_pct}
+            onChange={(e) => setField('strong_band_pct', Number(e.target.value))}
           />
         </div>
         <div className="field">

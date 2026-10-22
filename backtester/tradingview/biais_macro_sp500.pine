@@ -1,0 +1,230 @@
+//@version=5
+// ============================================================================
+// Biais Macro S&P 500 — verdict en 5 niveaux (portage TradingView)
+//
+// Portage de l'application "S&P 500 Macro Bias Backtester" :
+// à 15h29 (heure de Paris, configurable), l'indicateur fige un verdict —
+// HAUSSE AFFIRMÉE / HAUSSE MODÉRÉE / NEUTRE / BAISSE MODÉRÉE / BAISSE
+// AFFIRMÉE — à partir des facteurs de MARCHÉ disponibles à cet instant,
+// puis mesure le mouvement réel entre 9h30 New York et minuit Paris et
+// tient les statistiques (direction correcte / classe exacte).
+//
+// À utiliser sur CME_MINI:ES1! (ou ES continu), unité 30 min ou moins.
+//
+// LIMITES ASSUMÉES (différences avec l'application complète) :
+// - Pine ne peut pas interroger d'API externes : les facteurs actualités,
+//   géopolitique, publications macro et résultats d'entreprises de
+//   l'application ne sont PAS reproductibles ici. Le score est renormalisé
+//   sur les facteurs disponibles, comme dans l'application.
+// - Les clôtures quotidiennes de référence (ES, NQ) sont les règlements
+//   quotidiens TradingView (17h00 ET), pas la clôture cash de 16h00.
+// - Le facteur Europe utilise l'ouverture quotidienne de l'indice via
+//   lookahead : valide au moment du verdict (l'Europe est ouverte depuis
+//   des heures), mais la courbe de score tracée pendant la nuit peut
+//   utiliser cette ouverture par anticipation. Le VERDICT, lui, est figé
+//   à l'heure limite uniquement.
+// - L'historique intraday dépend de votre abonnement TradingView.
+// Résultats exploratoires : un taux de réussite sur quelques dizaines de
+// séances n'est pas une preuve statistique ni de rentabilité.
+// ============================================================================
+indicator("Biais Macro S&P 500 — 5 niveaux", shorttitle="Biais ES 5N",
+     overlay=false, max_labels_count=500)
+
+// ---------------------------------------------------------------- Réglages
+grpH = "Horaires"
+cutH  = input.int(15, "Heure limite — heure (Paris)",  minval=0, maxval=23, group=grpH)
+cutM  = input.int(29, "Heure limite — minute (Paris)", minval=0, maxval=59, group=grpH)
+
+grpS = "Seuils du verdict (score -100..+100)"
+thBull   = input.float(25.0,  "Seuil hausse modérée (≥)",  group=grpS)
+thSBull  = input.float(55.0,  "Seuil hausse affirmée (≥)", group=grpS)
+thBear   = input.float(-25.0, "Seuil baisse modérée (≤)",  group=grpS)
+thSBear  = input.float(-55.0, "Seuil baisse affirmée (≤)", group=grpS)
+
+grpB = "Classement du mouvement réel (%)"
+bandNeutral = input.float(0.10, "Bande neutre (± %)",          minval=0, step=0.05, group=grpB)
+bandStrong  = input.float(0.50, "Bande direction affirmée (± %)", minval=0, step=0.05, group=grpB)
+
+grpW = "Poids des facteurs"
+wEs   = input.float(25, "ES avant ouverture",        minval=0, group=grpW)
+wNq   = input.float(10, "Nasdaq-100 (NQ)",           minval=0, group=grpW)
+wEu   = input.float(10, "Europe (séance en cours)",  minval=0, group=grpW)
+wAs   = input.float(5,  "Asie (clôture Nikkei)",     minval=0, group=grpW)
+wVx   = input.float(10, "VIX vs moyenne 20 séances", minval=0, group=grpW)
+wYl   = input.float(10, "US 10 ans (variation veille)", minval=0, group=grpW)
+wDx   = input.float(5,  "Dollar (variation veille)", minval=0, group=grpW)
+
+grpSym = "Symboles"
+nqSym  = input.symbol("CME_MINI:NQ1!", "Nasdaq-100 futures", group=grpSym)
+euSym  = input.symbol("XETR:DAX",      "Indice Europe",      group=grpSym)
+asSym  = input.symbol("TVC:NI225",     "Indice Asie",        group=grpSym)
+vxSym  = input.symbol("TVC:VIX",       "VIX",                group=grpSym)
+ylSym  = input.symbol("TVC:US10Y",     "Rendement US 10 ans",group=grpSym)
+dxSym  = input.symbol("TVC:DXY",       "Dollar index",       group=grpSym)
+
+tzP = "Europe/Paris"
+tzN = "America/New_York"
+
+// ---------------------------------------------------------------- Données
+f_tanh(x) =>
+    e = math.exp(2 * x)
+    (e - 1) / (e + 1)
+
+// Clôture quotidienne précédente (règlement) du symbole affiché et du NQ.
+esPrevClose = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_on)
+nqPrev      = request.security(nqSym, "D", close[1],            lookahead=barmerge.lookahead_on)
+nqNow       = request.security(nqSym, timeframe.period, close)
+
+// Europe : variation du jour (prix courant vs ouverture quotidienne).
+euOpen = request.security(euSym, "D", open, lookahead=barmerge.lookahead_on)
+euNow  = request.security(euSym, timeframe.period, close)
+
+// Asie : variation de la dernière séance TERMINÉE du Nikkei (sans lookahead :
+// la clôture du jour n'apparaît qu'une fois la bougie quotidienne finie).
+asChg = request.security(asSym, "D", close / close[1] - 1)
+
+// VIX, taux, dollar : valeurs de la VEILLE uniquement (pattern [1] + lookahead).
+[vxPrev, vxSma20] = request.security(vxSym, "D", [close[1], ta.sma(close, 20)[1]], lookahead=barmerge.lookahead_on)
+ylChgBp = request.security(ylSym, "D", (close[1] - close[2]) * 100,       lookahead=barmerge.lookahead_on)
+dxChgPc = request.security(dxSym, "D", (close[1] / close[2] - 1) * 100,   lookahead=barmerge.lookahead_on)
+
+// ---------------------------------------------------------------- Facteurs
+// Chaque facteur est borné par son poids via tanh (mêmes échelles que l'app).
+fEs = na(esPrevClose) ? na : wEs * f_tanh((close / esPrevClose - 1) * 100 / 0.6)
+fNq = na(nqPrev) or na(nqNow) ? na : wNq * f_tanh((nqNow / nqPrev - 1) * 100 / 0.8)
+fEu = na(euOpen) or na(euNow) ? na : wEu * f_tanh((euNow / euOpen - 1) * 100 / 0.9)
+fAs = na(asChg) ? na : wAs * f_tanh(asChg * 100 / 1.2)
+fVx = na(vxPrev) or na(vxSma20) or vxSma20 == 0 ? na :
+     -wVx * f_tanh((vxPrev - vxSma20) / vxSma20 * 100 / 12.0)
+fYl = na(ylChgBp) ? na : -wYl * f_tanh(ylChgBp / 9.0)
+fDx = na(dxChgPc) ? na : -wDx * f_tanh(dxChgPc / 0.7)
+
+raw    = nz(fEs) + nz(fNq) + nz(fEu) + nz(fAs) + nz(fVx) + nz(fYl) + nz(fDx)
+availW = (na(fEs) ? 0 : wEs) + (na(fNq) ? 0 : wNq) + (na(fEu) ? 0 : wEu) +
+         (na(fAs) ? 0 : wAs) + (na(fVx) ? 0 : wVx) + (na(fYl) ? 0 : wYl) +
+         (na(fDx) ? 0 : wDx)
+score = availW > 0 ? math.max(-100.0, math.min(100.0, raw / availW * 100)) : na
+
+// ---------------------------------------------------------------- Verdicts
+verdictOf(s) =>
+    na(s) ? "n.d." : s >= thSBull ? "HAUSSE AFFIRMÉE" : s >= thBull ? "HAUSSE MODÉRÉE" :
+         s <= thSBear ? "BAISSE AFFIRMÉE" : s <= thBear ? "BAISSE MODÉRÉE" : "NEUTRE"
+
+classifyMove(chg) =>
+    chg >  bandStrong  ? "HAUSSE AFFIRMÉE" : chg >  bandNeutral ? "HAUSSE MODÉRÉE" :
+     chg < -bandStrong ? "BAISSE AFFIRMÉE" : chg < -bandNeutral ? "BAISSE MODÉRÉE" : "NEUTRE"
+
+directionOf(v) =>
+    v == "HAUSSE AFFIRMÉE" or v == "HAUSSE MODÉRÉE" ? 1 :
+         v == "BAISSE AFFIRMÉE" or v == "BAISSE MODÉRÉE" ? -1 : 0
+
+colorOf(v) =>
+    v == "HAUSSE AFFIRMÉE" ? color.new(#0ca30c, 0) : v == "HAUSSE MODÉRÉE" ? color.new(#8fd48f, 0) :
+         v == "BAISSE AFFIRMÉE" ? color.new(#c73535, 0) : v == "BAISSE MODÉRÉE" ? color.new(#f09999, 0) :
+         color.new(#898781, 0)
+
+// ------------------------------------------------- Cycle quotidien du test
+yP = year(time, tzP)
+mP = month(time, tzP)
+dP = dayofmonth(time, tzP)
+yN = year(time, tzN)
+mN = month(time, tzN)
+dN = dayofmonth(time, tzN)
+
+tCut  = timestamp(tzP, yP, mP, dP, cutH, cutM)
+tOpen = timestamp(tzN, yN, mN, dN, 9, 30)
+
+cutCross  = time >= tCut  and time[1] < tCut    // 1re bougie à/après la limite
+openCross = time >= tOpen and time[1] < tOpen   // 1re bougie à/après 9h30 NY
+
+// Ouverture 9h30 NY du jour courant (sert au cas décalage 5 h où la limite
+// tombe APRÈS l'ouverture américaine).
+var float dayOpenPx = na
+if openCross
+    dayOpenPx := open
+
+// État de la séance en cours de test.
+var bool   pend        = false
+var float  pendScore   = na
+var string pendVerdict = na
+var float  pendOpen    = na
+var int    pendMidnight = na
+
+// Compteurs.
+var int nSess = 0
+var int nDir = 0
+var int nExact = 0
+
+if cutCross and not pend
+    pend         := true
+    pendScore    := score[1]              // seule la dernière bougie TERMINÉE compte
+    pendVerdict  := verdictOf(score[1])
+    pendOpen     := time >= tOpen ? dayOpenPx : na   // déjà ouvert (semaines à 5 h)
+    pendMidnight := timestamp(tzP, yP, mP, dP, 0, 0) + 86400000
+
+if pend and na(pendOpen) and openCross
+    pendOpen := open
+
+if pend and not na(pendMidnight) and time >= pendMidnight
+    float endPx = time == pendMidnight ? open : close[1]
+    if not na(pendOpen) and pendOpen != 0 and not na(pendScore)
+        chg = (endPx - pendOpen) / pendOpen * 100
+        realV = classifyMove(chg)
+        okDir   = directionOf(pendVerdict) == directionOf(realV)
+        okExact = pendVerdict == realV
+        nSess  += 1
+        nDir   += okDir ? 1 : 0
+        nExact += okExact ? 1 : 0
+        label.new(bar_index, score,
+             text=pendVerdict + " → " + realV + (okDir ? " ✓" : " ✗") +
+                  "\n" + (chg >= 0 ? "+" : "") + str.tostring(chg, "0.00") + " %",
+             style=label.style_label_down, color=color.new(colorOf(pendVerdict), 70),
+             textcolor=color.white, size=size.small)
+    pend := false
+    pendOpen := na
+
+// ---------------------------------------------------------------- Tracés
+vNow = verdictOf(score)
+plot(score, "Score directionnel", color=colorOf(vNow), linewidth=2)
+hline(0,  "Zéro",            color=color.new(color.gray, 60))
+hline(thBull,  "Hausse modérée",  color=color.new(#8fd48f, 50), linestyle=hline.style_dotted)
+hline(thSBull, "Hausse affirmée", color=color.new(#0ca30c, 50), linestyle=hline.style_dotted)
+hline(thBear,  "Baisse modérée",  color=color.new(#f09999, 50), linestyle=hline.style_dotted)
+hline(thSBear, "Baisse affirmée", color=color.new(#c73535, 50), linestyle=hline.style_dotted)
+bgcolor(cutCross ? color.new(colorOf(pendVerdict), 82) : na)
+
+// ---------------------------------------------------------------- Tableau
+var table t = table.new(position.top_right, 2, 12, border_width=1)
+fmtF(f, w) => na(f) ? "n.d." : (f >= 0 ? "+" : "") + str.tostring(f, "0.0") + " / " + str.tostring(w, "#")
+if barstate.islast
+    table.cell(t, 0, 0, "Biais Macro S&P 500", text_color=color.white, bgcolor=color.new(color.gray, 40))
+    table.cell(t, 1, 0, verdictOf(score), text_color=color.white, bgcolor=colorOf(verdictOf(score)))
+    table.cell(t, 0, 1, "Score", text_color=color.silver)
+    table.cell(t, 1, 1, na(score) ? "n.d." : (score >= 0 ? "+" : "") + str.tostring(score, "0.0"), text_color=color.white)
+    table.cell(t, 0, 2, "ES préouverture",  text_color=color.silver)
+    table.cell(t, 1, 2, fmtF(fEs, wEs), text_color=color.white)
+    table.cell(t, 0, 3, "NQ préouverture",  text_color=color.silver)
+    table.cell(t, 1, 3, fmtF(fNq, wNq), text_color=color.white)
+    table.cell(t, 0, 4, "Europe",           text_color=color.silver)
+    table.cell(t, 1, 4, fmtF(fEu, wEu), text_color=color.white)
+    table.cell(t, 0, 5, "Asie (Nikkei)",    text_color=color.silver)
+    table.cell(t, 1, 5, fmtF(fAs, wAs), text_color=color.white)
+    table.cell(t, 0, 6, "VIX",              text_color=color.silver)
+    table.cell(t, 1, 6, fmtF(fVx, wVx), text_color=color.white)
+    table.cell(t, 0, 7, "US 10 ans",        text_color=color.silver)
+    table.cell(t, 1, 7, fmtF(fYl, wYl), text_color=color.white)
+    table.cell(t, 0, 8, "Dollar",           text_color=color.silver)
+    table.cell(t, 1, 8, fmtF(fDx, wDx), text_color=color.white)
+    table.cell(t, 0, 9, "Séances testées",  text_color=color.silver)
+    table.cell(t, 1, 9, str.tostring(nSess), text_color=color.white)
+    table.cell(t, 0, 10, "Direction correcte", text_color=color.silver)
+    table.cell(t, 1, 10, nSess > 0 ? str.tostring(100.0 * nDir / nSess, "#.#") + " %" : "n.d.", text_color=color.white)
+    table.cell(t, 0, 11, "Classe exacte (5 niv.)", text_color=color.silver)
+    table.cell(t, 1, 11, nSess > 0 ? str.tostring(100.0 * nExact / nSess, "#.#") + " %" : "n.d.", text_color=color.white)
+
+// ---------------------------------------------------------------- Alertes
+alertcondition(cutCross, "Verdict du jour figé",
+     "Biais Macro S&P 500 : verdict figé à l'heure limite (voir le graphique).")
+strongCut = cutCross and (verdictOf(score[1]) == "HAUSSE AFFIRMÉE" or verdictOf(score[1]) == "BAISSE AFFIRMÉE")
+alertcondition(strongCut, "Verdict AFFIRMÉ au cutoff",
+     "Biais Macro S&P 500 : verdict AFFIRMÉ (hausse ou baisse) figé à l'heure limite.")

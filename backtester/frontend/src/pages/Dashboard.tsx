@@ -14,16 +14,18 @@ import {
   YAxis,
 } from 'recharts'
 import { api, BackendUnreachableError } from '../api'
-import type { BacktestStatus, DailyResult, Summary } from '../api'
+import type { BacktestStatus, DailyResult, LiveVerdict, Summary } from '../api'
 import { useApi } from '../hooks'
-import { BIAS_ICONS, Card, EmptyState, ErrorBanner, Loading, StatTile } from '../components/ui'
+import { BIAS_ICONS, BiasBadge, Card, EmptyState, ErrorBanner, Loading, StatTile } from '../components/ui'
 import {
   BIAS_ORDER,
   biasLabel,
   correctLabel,
   fmtDate,
   fmtDateShort,
+  fmtDateTime,
   fmtInt,
+  fmtNum,
   fmtPct,
   fmtRate,
 } from '../format'
@@ -359,6 +361,84 @@ function DailyChart({ daily }: { daily: DailyResult[] }) {
 
 // ---------------------------------------------------------------
 
+/** Verdict du jour calculé en direct par le moteur complet (toutes sources
+ *  connectées) : provisoire avant l'heure limite, figé après. */
+function LiveVerdictCard() {
+  const [data, setData] = useState<LiveVerdict | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const run = useCallback(async (refresh: boolean) => {
+    setLoading(true)
+    setError(null)
+    try {
+      setData(await api.liveVerdict(refresh))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const s = data?.session
+  const m = s?.measurement ?? null
+  const nFactors = s ? s.factors.filter((f) => f.available).length : 0
+
+  return (
+    <Card title="Verdict du jour — moteur connecté (toutes sources)">
+      {!data && !loading && (
+        <p className="muted">
+          Calcule le biais d'aujourd'hui avec le moteur complet (marché + actualités + macro
+          selon les sources configurées). Provisoire avant 15:29 Paris, figé après.
+          La collecte peut prendre une minute.
+        </p>
+      )}
+      {loading && <Loading />}
+      {error && <p className="neg">{error}</p>}
+      {data && !data.available && <p className="muted">{data.message}</p>}
+      {s && !loading && (
+        <div className="live-verdict">
+          <div className="live-verdict-head">
+            <BiasBadge bias={s.predicted} big />
+            <div>
+              <div>
+                Score <strong>{fmtNum(s.score)}</strong> · confiance{' '}
+                <strong>{fmtInt(s.confidence)}/100</strong> · {nFactors}/11 facteurs ·{' '}
+                {fmtInt(s.news.length)} actualités
+              </div>
+              <div className="muted">
+                {s.provisional
+                  ? 'PROVISOIRE — avant l’heure limite, recalculé sur les données du moment'
+                  : 'FIGÉ — données ≤ 15:29 Paris (même méthode que le backtest)'}
+                {' · calculé le '}
+                {fmtDateTime(s.as_of)}
+              </div>
+            </div>
+          </div>
+          {m && m.open_price != null && (
+            <p>
+              Mesure {m.in_progress ? 'partielle (séance en cours)' : 'finale'} :{' '}
+              {fmtNum(m.open_price)} → {fmtNum(m.close_price)} ({fmtPct(m.change_pct, true)})
+              {m.note ? <span className="muted"> — {m.note}</span> : null}
+            </p>
+          )}
+          {s.reasoning && <p className="muted">{s.reasoning}</p>}
+        </div>
+      )}
+      <div className="row-actions">
+        <button className="btn" onClick={() => void run(false)} disabled={loading}>
+          {data ? 'Actualiser le verdict' : 'Calculer le verdict du jour'}
+        </button>
+        {data && (
+          <button className="btn btn-ghost" onClick={() => void run(true)} disabled={loading}>
+            Recalcul complet
+          </button>
+        )}
+      </div>
+    </Card>
+  )
+}
+
 export default function Dashboard() {
   const { data: summary, loading, error, unreachable, reload } = useApi(api.summary)
 
@@ -373,6 +453,8 @@ export default function Dashboard() {
       </p>
 
       <ErrorBanner unreachable={unreachable} error={error} onRetry={reload} />
+
+      <LiveVerdictCard />
 
       <BacktestRunner onFinished={reload} />
 

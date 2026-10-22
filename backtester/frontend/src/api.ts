@@ -207,6 +207,9 @@ export interface Measurement {
   correct: boolean | null
   exact: boolean | null
   contract_note: string | null
+  /** Mode temps réel : séance en cours, mesure partielle. */
+  in_progress?: boolean
+  note?: string
 }
 
 export interface Candle {
@@ -247,6 +250,20 @@ export interface SessionDetail {
   insufficient: boolean
   limitations: string[]
   collection_errors: CollectionError[]
+}
+
+// ---------- /api/live/verdict ----------
+export interface LiveSession extends SessionDetail {
+  live: boolean
+  /** true avant l'heure limite (verdict provisoire sur données ≤ maintenant). */
+  provisional: boolean
+  as_of: string
+}
+
+export interface LiveVerdict {
+  available: boolean
+  message?: string
+  session?: LiveSession
 }
 
 // ---------- /api/results/stats ----------
@@ -408,6 +425,8 @@ export const api = {
     request<SessionDetail>(`/api/results/sessions/${encodeURIComponent(date)}`),
   stats: () => request<StatsResponse>('/api/results/stats'),
   errors: () => request<ErrorsResponse>('/api/errors'),
+  liveVerdict: (refresh = false) =>
+    request<LiveVerdict>(`/api/live/verdict${refresh ? '?refresh=true' : ''}`),
 }
 
 export const EXPORT_CSV_URL = '/api/export/csv'

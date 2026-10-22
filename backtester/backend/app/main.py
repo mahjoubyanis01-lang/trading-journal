@@ -150,6 +150,78 @@ def backtest_status():
     return STATE.snapshot()
 
 
+# ------------------------------------------------------------------ live
+
+_live_cache: dict = {}
+
+
+@app.get("/api/live/verdict")
+def live_verdict(refresh: bool = False):
+    """Verdict du JOUR calculé par le moteur complet (toutes sources
+    configurées), en temps réel :
+    - avant l'heure limite : verdict PROVISOIRE sur les données <= maintenant ;
+    - après : verdict FIGÉ sur les données <= heure limite (même méthode que
+      le backtest) ;
+    - la mesure 9h30 NY -> minuit Paris est renvoyée partielle tant que la
+      séance n'est pas terminée.
+    Cache 120 s (refresh=true force le recalcul)."""
+    import time as _t
+    from datetime import datetime as _dt, date as _date, timedelta as _td
+    from .backtest.runner import analyze_session
+    from .timeutil import PARIS, NEW_YORK, cutoff_paris, measure_end_paris
+
+    settings = load_settings()
+    now_paris = _dt.now(PARIS)
+    today = _dt.now(NEW_YORK).date()
+    if today.weekday() >= 5:
+        return {"available": False,
+                "message": "Marché fermé (week-end) : pas de verdict du jour."}
+
+    cutoff = cutoff_paris(today, settings["cutoff_paris"])
+    provisional = now_paris < cutoff
+    cache_key = (today.isoformat(), provisional)
+    cached = _live_cache.get("payload")
+    if (not refresh and cached is not None
+            and _live_cache.get("key") == cache_key
+            and _t.time() - _live_cache.get("at", 0) < 120):
+        return cached
+
+    live_settings = dict(settings)
+    if provisional:
+        live_settings["cutoff_paris"] = now_paris.strftime("%H:%M")
+
+    # Séance précédente (pour la fenêtre d'actualités).
+    try:
+        from .providers.yahoo import get_trading_sessions
+        prev = get_trading_sessions(1)[-1]
+    except Exception:  # noqa: BLE001
+        prev = None
+
+    try:
+        result = analyze_session(today, live_settings, prev)
+    except Exception as e:  # noqa: BLE001
+        return {"available": False,
+                "message": f"Analyse impossible (marché fermé ou données "
+                           f"indisponibles) : {e}"}
+
+    end = measure_end_paris(today)
+    in_progress = now_paris < end
+    result["live"] = True
+    result["provisional"] = provisional
+    result["as_of"] = now_paris.isoformat()
+    if in_progress:
+        result["measurement"]["in_progress"] = True
+        result["measurement"]["note"] = ("Séance en cours : mesure partielle "
+                                         "jusqu'au dernier prix disponible, "
+                                         "résultat définitif à minuit (Paris).")
+        # Pas de « correct/exact » définitifs sur une séance inachevée.
+        result["measurement"]["correct"] = None
+        result["measurement"]["exact"] = None
+    payload = {"available": True, "session": result}
+    _live_cache.update({"key": cache_key, "at": _t.time(), "payload": payload})
+    return payload
+
+
 # ------------------------------------------------------------------ results
 
 @app.get("/api/results/summary")

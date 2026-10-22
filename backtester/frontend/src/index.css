@@ -970,3 +970,22 @@ tr.row-link:hover td {
     display: none;
   }
 }
+
+/* Verdict du jour (mode connecté temps réel) */
+.live-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.live-verdict-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

@@ -1,5 +1,5 @@
 //@version=6
-indicator("Heiken Ashi par degrès + Signaux", shorttitle="HA degrès + Signaux", overlay=true)
+indicator("Heiken Ashi par degres + Signaux", shorttitle="HA Sig", overlay=true)
 
 // =========================================================================
 // INPUTS
@@ -12,7 +12,7 @@ kcMult       = input.float(1.5, "KC MultFactor", group = grpSqz)
 useTrueRange = input.bool(true, "Use TrueRange (KC)", group = grpSqz)
 
 grpColor = "Coloration / Graduation"
-normLen   = input.int(100, "Fenêtre de normalisation du momentum", group = grpColor, tooltip = "Nombre de barres utilisées pour calibrer l'échelle de couleur sur l'amplitude récente du momentum")
+normLen   = input.int(100, "Fenetre de normalisation du momentum", group = grpColor, tooltip = "Nombre de barres utilisees pour calibrer l'echelle de couleur sur l'amplitude recente du momentum")
 dampAlpha = input.int(55, "Transparence en phase de ralentissement", group = grpColor, minval = 0, maxval = 100, tooltip = "0 = pas d'effet, 100 = quasi invisible quand le momentum ralentit")
 
 grpSqzShow  = "Affichage squeeze"
@@ -20,9 +20,9 @@ showSqzDots = input.bool(true, "Afficher les points de squeeze sous les bougies"
 
 grpSig = "Signaux de retournement"
 showSignals   = input.bool(true, "Afficher les signaux (point vert / point rouge)", group = grpSig)
-needMomentum  = input.bool(true, "Exiger une inflexion du momentum", group = grpSig, tooltip = "Le point n'apparaît que si le momentum tourne dans le sens du retournement (val remonte pour un signal haussier, val redescend pour un signal baissier). Filtre les simples changements de couleur sans soutien du momentum.")
-minExtreme    = input.int(30, "Extrême minimal avant retournement (0-100)", group = grpSig, minval = 0, maxval = 100, tooltip = "Le momentum normalisé doit avoir atteint au moins cette valeur dans le sens opposé sur les barres récentes avant le signal. 0 = désactivé : tout basculement de bougie HA est signalé. Plus la valeur est haute, plus on ne garde que les retournements après un mouvement marqué.")
-extremeLookback = input.int(10, "Barres de recherche de l'extrême", group = grpSig, minval = 1, tooltip = "Nombre de barres en arrière où chercher l'extrême opposé exigé ci-dessus")
+needMomentum  = input.bool(true, "Exiger une inflexion du momentum", group = grpSig, tooltip = "Le point n'apparait que si le momentum tourne dans le sens du retournement (val remonte pour un signal haussier, val redescend pour un signal baissier). Filtre les simples changements de couleur sans soutien du momentum.")
+minExtreme    = input.int(30, "Extreme minimal avant retournement (0-100)", group = grpSig, minval = 0, maxval = 100, tooltip = "Le momentum normalise doit avoir atteint au moins cette valeur dans le sens oppose sur les barres recentes avant le signal. 0 = desactive : tout basculement de bougie HA est signale. Plus la valeur est haute, plus on ne garde que les retournements apres un mouvement marque.")
+extremeLookback = input.int(10, "Barres de recherche de l'extreme", group = grpSig, minval = 1, tooltip = "Nombre de barres en arriere ou chercher l'extreme oppose exige ci-dessus")
 
 // =========================================================================
 // HEIKEN ASHI (OHLC)
@@ -34,7 +34,7 @@ haLow    = request.security(haTicker, timeframe.period, low)
 haClose  = request.security(haTicker, timeframe.period, close)
 
 // =========================================================================
-// SQUEEZE MOMENTUM (LazyBear) — recalcul en v6, sur le prix réel
+// SQUEEZE MOMENTUM (LazyBear) -- recalcul en v6, sur le prix reel
 // =========================================================================
 source = close
 basis  = ta.sma(source, bbLength)
@@ -57,12 +57,12 @@ val = ta.linreg(source - math.avg(math.avg(ta.highest(high, kcLength), ta.lowest
 // =========================================================================
 // GRADUATION DE COULEUR (remplace le vert/rouge classique de HA)
 // =========================================================================
-// Normalisation du momentum sur son amplitude récente -> échelle -100 / +100
+// Normalisation du momentum sur son amplitude recente -> echelle -100 / +100
 normVal = 100 * nz(val) / math.max(ta.highest(math.abs(val), normLen), 1e-10)
 normVal := math.max(math.min(normVal, 100), -100)
 
-// Le momentum "se renforce" dans son sens (équivalent du lime/red de l'original)
-// ou "faiblit" en revenant vers zéro (équivalent du green/maroon, plus terne)
+// Le momentum se renforce dans son sens (equivalent du lime/red de l'original)
+// ou faiblit en revenant vers zero (equivalent du green/maroon, plus terne)
 strengthening = val > 0 ? (val > nz(val[1])) : (val < nz(val[1]))
 
 baseColor = normVal >= 0 ?
@@ -72,9 +72,9 @@ baseColor = normVal >= 0 ?
 haColor = strengthening ? baseColor : color.new(baseColor, dampAlpha)
 
 // =========================================================================
-// SIGNAUX DE RETOURNEMENT (basés uniquement sur cet indicateur)
+// SIGNAUX DE RETOURNEMENT (bases uniquement sur cet indicateur)
 // =========================================================================
-// Basculement de la bougie Heiken Ashi : la direction lissée change de camp
+// Basculement de la bougie Heiken Ashi : la direction lissee change de camp
 bullFlip = haClose > haOpen and haClose[1] <= haOpen[1]
 bearFlip = haClose < haOpen and haClose[1] >= haOpen[1]
 
@@ -82,8 +82,8 @@ bearFlip = haClose < haOpen and haClose[1] >= haOpen[1]
 momTurnUp   = nz(val) > nz(val[1])
 momTurnDown = nz(val) < nz(val[1])
 
-// Le marché doit venir d'un mouvement marqué dans l'autre sens
-// (extrême du momentum normalisé sur les barres récentes)
+// Le marche doit venir d'un mouvement marque dans l'autre sens
+// (extreme du momentum normalise sur les barres recentes)
 cameFromDown = minExtreme == 0 or ta.lowest(normVal, extremeLookback)  <= -minExtreme
 cameFromUp   = minExtreme == 0 or ta.highest(normVal, extremeLookback) >=  minExtreme
 
@@ -96,7 +96,7 @@ bearSignal = showSignals and bearFlip and (not needMomentum or momTurnDown) and 
 plotcandle(haOpen, haHigh, haLow, haClose, title = "Heiken Ashi", color = haColor, wickcolor = haColor, bordercolor = color.new(color.black, 40))
 
 sqzColor = noSqz ? color.blue : sqzOn ? color.black : color.gray
-plotshape(showSqzDots ? 0.0 : na, title = "État squeeze", style = shape.circle, location = location.belowbar, color = sqzColor, size = size.tiny)
+plotshape(showSqzDots ? 0.0 : na, title = "Etat squeeze", style = shape.circle, location = location.belowbar, color = sqzColor, size = size.tiny)
 
 // Point vert sous la bougie = retournement haussier ; point rouge au-dessus = retournement baissier
 plotshape(bullSignal, title = "Retournement haussier", style = shape.circle, location = location.belowbar, color = color.new(color.green, 0), size = size.small)
@@ -105,5 +105,5 @@ plotshape(bearSignal, title = "Retournement baissier", style = shape.circle, loc
 // =========================================================================
 // ALERTES
 // =========================================================================
-alertcondition(bullSignal, title = "Retournement haussier", message = "HA degrès : retournement haussier (point vert) sur {{ticker}} {{interval}}")
-alertcondition(bearSignal, title = "Retournement baissier", message = "HA degrès : retournement baissier (point rouge) sur {{ticker}} {{interval}}")
+alertcondition(bullSignal, title = "Retournement haussier", message = "HA Sig : retournement haussier (point vert) sur {{ticker}} {{interval}}")
+alertcondition(bearSignal, title = "Retournement baissier", message = "HA Sig : retournement baissier (point rouge) sur {{ticker}} {{interval}}")

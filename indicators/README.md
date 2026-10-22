@@ -75,6 +75,27 @@ Deux déclencheurs, dans la fenêtre de validité après la touche :
 Deux alertes supplémentaires : « Signal ACHAT sur FVG » et « Signal VENTE
 sur FVG ».
 
+### Filtre de pertinence (score de confluence)
+
+Pour ne garder que les signaux les plus pertinents, chaque confirmation est
+notée sur 5 critères de qualité (1 point chacun, désactivables un à un) :
+
+1. **Momentum Squeeze (LazyBear)** tourné dans le sens du signal ;
+2. **Tendance 15m** (moteur P1→P4) alignée avec le signal ;
+3. **Corps de la bougie de confirmation** ≥ 0,5 × ATR(14) — élimine les
+   confirmations sur doji ;
+4. **Clôture au-delà de la zone** touchée (le niveau est repris, pas juste
+   effleuré) ;
+5. **Volume** supérieur à sa moyenne 20 (ignoré si le symbole n'a pas de
+   volume).
+
+Seuls les signaux atteignant le **score minimal** (3 par défaut) s'affichent.
+Si le score est insuffisant, la touche reste en attente : une meilleure
+confirmation peut encore déclencher dans la fenêtre de validité. Le label
+affiche le score (`▲ C 4/5`), son infobulle détaille les critères ✓/✗, et la
+couleur du point est graduée comme dans HA Zones : clair = score minimal,
+foncé = tous les critères réunis.
+
 ### Installation
 
 1. Ouvrir TradingView → éditeur Pine.

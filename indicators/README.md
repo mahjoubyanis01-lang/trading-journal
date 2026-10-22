@@ -99,12 +99,37 @@ notée sur 5 critères de qualité (1 point chacun, désactivables un à un) :
 5. **Volume** supérieur à sa moyenne 20 (ignoré si le symbole n'a pas de
    volume).
 
+S'y ajoute un 6ᵉ critère : **déplacement créateur fort** — le corps de la
+bougie 15m qui a créé le FVG ≥ 1 × ATR 15m (les zones nées d'une grosse
+chute ou d'une grosse hausse donnent de meilleurs signaux). Le momentum est
+désactivé par défaut (aucun pouvoir prédictif mesuré).
+
 Seuls les signaux atteignant le **score minimal** (3 par défaut) s'affichent.
 Si le score est insuffisant, la touche reste en attente : une meilleure
 confirmation peut encore déclencher dans la fenêtre de validité. Le label
 affiche le score (`▲ C 4/5`), son infobulle détaille les critères ✓/✗, et la
 couleur du point est graduée comme dans HA Zones : clair = score minimal,
 foncé = tous les critères réunis.
+
+### Filtres issus de l'analyse de données
+
+Les défauts du groupe « Filtres issus de l'analyse » viennent d'un backtest
+de la logique complète sur **828 signaux réels** (ES 15m, 60 jours) — détail
+dans [`analysis/RESULTATS.md`](analysis/RESULTATS.md), reproductible avec
+[`analysis/analyze_fvg.py`](analysis/analyze_fvg.py) :
+
+- **Zones Continuation seulement** (les zones R : 46 % de réussite, espérance
+  négative — elles restent affichées mais ne signalent plus) ;
+- **Âge max de la zone : 20 bougies 15m** (les vieilles zones ne réagissent
+  plus) ;
+- **Plage horaire 06:00–16:00 New York** (00–06 h NY est la pire période
+  mesurée, 06–09 h NY la meilleure) ;
+- **Tendance souple** par défaut (meilleur critère mesuré : +0,33 vs −0,24
+  ATR) ;
+- Taille de zone minimale en ATR disponible mais désactivée.
+
+Ces statistiques sont exploratoires (un instrument, 60 jours) — pas une
+promesse de rentabilité.
 
 ### Installation
 

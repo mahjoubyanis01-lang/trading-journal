@@ -35,6 +35,12 @@
 //     supérieur à sa moyenne. Seuls les signaux atteignant le score minimal
 //     s'affichent ; la couleur du point est graduée par le score
 //     (clair = score minimal, foncé = tous les critères réunis).
+//   - FILTRES ISSUS DE L'ANALYSE DE DONNÉES (828 signaux, ES 15m, 60 jours,
+//     script indicators/analysis/analyze_fvg.py) : zones Continuation
+//     seulement par défaut, tendance souple alignée, âge max de zone 20
+//     bougies 15m, plage horaire 06:00-16:00 New York, critère de
+//     déplacement créateur (>= 1 ATR), momentum désactivé (aucun pouvoir
+//     prédictif mesuré). Statistiques exploratoires, pas une promesse.
 //
 // Remarque : l'indicateur fonctionne sur n'importe quelle unité de temps du
 // graphique inférieure ou égale à 15 minutes. Sur une unité de temps
@@ -80,17 +86,27 @@ bearSigCol  = input.color(color.new(color.red, 0),   "Signal vente", group = grp
 grpFilt     = "Filtre de pertinence (score de confluence)"
 useScore    = input.bool(true, "Activer le filtre par score", group = grpFilt, tooltip = "Chaque signal est noté sur les critères actifs ci-dessous. Seuls ceux atteignant le score minimal s'affichent. Le score est affiché dans le label et détaillé dans son infobulle.")
 minScore    = input.int(3,     "Score minimal requis", group = grpFilt, minval = 0, maxval = 5, tooltip = "Si moins de critères sont actifs que ce seuil, le seuil est abaissé au nombre de critères actifs.")
-useFMom     = input.bool(true, "Momentum Squeeze (LazyBear) dans le sens", group = grpFilt)
+useFMom     = input.bool(false, "Momentum Squeeze (LazyBear) dans le sens", group = grpFilt, tooltip = "Désactivé par défaut : aucun pouvoir prédictif mesuré sur 828 signaux ES 15m (60 jours).")
 momLen      = input.int(20,    "Longueur du momentum", group = grpFilt, minval = 5)
 useFTrend   = input.bool(true, "Tendance 15m (P1-P4) alignée", group = grpFilt)
 trendHard   = input.bool(true, "Tendance 15m OBLIGATOIRE", group = grpFilt, tooltip = "Activé : aucun signal d'achat sans structure 15m haussière, aucun signal de vente sans structure 15m baissière — quel que soit le score. La touche reste en attente : si la tendance bascule dans la fenêtre de validité, le signal peut encore se déclencher. Désactivé : la tendance n'est qu'un point de score.")
-trendMode   = input.string("Strict (P4 confirmé par un P3)", "Définition de la tendance 15m", options = ["Souple (le dernier P4 suffit)", "Strict (P4 confirmé par un P3)"], group = grpFilt, tooltip = "Souple : la tendance bascule dès qu'un P4 inverse la structure (réactif mais sensible aux rebonds). Strict : un P4 isolé ne change pas la tendance, il faut qu'un P3 (cassure de continuation) confirme le nouveau sens — un simple rebond dans une baisse reste 'baissier'.")
+trendMode   = input.string("Souple (le dernier P4 suffit)", "Définition de la tendance 15m", options = ["Souple (le dernier P4 suffit)", "Strict (P4 confirmé par un P3)"], group = grpFilt, tooltip = "Souple : la tendance bascule dès qu'un P4 inverse la structure. Strict : un P4 isolé ne change pas la tendance, il faut qu'un P3 confirme. Sur les données (ES 15m, 60 j), l'alignement SOUPLE est le critère le plus discriminant (+0,33 ATR à 4h vs -0,24 quand il est violé) ; le strict n'apporte rien.")
 showTrendBg = input.bool(true,  "Fond coloré selon la tendance 15m", group = grpFilt, tooltip = "Teinte discrète du graphique : verte quand le filtre considère la structure 15m haussière, rouge quand il la considère baissière. Permet de vérifier d'un coup d'œil ce que le filtre autorise.")
 useFBody    = input.bool(true, "Corps de la bougie de confirmation fort", group = grpFilt, inline = "fb")
 bodyMinAtr  = input.float(0.5, "x ATR(14)", group = grpFilt, inline = "fb", minval = 0.1, step = 0.1)
 useFClose   = input.bool(true, "Clôture au-delà de la zone touchée", group = grpFilt)
 useFVol     = input.bool(true, "Volume supérieur à sa moyenne 20", group = grpFilt, tooltip = "Ignoré automatiquement si le symbole ne fournit pas de volume.")
 gradeColor  = input.bool(true, "Couleur graduée par le score", group = grpFilt, tooltip = "Clair = score minimal, foncé = tous les critères réunis. Désactivé : couleurs fixes du groupe Signaux.")
+useFDisp    = input.bool(true, "Déplacement créateur de la zone fort", group = grpFilt, inline = "fd", tooltip = "Corps de la bougie 15m qui a créé le FVG, en multiples d'ATR(14) 15m. Les zones nées d'un gros mouvement (grosse chute / grosse hausse) donnent de meilleurs signaux : >=1 ATR : +0,15 ATR à 4h ; >=2 ATR : +2,6 ATR (échantillon réduit).")
+dispMin     = input.float(1.0, "x ATR 15m", group = grpFilt, inline = "fd", minval = 0.1, step = 0.1)
+
+grpData     = "Filtres issus de l'analyse (ES 15m, 60 jours, 828 signaux)"
+sigTypes    = input.string("Continuation seulement", "Zones déclenchant un signal", options = ["Toutes", "Continuation seulement", "Retournement seulement"], group = grpData, tooltip = "Les zones C ont donné +0,21 ATR à 4h (53 % de réussite) contre -0,13 ATR (46 %) pour les zones R. Les zones R restent affichées sur le graphique, elles ne déclenchent simplement plus de signaux.")
+maxZoneAge  = input.int(20, "Âge max de la zone à la touche (bougies 15m, 0 = sans limite)", group = grpData, minval = 0, tooltip = "Les zones touchées plus de 20 bougies 15m (5 h) après leur création ont donné -0,26 ATR à 4h : trop vieilles, elles ne réagissent plus.")
+useSess     = input.bool(true, "Limiter les signaux à une plage horaire", group = grpData)
+sigSession  = input.session("0600-1600", "Plage horaire", group = grpData, tooltip = "Par défaut 06:00-16:00 New York : 06-09h NY est la meilleure plage mesurée (+1,57 ATR, 73 % de réussite sur le combo retenu) et 00-06h NY la pire (-0,62 ATR). Les touches de zones restent détectées toute la journée ; seule la confirmation du signal est limitée.")
+sessTz      = input.string("America/New_York", "Fuseau de la plage", options = ["America/New_York", "Europe/Paris", "Europe/London", "UTC", "Exchange"], group = grpData)
+zsizeAtrMin = input.float(0.0, "Taille minimale de zone (x ATR 15m, 0 = désactivé)", group = grpData, minval = 0.0, step = 0.1, tooltip = "Optionnel : >=0,4 ATR améliore le taux de réussite (55 %) mais réduit le gain médian. Laissé désactivé par défaut.")
 
 // ── Stockage des FVG actifs ────────────────────────────────────────────────
 // Chaque FVG actif = une box + son sens (true = haussier) + sa ligne médiane.
@@ -98,19 +114,22 @@ var array<box>    fvgBoxes  = array.new<box>()
 var array<bool>   fvgIsBull = array.new<bool>()
 var array<line>   fvgMid    = array.new<line>()
 var array<string> fvgTag    = array.new<string>()
+var array<float>  fvgDisp   = array.new<float>()
 
 // Zones déjà touchées, conservées en grisé (si l'option est activée).
 var array<box>  mitigBoxes = array.new<box>()
 
 // Touche en attente de confirmation (une par sens ; la plus récente gagne).
-var int    pendBullBar = na
-var float  pendBullTop = na
-var float  pendBullBot = na
-var string pendBullTag = ""
-var int    pendBearBar = na
-var float  pendBearTop = na
-var float  pendBearBot = na
-var string pendBearTag = ""
+var int    pendBullBar  = na
+var float  pendBullTop  = na
+var float  pendBullBot  = na
+var string pendBullTag  = ""
+var float  pendBullDisp = 0.0
+var int    pendBearBar  = na
+var float  pendBearTop  = na
+var float  pendBearBot  = na
+var string pendBearTag  = ""
+var float  pendBearDisp = 0.0
 
 // ── Moteur de structure P1-P4 (repris du LIQUIDITY DETECTOR) ──────────────
 // Pas de dessin : retourne la tendance et les événements P3 (continuation,
@@ -200,9 +219,13 @@ f_structure(float o, float h, float l, float c, bool do_step) =>
 // ── Données 15 minutes ─────────────────────────────────────────────────────
 // À l'ouverture d'une nouvelle bougie 15m, la bougie [1] vient de clôturer.
 // Le pattern FVG complet utilise donc les bougies [1] (C), [2] (B) et [3] (A).
-[h1, l1, h3, l3, t1, o1, c1] = request.security(syminfo.tickerid, tfFVG,
-     [high[1], low[1], high[3], low[3], time[1], open[1], close[1]],
+[h1, l1, h3, l3, t1, o1, c1, a15] = request.security(syminfo.tickerid, tfFVG,
+     [high[1], low[1], high[3], low[3], time[1], open[1], close[1], ta.atr(14)[1]],
      lookahead = barmerge.lookahead_off)
+
+// Déplacement de la bougie créatrice (corps de la bougie C en ATR 15m) :
+// mesure la force du mouvement qui a créé le FVG ("grosse chute / hausse").
+dispNow = not na(a15) and a15 > 0 ? math.abs(c1 - o1) / a15 : 0.0
 
 new15mBar = timeframe.change(tfFVG)
 
@@ -234,7 +257,7 @@ bearFVG = new15mBar and h1 < l3
 // Filtre de taille minimale
 gapTop    = bullFVG ? l1 : l3
 gapBottom = bullFVG ? h3 : h1
-gapSizeOk = (gapTop - gapBottom) / close * 100 >= minSizePct
+gapSizeOk = (gapTop - gapBottom) / close * 100 >= minSizePct and (zsizeAtrMin == 0 or (not na(a15) and gapTop - gapBottom >= zsizeAtrMin * a15))
 
 // ── Création des boxes ─────────────────────────────────────────────────────
 createFVG(bool isBull, float top, float bottom, int startTime, string tag) =>
@@ -259,6 +282,7 @@ createFVG(bool isBull, float top, float bottom, int startTime, string tag) =>
     array.push(fvgIsBull, isBull)
     array.push(fvgMid,    m)
     array.push(fvgTag,    tag)
+    array.push(fvgDisp,   dispNow)
 
 if barstate.isconfirmed or barstate.ishistory
     if bullFVG and gapSizeOk and f_pass(bullType)
@@ -282,6 +306,7 @@ while array.size(fvgBoxes) > maxActive
     line.delete(array.shift(fvgMid))
     array.shift(fvgIsBull)
     array.shift(fvgTag)
+    array.shift(fvgDisp)
 
 // ── Mitigation : suppression dès que le prix touche la zone ───────────────
 // FVG haussier (zone sous le prix)  → touché quand le low revient à son top.
@@ -297,16 +322,25 @@ if array.size(fvgBoxes) > 0
             // Touche directionnelle (reversal) : FVG haussier = le prix vient
             // par le haut -> achat en attente ; FVG baissier = par le bas ->
             // vente en attente. La confirmation est cherchée ensuite.
-            if isBull
-                pendBullBar := bar_index
-                pendBullTop := topLvl
-                pendBullBot := botLvl
-                pendBullTag := array.get(fvgTag, i)
-            else
-                pendBearBar := bar_index
-                pendBearTop := topLvl
-                pendBearBot := botLvl
-                pendBearTag := array.get(fvgTag, i)
+            // Filtres issus de l'analyse : âge max de la zone + type de zone.
+            string zTag  = array.get(fvgTag, i)
+            float  zDisp = array.get(fvgDisp, i)
+            int    zAge  = int((time - box.get_left(b)) / (1000 * timeframe.in_seconds(tfFVG)))
+            bool   ageOk = maxZoneAge == 0 or zAge <= maxZoneAge
+            bool   typOk = sigTypes == "Toutes" or (sigTypes == "Continuation seulement" and zTag == "C") or (sigTypes == "Retournement seulement" and zTag == "R")
+            if ageOk and typOk
+                if isBull
+                    pendBullBar  := bar_index
+                    pendBullTop  := topLvl
+                    pendBullBot  := botLvl
+                    pendBullTag  := zTag
+                    pendBullDisp := zDisp
+                else
+                    pendBearBar  := bar_index
+                    pendBearTop  := topLvl
+                    pendBearBot  := botLvl
+                    pendBearTag  := zTag
+                    pendBearDisp := zDisp
             if keepMitig
                 // La zone est conservée en grisé : elle cesse de s'étendre
                 // et est figée au moment du toucher.
@@ -322,6 +356,7 @@ if array.size(fvgBoxes) > 0
             array.remove(fvgIsBull, i)
             array.remove(fvgMid, i)
             array.remove(fvgTag, i)
+            array.remove(fvgDisp, i)
 
 // Limite du nombre de zones mitigées conservées : les plus anciennes partent.
 while array.size(mitigBoxes) > maxMitig
@@ -338,7 +373,7 @@ atr14s = ta.atr(14)
 volSma = ta.sma(volume, 20)
 
 // Note chaque critère actif : [score, max possible, détail pour l'infobulle].
-f_score(bool isBuy, float zTop, float zBot) =>
+f_score(bool isBuy, float zTop, float zBot, float zDisp) =>
     int sc = 0
     int mx = 0
     string why = ""
@@ -367,6 +402,11 @@ f_score(bool isBuy, float zTop, float zBot) =>
         bool ok5 = volume > volSma
         sc += ok5 ? 1 : 0
         why += (ok5 ? "✓" : "✗") + " Volume > moyenne 20\n"
+    if useFDisp
+        mx += 1
+        bool ok6 = zDisp >= dispMin
+        sc += ok6 ? 1 : 0
+        why += (ok6 ? "✓" : "✗") + " Déplacement créateur fort\n"
     [sc, mx, why]
 
 // ── Signaux : confirmation après la touche d'un FVG ────────────────────────
@@ -381,6 +421,11 @@ if not na(pendBearBar) and bar_index - pendBearBar > sigWindow
 //   - sinon : simple bougie dans le sens du signal
 flipUp   = close > open and close[1] <= open[1]
 flipDown = close < open and close[1] >= open[1]
+
+// Plage horaire : la confirmation du signal doit tomber dans la session.
+// (Les touches de zones, elles, sont détectées toute la journée.)
+sessTzEff = sessTz == "Exchange" ? syminfo.timezone : sessTz
+bool sessOk = not useSess or not na(time(timeframe.period, sigSession, sessTzEff))
 
 bool   buySig   = false
 bool   sellSig  = false
@@ -399,8 +444,8 @@ if showSignals and not na(pendBullBar) and bar_index - pendBullBar <= sigWindow
     bool sweepUp = useSweep and low < pendBullBot and close > pendBullBot
     bool confUp  = needFlip ? flipUp : close > open
     // Tendance 15m obligatoire : pas d'achat sans structure haussière.
-    if (sweepUp or confUp) and (not trendHard or effTrend == 1)
-        [sc, mx, why] = f_score(true, pendBullTop, pendBullBot)
+    if (sweepUp or confUp) and (not trendHard or effTrend == 1) and sessOk
+        [sc, mx, why] = f_score(true, pendBullTop, pendBullBot, pendBullDisp)
         // Score insuffisant : la touche reste en attente, une meilleure
         // confirmation peut encore arriver dans la fenêtre.
         if not useScore or sc >= math.min(minScore, mx)
@@ -415,8 +460,8 @@ if showSignals and not na(pendBearBar) and bar_index - pendBearBar <= sigWindow
     bool sweepDn = useSweep and high > pendBearTop and close < pendBearTop
     bool confDn  = needFlip ? flipDown : close < open
     // Tendance 15m obligatoire : pas de vente sans structure baissière.
-    if (sweepDn or confDn) and (not trendHard or effTrend == -1)
-        [sc, mx, why] = f_score(false, pendBearTop, pendBearBot)
+    if (sweepDn or confDn) and (not trendHard or effTrend == -1) and sessOk
+        [sc, mx, why] = f_score(false, pendBearTop, pendBearBot, pendBearDisp)
         if not useScore or sc >= math.min(minScore, mx)
             sellSig   := true
             sellTxt   := sweepDn ? "PL" : pendBearTag

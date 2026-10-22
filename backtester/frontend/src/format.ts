@@ -61,7 +61,8 @@ export function fmtDateShort(date: string): string {
   return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit' }).format(d)
 }
 
-/** Horodatage ISO -> date + heure locale, ex: "21/10/2026 15:29" */
+/** Horodatage ISO -> date + heure de PARIS (fuseau de référence de
+ *  l'application), ex: "21/10/2026 15:29" — indépendant du fuseau système. */
 export function fmtDateTime(iso: string | null | undefined): string {
   if (!iso) return ND
   const d = new Date(iso)
@@ -72,6 +73,7 @@ export function fmtDateTime(iso: string | null | undefined): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/Paris',
   }).format(d)
 }
 

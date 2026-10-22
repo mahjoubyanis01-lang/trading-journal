@@ -245,9 +245,19 @@ def collect_preopen_market(session_date: date, cutoff: datetime, es_bars, errors
     return pre
 
 
-def collect_news(session_date: date, cutoff: datetime, errors: list) -> list[dict]:
+def collect_news(session_date: date, cutoff: datetime, errors: list,
+                 prev_session_date: date | None = None) -> list[dict]:
+    """Fenêtre d'actualités : depuis la limite de la séance précédente (pour
+    couvrir week-ends et jours fériés sans chevaucher deux analyses), bornée
+    à 4 jours ; à défaut, 24 h (72 h le lundi)."""
+    if prev_session_date is not None:
+        start = cutoff_paris(prev_session_date, f"{cutoff.hour:02d}:{cutoff.minute:02d}")
+        start = max(start, cutoff - timedelta(days=4))
+    else:
+        hours = 72 if session_date.weekday() == 0 else 24
+        start = cutoff - timedelta(hours=hours)
     try:
-        window = gdelt.fetch_window(cutoff - timedelta(hours=24), cutoff)
+        window = gdelt.fetch_window(start, cutoff)
     except ProviderError as e:
         errors.append(("gdelt", str(e)))
         return []
@@ -282,14 +292,15 @@ def get_es_bars(session_date: date, settings: dict, errors: list):
 
 # ------------------------------------------------------------------ séance
 
-def analyze_session(session_date: date, settings: dict) -> dict:
+def analyze_session(session_date: date, settings: dict,
+                    prev_session_date: date | None = None) -> dict:
     errors: list[tuple[str, str]] = []
     cutoff = cutoff_paris(session_date, settings["cutoff_paris"])
     weights = settings["factor_weights"]
 
     es_bars, contract_note = get_es_bars(session_date, settings, errors)
     pre = collect_preopen_market(session_date, cutoff, es_bars, errors)
-    news = collect_news(session_date, cutoff, errors)
+    news = collect_news(session_date, cutoff, errors, prev_session_date)
 
     macro_releases: list[dict] = []
     if get_api_key("fred"):
@@ -444,7 +455,7 @@ def run_backtest(n_sessions: int, force: bool = False) -> None:
                 continue
             db.clear_errors_for(d.isoformat())
             try:
-                result = analyze_session(d, settings)
+                result = analyze_session(d, settings, dates[i - 1] if i > 0 else None)
             except Exception as e:  # noqa: BLE001
                 log.exception("échec séance %s", d)
                 db.log_error(d.isoformat(), "runner", f"échec de l'analyse: {e}")

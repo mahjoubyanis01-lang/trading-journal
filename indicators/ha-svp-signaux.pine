@@ -54,6 +54,10 @@ useHourly     = input.bool(true, "Confluence : niveaux d'ouverture horaires", gr
 hlFirstTouchOnly = input.bool(false, "Niveaux horaires : premiere touche seulement", group = grpZone)
 confMax       = input.int(4, "Confluence pour la couleur la plus foncee", minval = 2, maxval = 10, group = grpZone, tooltip = "Nombre de niveaux touches dans la fenetre a partir duquel le point atteint sa couleur la plus foncee. 1 niveau = couleur claire.")
 
+grpTime = "Filtre horaire des signaux"
+useTimeFilter = input.bool(true, "Limiter les signaux a une plage horaire", group = grpTime)
+sigSession    = input.session("1530-0000", "Plage horaire (fuseau des niveaux horaires)", group = grpTime, tooltip = "Par defaut de 15:30 a 00:00. Les touches de niveaux restent comptees toute la journee ; seul l'AFFICHAGE du signal est limite a cette plage.")
+
 grpSvp = "Session Volume Profile"
 calc_ticks = input.int(1,    "Precision du calcul (ticks par niveau)", minval=1, maxval=50, group = grpSvp)
 percent    = input.float(70.,"Value Area Volume %", minval=0, maxval=100, group = grpSvp)
@@ -499,8 +503,14 @@ int sinceBear = ta.barssince(dirTouch ? actBearTouch : anyActTouch)
 bool zoneOKBull = not useZoneFilter or (not na(sinceBull) and sinceBull <= validBars)
 bool zoneOKBear = not useZoneFilter or (not na(sinceBear) and sinceBear <= validBars)
 
-bullSignal = showSignals and bullFlip and (not needMomentum or momTurnUp)   and cameFromDown and zoneOKBull
-bearSignal = showSignals and bearFlip and (not needMomentum or momTurnDown) and cameFromUp   and zoneOKBear
+// Filtre horaire : le signal ne s'affiche que dans la plage (ex. 15:30-00:00).
+// Les touches de niveaux, elles, sont detectees toute la journee : il n'y a
+// pas d'ordre chronologique impose entre niveaux horaires et activateurs.
+bool inSigWindow = not na(time(timeframe.period, sigSession, tzEff))
+bool timeOK = not useTimeFilter or inSigWindow
+
+bullSignal = showSignals and timeOK and bullFlip and (not needMomentum or momTurnUp)   and cameFromDown and zoneOKBull
+bearSignal = showSignals and timeOK and bearFlip and (not needMomentum or momTurnDown) and cameFromUp   and zoneOKBear
 
 //========================== CONFLUENCE -> COULEUR DES POINTS ==========================
 // Nombre de niveaux touches (activateurs + horaires) dans la fenetre de validite.

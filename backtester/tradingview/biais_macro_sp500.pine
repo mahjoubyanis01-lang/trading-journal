@@ -77,7 +77,7 @@ nqSym = input.symbol("CME_MINI:NQ1!", "Nasdaq-100 futures",  group=grpSym)
 euSym = input.symbol("XETR:DAX",      "Indice Europe",       group=grpSym)
 asSym = input.symbol("TVC:NI225",     "Indice Asie",         group=grpSym)
 vxSym = input.symbol("TVC:VIX",       "VIX",                 group=grpSym)
-vtSym = input.symbol("TVC:VIX3M",     "VIX 3 mois",          group=grpSym)
+vtSym = input.symbol("CBOE:VIX3M",    "VIX 3 mois",          group=grpSym)
 ylSym = input.symbol("TVC:US10Y",     "Rendement US 10 ans", group=grpSym)
 y2Sym = input.symbol("TVC:US02Y",     "Rendement US 2 ans",  group=grpSym)
 dxSym = input.symbol("TVC:DXY",       "Dollar index",        group=grpSym)
@@ -98,27 +98,27 @@ esAtrPct    = request.security(syminfo.tickerid, "D", ta.atr(14)[1] / close[1] *
 esSma50     = request.security(syminfo.tickerid, "D", ta.sma(close, 50)[1], lookahead=barmerge.lookahead_on)
 esDrift5    = request.security(syminfo.tickerid, "D", (close[1] / close[6] - 1) * 100, lookahead=barmerge.lookahead_on)
 
-nqPrev   = request.security(nqSym, "D", close[1], lookahead=barmerge.lookahead_on)
-nqAtrPct = request.security(nqSym, "D", ta.atr(14)[1] / close[1] * 100, lookahead=barmerge.lookahead_on)
-nqNow    = request.security(nqSym, timeframe.period, close)
+nqPrev   = request.security(nqSym, "D", close[1], lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
+nqAtrPct = request.security(nqSym, "D", ta.atr(14)[1] / close[1] * 100, lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
+nqNow    = request.security(nqSym, timeframe.period, close, ignore_invalid_symbol=true)
 
-euOpen = request.security(euSym, "D", open, lookahead=barmerge.lookahead_on)
-euNow  = request.security(euSym, timeframe.period, close)
+euOpen = request.security(euSym, "D", open, lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
+euNow  = request.security(euSym, timeframe.period, close, ignore_invalid_symbol=true)
 
 // Asie : dernière séance TERMINÉE (sans lookahead, la clôture du jour
 // n'apparaît qu'une fois la bougie quotidienne finie, ~8h15 Paris).
-asChg = request.security(asSym, "D", close / close[1] - 1)
+asChg = request.security(asSym, "D", close / close[1] - 1, ignore_invalid_symbol=true)
 
-[vxPrev, vxSma20] = request.security(vxSym, "D", [close[1], ta.sma(close, 20)[1]], lookahead=barmerge.lookahead_on)
-vtPrev  = request.security(vtSym, "D", close[1], lookahead=barmerge.lookahead_on)
-ylChgBp = request.security(ylSym, "D", (close[1] - close[2]) * 100, lookahead=barmerge.lookahead_on)
-y2ChgBp = request.security(y2Sym, "D", (close[1] - close[2]) * 100, lookahead=barmerge.lookahead_on)
-dxChgPc = request.security(dxSym, "D", (close[1] / close[2] - 1) * 100, lookahead=barmerge.lookahead_on)
+[vxPrev, vxSma20] = request.security(vxSym, "D", [close[1], ta.sma(close, 20)[1]], lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
+vtPrev  = request.security(vtSym, "D", close[1], lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
+ylChgBp = request.security(ylSym, "D", (close[1] - close[2]) * 100, lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
+y2ChgBp = request.security(y2Sym, "D", (close[1] - close[2]) * 100, lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
+dxChgPc = request.security(dxSym, "D", (close[1] / close[2] - 1) * 100, lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
 
-auPrev = request.security(auSym, "D", close[1], lookahead=barmerge.lookahead_on)
-auNow  = request.security(auSym, timeframe.period, close)
-oiPrev = request.security(oiSym, "D", close[1], lookahead=barmerge.lookahead_on)
-oiNow  = request.security(oiSym, timeframe.period, close)
+auPrev = request.security(auSym, "D", close[1], lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
+auNow  = request.security(auSym, timeframe.period, close, ignore_invalid_symbol=true)
+oiPrev = request.security(oiSym, "D", close[1], lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true)
+oiNow  = request.security(oiSym, timeframe.period, close, ignore_invalid_symbol=true)
 
 // ---------------------------------------------------------------- Facteurs
 // Échelle adaptative : pleine saturation vers ~1 ATR quotidien, bornée.

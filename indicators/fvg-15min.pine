@@ -7,8 +7,9 @@
 //     bougie C, ou l'inverse pour un FVG baissier).
 //   - Les zones restent affichées et s'étendent vers la droite tant qu'elles
 //     ne sont pas touchées (conservation d'affichage).
-//   - Dès que le prix vient toucher la zone (mitigation), la box est
-//     supprimée du graphique.
+//   - Dès que le prix vient toucher la zone (mitigation), la box est soit
+//     conservée en grisé et figée (option par défaut), soit supprimée du
+//     graphique.
 //
 // Remarque : l'indicateur fonctionne sur n'importe quelle unité de temps du
 // graphique inférieure ou égale à 15 minutes. Sur une unité de temps
@@ -30,11 +31,20 @@ bullBorder  = input.color(color.new(color.teal,   40), "Bordure haussière", gro
 bearBorder  = input.color(color.new(color.red,    40), "Bordure baissière", group = grpStyle)
 showMidline = input.bool(false,      "Afficher la ligne médiane (CE)",      group = grpStyle)
 
+grpMitig    = "Zones touchées (mitigées)"
+keepMitig   = input.bool(true,       "Garder les zones touchées en grisé",  group = grpMitig, tooltip = "Si activé, une zone touchée reste affichée en gris et cesse de s'étendre. Sinon elle est supprimée.")
+mitigColor  = input.color(color.new(color.gray, 85), "Fond zone mitigée",   group = grpMitig)
+mitigBorder = input.color(color.new(color.gray, 60), "Bordure zone mitigée", group = grpMitig)
+maxMitig    = input.int(30,          "Nombre max de zones mitigées",        group = grpMitig, minval = 1, maxval = 200)
+
 // ── Stockage des FVG actifs ────────────────────────────────────────────────
 // Chaque FVG actif = une box + son sens (true = haussier) + sa ligne médiane.
 var array<box>  fvgBoxes  = array.new<box>()
 var array<bool> fvgIsBull = array.new<bool>()
 var array<line> fvgMid    = array.new<line>()
+
+// Zones déjà touchées, conservées en grisé (si l'option est activée).
+var array<box>  mitigBoxes = array.new<box>()
 
 // ── Données 15 minutes ─────────────────────────────────────────────────────
 // À l'ouverture d'une nouvelle bougie 15m, la bougie [1] vient de clôturer.
@@ -96,8 +106,21 @@ if array.size(fvgBoxes) > 0
         botLvl = box.get_bottom(b)
         touched = isBull ? low <= topLvl : high >= botLvl
         if touched
-            box.delete(b)
+            if keepMitig
+                // La zone est conservée en grisé : elle cesse de s'étendre
+                // et est figée au moment du toucher.
+                box.set_extend(b, extend.none)
+                box.set_right(b, time)
+                box.set_bgcolor(b, mitigColor)
+                box.set_border_color(b, mitigBorder)
+                array.push(mitigBoxes, b)
+            else
+                box.delete(b)
             line.delete(array.get(fvgMid, i))
             array.remove(fvgBoxes, i)
             array.remove(fvgIsBull, i)
             array.remove(fvgMid, i)
+
+// Limite du nombre de zones mitigées conservées : les plus anciennes partent.
+while array.size(mitigBoxes) > maxMitig
+    box.delete(array.shift(mitigBoxes))

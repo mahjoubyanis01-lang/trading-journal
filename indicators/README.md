@@ -15,7 +15,9 @@ l'unité de temps **15 minutes**, quel que soit le timeframe du graphique
   s'étend vers la droite et reste à l'écran tant qu'elle n'est pas touchée.
 - **Mitigation au toucher** : dès que le prix revient toucher la zone
   (le low atteint le haut d'un FVG haussier, ou le high atteint le bas d'un
-  FVG baissier), la box est **supprimée** du graphique.
+  FVG baissier), la box cesse d'être active. Selon l'option choisie, elle
+  est **conservée en grisé** et figée au moment du toucher (défaut), ou
+  **supprimée** du graphique.
 
 ### Paramètres
 
@@ -26,6 +28,9 @@ l'unité de temps **15 minutes**, quel que soit le timeframe du graphique
 | Nombre max de FVG affichés | 50 | Les plus anciens sont supprimés au-delà |
 | Couleurs fond / bordure | teal / rouge | Style des zones haussières et baissières |
 | Ligne médiane (CE) | désactivée | Affiche le milieu du gap (Consequent Encroachment) |
+| Garder les zones touchées en grisé | activé | Conserve les zones mitigées en gris au lieu de les supprimer |
+| Couleurs zone mitigée | gris | Fond et bordure des zones touchées |
+| Nombre max de zones mitigées | 30 | Les plus anciennes sont supprimées au-delà |
 
 ### Installation
 

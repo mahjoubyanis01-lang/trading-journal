@@ -48,6 +48,33 @@ celui du LIQUIDITY DETECTOR) calculé sur les bougies 15m clôturées :
 Quatre alertes sont disponibles (menu « Alertes » de TradingView) : FVG
 haussier/baissier × continuation/retournement.
 
+### Signaux au toucher d'une zone
+
+Logique reprise du script « HA Zones » (touche directionnelle + confirmation
+dans une fenêtre de validité), appliquée aux FVG. La touche est
+directionnelle par construction : un FVG haussier est sous le prix (le prix
+**vient par le haut** → signal d'achat possible), un FVG baissier est
+au-dessus (le prix **vient par le bas** → signal de vente possible). Les
+zones de continuation **et** de retournement déclenchent toutes les deux.
+
+Deux déclencheurs, dans la fenêtre de validité après la touche :
+
+- **Retournement** : flip de bougie (clôture qui change de camp) → point
+  vert `▲` (achat) ou rouge `▼` (vente), étiqueté **C** ou **R** selon le
+  type de la zone touchée.
+- **Prise de liquidité (PL)** : la mèche traverse **toute** la zone puis la
+  clôture reprend le niveau → signal immédiat étiqueté **PL**.
+
+| Paramètre | Défaut | Description |
+|---|---|---|
+| Afficher les signaux | activé | Points ▲ / ▼ au toucher des FVG |
+| Fenêtre de validité (bougies) | 3 | Délai max entre la touche et la confirmation |
+| Exiger un flip de bougie | activé | Sinon une simple bougie dans le sens suffit |
+| Signal prise de liquidité | activé | Mèche à travers la zone + clôture au-delà |
+
+Deux alertes supplémentaires : « Signal ACHAT sur FVG » et « Signal VENTE
+sur FVG ».
+
 ### Installation
 
 1. Ouvrir TradingView → éditeur Pine.

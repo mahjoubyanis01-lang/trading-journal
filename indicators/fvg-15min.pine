@@ -15,6 +15,16 @@
 //       * P3 (cassure dans le sens de la tendance)  -> continuation
 //       * P4 (cassure qui inverse la tendance)      -> retournement
 //       * sinon : FVG dans le sens de la tendance 15m = C, à contre-sens = R.
+//   - SIGNAUX au toucher d'une zone (logique reprise du script HA Zones :
+//     touche directionnelle + confirmation dans une fenêtre de validité) :
+//       * la touche est directionnelle par construction : un FVG haussier est
+//         sous le prix (le prix VIENT PAR LE HAUT -> achat), un FVG baissier
+//         est au-dessus (le prix VIENT PAR LE BAS -> vente) ;
+//       * signal RETOURNEMENT : bougie de confirmation (flip) dans la fenêtre
+//         après la touche -> point vert (achat) / point rouge (vente),
+//         étiqueté C ou R selon le type de la zone touchée ;
+//       * signal PRISE DE LIQUIDITÉ (PL) : la mèche traverse TOUTE la zone
+//         puis la clôture reprend le niveau -> signal immédiat.
 //
 // Remarque : l'indicateur fonctionne sur n'importe quelle unité de temps du
 // graphique inférieure ou égale à 15 minutes. Sur une unité de temps
@@ -49,14 +59,33 @@ showStruct  = input.bool(false, "Labels de structure 15m (P3 / P4)",     group =
 p3Color     = input.color(color.red,  "Couleur P3 (continuation)",       group = grpStruct)
 p4Color     = input.color(color.lime, "Couleur P4 (retournement)",       group = grpStruct)
 
+grpSig      = "Signaux (retournement / prise de liquidité)"
+showSignals = input.bool(true, "Afficher les signaux au toucher des FVG", group = grpSig)
+sigWindow   = input.int(3,     "Fenêtre de validité après la touche (bougies)", group = grpSig, minval = 0, maxval = 50, tooltip = "Nombre de bougies après la touche pendant lesquelles une confirmation peut déclencher le signal. 0 = la confirmation doit avoir lieu sur la bougie de la touche elle-même.")
+needFlip    = input.bool(true, "Retournement : exiger un flip de bougie", group = grpSig, tooltip = "Activé : la bougie de confirmation doit être un retournement (clôture haussière après une clôture baissière, ou l'inverse). Désactivé : une simple bougie dans le sens du signal suffit.")
+useSweep    = input.bool(true, "Signal prise de liquidité (PL)", group = grpSig, tooltip = "La mèche traverse toute la zone (liquidité prise) puis la clôture revient au-delà du niveau : signal immédiat, étiqueté PL.")
+bullSigCol  = input.color(color.new(color.green, 0), "Signal achat", group = grpSig, inline = "sc")
+bearSigCol  = input.color(color.new(color.red, 0),   "Signal vente", group = grpSig, inline = "sc")
+
 // ── Stockage des FVG actifs ────────────────────────────────────────────────
 // Chaque FVG actif = une box + son sens (true = haussier) + sa ligne médiane.
-var array<box>  fvgBoxes  = array.new<box>()
-var array<bool> fvgIsBull = array.new<bool>()
-var array<line> fvgMid    = array.new<line>()
+var array<box>    fvgBoxes  = array.new<box>()
+var array<bool>   fvgIsBull = array.new<bool>()
+var array<line>   fvgMid    = array.new<line>()
+var array<string> fvgTag    = array.new<string>()
 
 // Zones déjà touchées, conservées en grisé (si l'option est activée).
 var array<box>  mitigBoxes = array.new<box>()
+
+// Touche en attente de confirmation (une par sens ; la plus récente gagne).
+var int    pendBullBar = na
+var float  pendBullTop = na
+var float  pendBullBot = na
+var string pendBullTag = ""
+var int    pendBearBar = na
+var float  pendBearTop = na
+var float  pendBearBot = na
+var string pendBearTag = ""
 
 // ── Moteur de structure P1-P4 (repris du LIQUIDITY DETECTOR) ──────────────
 // Pas de dessin : retourne la tendance et les événements P3 (continuation,
@@ -194,6 +223,7 @@ createFVG(bool isBull, float top, float bottom, int startTime, string tag) =>
     array.push(fvgBoxes,  b)
     array.push(fvgIsBull, isBull)
     array.push(fvgMid,    m)
+    array.push(fvgTag,    tag)
 
 if barstate.isconfirmed or barstate.ishistory
     if bullFVG and gapSizeOk and f_pass(bullType)
@@ -216,6 +246,7 @@ while array.size(fvgBoxes) > maxActive
     box.delete(array.shift(fvgBoxes))
     line.delete(array.shift(fvgMid))
     array.shift(fvgIsBull)
+    array.shift(fvgTag)
 
 // ── Mitigation : suppression dès que le prix touche la zone ───────────────
 // FVG haussier (zone sous le prix)  → touché quand le low revient à son top.
@@ -228,6 +259,19 @@ if array.size(fvgBoxes) > 0
         botLvl = box.get_bottom(b)
         touched = isBull ? low <= topLvl : high >= botLvl
         if touched
+            // Touche directionnelle (reversal) : FVG haussier = le prix vient
+            // par le haut -> achat en attente ; FVG baissier = par le bas ->
+            // vente en attente. La confirmation est cherchée ensuite.
+            if isBull
+                pendBullBar := bar_index
+                pendBullTop := topLvl
+                pendBullBot := botLvl
+                pendBullTag := array.get(fvgTag, i)
+            else
+                pendBearBar := bar_index
+                pendBearTop := topLvl
+                pendBearBot := botLvl
+                pendBearTag := array.get(fvgTag, i)
             if keepMitig
                 // La zone est conservée en grisé : elle cesse de s'étendre
                 // et est figée au moment du toucher.
@@ -242,12 +286,56 @@ if array.size(fvgBoxes) > 0
             array.remove(fvgBoxes, i)
             array.remove(fvgIsBull, i)
             array.remove(fvgMid, i)
+            array.remove(fvgTag, i)
 
 // Limite du nombre de zones mitigées conservées : les plus anciennes partent.
 while array.size(mitigBoxes) > maxMitig
     box.delete(array.shift(mitigBoxes))
 
+// ── Signaux : confirmation après la touche d'un FVG ────────────────────────
+// Expiration des touches trop anciennes (hors fenêtre de validité).
+if not na(pendBullBar) and bar_index - pendBullBar > sigWindow
+    pendBullBar := na
+if not na(pendBearBar) and bar_index - pendBearBar > sigWindow
+    pendBearBar := na
+
+// Déclencheurs de confirmation (sur la bougie du graphique) :
+//   - flip : retournement de bougie (clôture qui change de camp)
+//   - sinon : simple bougie dans le sens du signal
+flipUp   = close > open and close[1] <= open[1]
+flipDown = close < open and close[1] >= open[1]
+
+bool   buySig  = false
+bool   sellSig = false
+string buyTxt  = ""
+string sellTxt = ""
+
+if showSignals and not na(pendBullBar) and bar_index - pendBullBar <= sigWindow
+    // Prise de liquidité : la mèche traverse TOUTE la zone (sous son bas)
+    // puis la clôture reprend le niveau.
+    bool sweepUp = useSweep and low < pendBullBot and close > pendBullBot
+    bool confUp  = needFlip ? flipUp : close > open
+    if sweepUp or confUp
+        buySig := true
+        buyTxt := sweepUp ? "PL" : pendBullTag
+        pendBullBar := na
+
+if showSignals and not na(pendBearBar) and bar_index - pendBearBar <= sigWindow
+    bool sweepDn = useSweep and high > pendBearTop and close < pendBearTop
+    bool confDn  = needFlip ? flipDown : close < open
+    if sweepDn or confDn
+        sellSig := true
+        sellTxt := sweepDn ? "PL" : pendBearTag
+        pendBearBar := na
+
+if buySig
+    label.new(bar_index, low, "▲ " + buyTxt, style = label.style_label_up, color = bullSigCol, textcolor = color.white, size = size.small, tooltip = buyTxt == "PL" ? "Prise de liquidité sur FVG haussier" : buyTxt == "C" ? "Retournement sur FVG haussier de continuation" : "Retournement sur FVG haussier de retournement")
+if sellSig
+    label.new(bar_index, high, "▼ " + sellTxt, style = label.style_label_down, color = bearSigCol, textcolor = color.white, size = size.small, tooltip = sellTxt == "PL" ? "Prise de liquidité sur FVG baissier" : sellTxt == "C" ? "Retournement sur FVG baissier de continuation" : "Retournement sur FVG baissier de retournement")
+
 // ── Alertes ────────────────────────────────────────────────────────────────
+alertcondition(buySig,  "Signal ACHAT sur FVG",  "Signal haussier au toucher d'un FVG 15m (confirmation ou prise de liquidité)")
+alertcondition(sellSig, "Signal VENTE sur FVG",  "Signal baissier au toucher d'un FVG 15m (confirmation ou prise de liquidité)")
 alertcondition(bullFVG and gapSizeOk and bullType == "C", "FVG haussier — continuation", "Nouveau FVG 15m haussier de continuation (P3)")
 alertcondition(bullFVG and gapSizeOk and bullType == "R", "FVG haussier — retournement", "Nouveau FVG 15m haussier de retournement (P4)")
 alertcondition(bearFVG and gapSizeOk and bearType == "C", "FVG baissier — continuation", "Nouveau FVG 15m baissier de continuation (P3)")

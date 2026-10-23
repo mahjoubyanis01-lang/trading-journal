@@ -1,0 +1,38 @@
+{
+ "updated": "2026-10-23T16:01:17-04:00",
+ "source": "ForexFactory (flux public), heures de New York",
+ "events": [
+  {
+   "date": "2026-10-22",
+   "time": "08:30",
+   "title": "Unemployment Claims",
+   "impact": "moyen",
+   "forecast": "200K",
+   "previous": "199K"
+  },
+  {
+   "date": "2026-10-23",
+   "time": "09:45",
+   "title": "Flash Manufacturing PMI",
+   "impact": "moyen",
+   "forecast": "55.4",
+   "previous": "57.0"
+  },
+  {
+   "date": "2026-10-23",
+   "time": "09:45",
+   "title": "Flash Services PMI",
+   "impact": "moyen",
+   "forecast": "57.9",
+   "previous": "58.7"
+  },
+  {
+   "date": "2026-10-23",
+   "time": "10:00",
+   "title": "Revised UoM Consumer Sentiment",
+   "impact": "moyen",
+   "forecast": "46.3",
+   "previous": "46.3"
+  }
+ ]
+}

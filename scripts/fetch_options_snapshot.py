@@ -333,6 +333,11 @@ def run(syms=None, force: bool = False) -> int:
         manifest_file.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
     if locked:
         import build_pine
+        import macro_calendar
+        try:
+            macro_calendar.update()
+        except Exception as e:  # noqa: BLE001 — le plan GEX reste publié sans calendrier
+            print(f"calendrier macro indisponible : {e}", file=sys.stderr)
         build_pine.build()
     return 0
 

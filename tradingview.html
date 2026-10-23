@@ -5,36 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f8f8f6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
-<title>Signaux ES/NQ — indicateur TradingView</title>
+<title>ES/NQ Pro — indicateur TradingView</title>
 <link rel="icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
 <style>
-.tv-wrap{max-width:920px;margin:0 auto}
+.tv-wrap{max-width:960px;margin:0 auto}
 .big-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px;border:none;border-radius:12px;cursor:pointer;box-sizing:border-box;background:var(--text);color:var(--bg);font-size:16px;font-weight:700;text-decoration:none}
 .big-btn:disabled{opacity:.5;cursor:default}
 .big-btn.secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);font-size:14px;padding:12px}
 .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
 .muted{font-size:12px;color:var(--text3);line-height:1.6}
 .txt{font-size:13px;color:var(--text2);line-height:1.6}
-.step{display:flex;gap:12px;align-items:flex-start;margin:10px 0;font-size:13px;color:var(--text2);line-height:1.5}
-.step-num{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text)}
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
-.stat-card{border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--surface)}
-.stat-title{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
-.kv{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--surface2)}
+.step{display:flex;gap:12px;align-items:flex-start;margin:9px 0;font-size:13px;color:var(--text2);line-height:1.5}
+.step-num{flex-shrink:0;min-width:22px;height:22px;padding:0 4px;border-radius:11px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text);box-sizing:border-box}
+.time{flex-shrink:0;width:58px;font-family:ui-monospace,monospace;font-weight:700;color:var(--text);font-size:13px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.sc{border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--surface)}
+.st{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.kv{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 0;border-bottom:1px solid var(--surface2)}
 .kv:last-child{border-bottom:none}
-.kv b{font-family:ui-monospace,monospace}
-.pos{color:#0ca30c}.neg{color:#e34948}
+.kv b{font-family:ui-monospace,monospace;text-align:right}
+.pos{color:#0ca30c}.neg{color:#e34948}.warnc{color:#eda100}
+.bars{display:flex;align-items:flex-end;gap:6px;height:110px;margin-top:10px;border-bottom:1px solid var(--border);position:relative}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative}
+.bar i{display:block;width:100%;border-radius:4px 4px 0 0}
+.bar span{font-size:10px;color:var(--text3);position:absolute;bottom:-16px}
+.bar em{font-style:normal;font-size:10px;font-family:ui-monospace,monospace;color:var(--text2);margin-bottom:2px}
 table.tr{width:100%;border-collapse:collapse;font-size:12px}
 table.tr th,table.tr td{padding:5px 6px;border-bottom:1px solid var(--surface2);text-align:right;font-family:ui-monospace,monospace;white-space:nowrap}
 table.tr th{color:var(--text3);font-family:inherit;font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:.05em}
 table.tr td:first-child,table.tr th:first-child{text-align:left}
-.eq{width:100%;height:120px;display:block;margin-top:8px}
 .warn{border-left:3px solid #eda100;padding:10px 12px;background:var(--surface2);border-radius:6px}
+.heat{display:flex;flex-direction:column;gap:1px;margin-top:8px}
+.heat div{display:flex;align-items:center;gap:8px;font-size:10px;font-family:ui-monospace,monospace;color:var(--text3)}
+.heat div i{flex:1;height:7px;border-radius:2px}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;display:none;z-index:60}
 pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2);border-radius:8px;padding:10px;margin:0;white-space:pre}
-.lv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
 </style>
 </head>
 <body>
@@ -43,7 +50,7 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
   <div class="brand">
     <div class="brand-dot"></div>
     <div>
-      <div class="brand-name">Signaux ES/NQ</div>
+      <div class="brand-name">ES/NQ Pro</div>
       <div class="brand-sub">Indicateur TradingView</div>
     </div>
   </div>
@@ -51,19 +58,20 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
     <a class="tnav-btn" href="index.html" style="text-decoration:none">Journal</a>
     <a class="tnav-btn" href="options.html" style="text-decoration:none">Heatmap GEX</a>
   </nav>
-  <div><span class="pill" id="bt-date">—</span></div>
+  <div><span class="pill" id="day-pill">—</span></div>
 </div>
 
 <div class="main tv-wrap">
 
   <div class="card" style="padding:20px">
-    <div class="card-title" style="margin-bottom:6px">📈 Signaux d'achat / vente ES · MES · NQ · MNQ</div>
+    <div class="card-title" style="margin-bottom:6px">📈 Intraday ES · MES · NQ · MNQ — biais de séance, niveaux, signaux, heatmap</div>
     <p class="txt" style="margin:0 0 14px">
-      Un seul type de signal, <b>rare et validé sur 2 ans de données</b>&nbsp;: la <b>cassure acceptée</b> du plus haut ou
-      du plus bas de la veille, suivie d'un <b>retest</b> qui tient, <b>dans le sens de la tendance</b>. L'indicateur
-      calcule tout lui-même dans TradingView, en temps réel, sans repeindre&nbsp;: rien à recopier pour les signaux.
+      Un seul indicateur&nbsp;: <b>biais de séance</b> (Londres), <b>niveaux de séance</b> (Asie, Londres, veille, range d'ouverture),
+      <b>signaux d'achat / vente</b> validés sur 7 ans (≈ 0,6 position par jour en jouant ES et NQ), <b>heatmap GEX en dégradé</b>
+      et <b>annonces macro US du jour</b>. Signaux et niveaux sont calculés en temps réel par TradingView&nbsp;; la heatmap
+      et les annonces se mettent à jour en recopiant l'indicateur chaque jour après 14h30 (Paris).
     </p>
-    <button class="big-btn" id="copy-btn" disabled>📋 Copier l'indicateur</button>
+    <button class="big-btn" id="copy-btn" disabled>📋 Copier l'indicateur du jour</button>
     <div class="btn-row">
       <a class="big-btn secondary" href="https://www.tradingview.com/chart/?symbol=CME_MINI%3AES1%21&interval=5" target="_blank" rel="noopener">Ouvrir ES (5 min)</a>
       <a class="big-btn secondary" href="https://www.tradingview.com/chart/?symbol=CME_MINI%3ANQ1%21&interval=5" target="_blank" rel="noopener">Ouvrir NQ (5 min)</a>
@@ -71,49 +79,78 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
   </div>
 
   <div class="card" style="padding:20px">
-    <div class="card-title" style="margin-bottom:8px">🎯 La règle, en clair</div>
-    <div class="step"><div class="step-num">1</div><div><b>Niveaux</b> : PDH / PDL = plus haut / plus bas de la séance cash d'hier (affichés en violet).</div></div>
-    <div class="step"><div class="step-num">2</div><div><b>Tendance</b> : clôture d'hier au-dessus de la moyenne des 20 dernières clôtures → on ne cherche que des <b>achats</b>&nbsp;; en dessous → que des <b>ventes</b>.</div></div>
-    <div class="step"><div class="step-num">3</div><div><b>Cassure acceptée</b> : 2 bougies 1 h clôturent de suite au-delà du niveau (le tableau affiche alors «&nbsp;setup en cours&nbsp;»).</div></div>
-    <div class="step"><div class="step-num">4</div><div><b>Retest</b> : le prix revient toucher le niveau et clôture du bon côté → <b>▲ ACHAT</b> ou <b>▼ VENTE</b> à la clôture de la bougie 1 h.</div></div>
-    <div class="step"><div class="step-num">5</div><div><b>Gestion</b> : stop derrière le niveau (6 pts ES / 24 pts NQ), objectif <b>2R</b>, sortie au plus tard à 16h00 New York (22h00 Paris). 1 signal maximum par jour, entre 11h et 15h New York.</div></div>
+    <div class="card-title" style="margin-bottom:8px">🕒 Ta journée type (heure de Paris)</div>
+    <div class="step"><div class="time">00h–8h</div><div><b>Asie</b> : le plus haut / plus bas de la nuit se forment (lignes grises).</div></div>
+    <div class="step"><div class="time">8h–15h25</div><div><b>Londres</b> : son sens donne le <b>biais de la séance NY</b> (affiché dans le tableau ▲ / ▼).</div></div>
+    <div class="step"><div class="time">14h30</div><div>Plan du jour publié&nbsp;: <b>copie l'indicateur</b> pour la heatmap GEX et les annonces du jour (vérifie les annonces de 14h30 / 16h).</div></div>
+    <div class="step"><div class="time">15h30</div><div><b>Ouverture NY</b>. Le range d'ouverture se forme jusqu'à 15h45 (bande orange).</div></div>
+    <div class="step"><div class="time">15h45–17h30</div><div><b>Signal A</b> possible&nbsp;: première clôture 5 min hors du range dans le sens du biais → ▲ ACHAT A / ▼ VENTE A, avec entrée, stop et objectif.</div></div>
+    <div class="step"><div class="time">16h–21h</div><div><b>Signal B</b> possible (plus rare)&nbsp;: retest du plus haut / plus bas de la veille dans la tendance.</div></div>
+    <div class="step"><div class="time">21h55</div><div>Toute position encore ouverte est clôturée (signal A).</div></div>
   </div>
 
   <div class="card" style="padding:20px">
-    <div class="card-title" style="margin-bottom:12px">📊 Résultats du backtest — 2 ans, frais inclus</div>
-    <div class="stat-grid" id="stats"></div>
-    <div class="warn muted" style="margin-top:14px">
-      <b>À savoir avant de trader ces signaux.</b> Ils sont <b>rares</b> (environ 1 à 2 par mois et par marché) parce que
-      la règle est stricte. L'échantillon reste limité (une cinquantaine de trades ES + NQ)&nbsp;: les chiffres
-      donnent une tendance, pas une garantie, et 2024 a été neutre (ES) ou perdant (NQ). La stratégie a été retenue parmi
-      plusieurs familles testées car elle reste positive sur <b>78 réglages voisins sur 81 (ES) et 81 sur 81 (NQ)</b>, à
-      l'achat comme à la vente, alors que la même règle <b>à contre-tendance perd</b>. Les performances passées ne
-      garantissent pas les résultats futurs&nbsp;: risquez un montant fixe et petit par trade.
+    <div class="card-title" style="margin-bottom:8px">🅰️ Signal A — cassure d'ouverture dans le sens de Londres</div>
+    <p class="txt" style="margin:0 0 10px">
+      <b>Achat</b> : Londres a monté (2h00 → 9h25 NY) et la première clôture 5 min hors du range 9h30–9h45 se fait au-dessus.
+      <b>Vente</b> : Londres a baissé, première clôture sous le range, <b>et</b> tendance 20 jours baissière (les ventes à contre-tendance perdent).
+      Si la première cassure va contre le biais&nbsp;: <b>pas de trade ce jour-là</b>. Stop au milieu du range, objectif 2R, sortie au plus tard 15h55 NY.
+    </p>
+    <div class="grid2" id="statsA"></div>
+    <div class="grid2" id="recentA" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="card-title" style="margin-bottom:8px">🅱️ Signal B — retest du plus haut / plus bas de la veille</div>
+    <p class="txt" style="margin:0 0 10px">
+      Cassure acceptée (2 clôtures 1 h) du plus haut ou du plus bas de la veille, puis retest qui tient, dans le sens de la
+      tendance 20 jours. Rare (1 à 2 par mois et par marché), stop 6 pts ES / 24 pts NQ, objectif 2R.
+    </p>
+    <div class="grid2" id="statsB"></div>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="card-title" style="margin-bottom:8px">🌍 Le biais macro : ce qui marche, ce qui ne marche pas</div>
+    <div class="txt">
+      Testé sur 2020–2026 pour prédire la direction de la séance NY&nbsp;: tendance 20 / 50 jours, mouvement de la nuit, gap,
+      VIX et sa structure (VIX / VIX 3 mois), taux à 10 ans, dollar, jours de Fed (FOMC) et d'annonces de 8h30.
+      <b>Aucune de ces variables ne prédit seule la direction de façon fiable</b> (45 à 56 % de bonnes prédictions, instable
+      d'une année à l'autre). Ce qui fonctionne, c'est le <b>biais de séance de Londres utilisé comme filtre d'entrée</b>
+      (signal A) et la <b>tendance 20 jours pour autoriser les ventes</b>. Le tableau de l'indicateur affiche aussi le VIX et
+      sa structure comme <b>contexte</b>, et les annonces du jour pour savoir quand la volatilité peut exploser.
     </div>
+    <div class="sc" style="margin-top:12px"><div class="st">Annonces US du jour</div><div id="events" class="txt">—</div></div>
   </div>
 
   <div class="card" style="padding:20px">
-    <div class="card-title" style="margin-bottom:8px">🧾 Derniers signaux du backtest</div>
+    <div class="card-title" style="margin-bottom:8px">🌡️ Heatmap GEX du jour (options CBOE)</div>
+    <p class="muted" style="margin:0 0 10px">
+      Dans TradingView, chaque strike autour du prix devient une bande de couleur&nbsp;: <b style="color:#2a78d6">bleu</b> = gamma
+      positif (le marché a tendance à ralentir / revenir), <b style="color:#e34948">rouge</b> = gamma négatif (accélérations),
+      intensité proportionnelle au poids du strike. Contexte visuel&nbsp;: non validé statistiquement à ce jour.
+    </p>
+    <div class="grid2" id="heat"></div>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="card-title" style="margin-bottom:6px">⚙️ Installation (une fois) et mise à jour quotidienne</div>
+    <div class="step"><div class="step-num">1</div><div>Cliquez <b>« Copier l'indicateur du jour »</b>.</div></div>
+    <div class="step"><div class="step-num">2</div><div>TradingView → <b>Pine Editor</b> → <b>Créer un nouveau → Indicateur</b> → <b>Ctrl+A</b>, <b>Ctrl+V</b> → <b>Enregistrer</b> → <b>Ajouter au graphique</b>. Retirez les anciennes versions du graphique.</div></div>
+    <div class="step"><div class="step-num">3</div><div>Graphique <b>ES, MES, NQ ou MNQ en 5 minutes</b> (ou 1–3 min). Le signal B fonctionne jusqu'en 1 h.</div></div>
+    <div class="step"><div class="step-num">4</div><div>Chaque jour après 14h30 (Paris)&nbsp;: recopiez (Ctrl+A, Ctrl+V, Enregistrer) pour la heatmap et les annonces du jour. Les signaux et niveaux, eux, n'ont jamais besoin d'être recopiés.</div></div>
+    <div class="step"><div class="step-num">5</div><div><b>Alertes</b> : Alerte → Condition « ES/NQ Pro » → « Signal d'ACHAT », « Signal de VENTE », « Signal A » ou « Signal B ».</div></div>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="card-title" style="margin-bottom:8px">🧾 Derniers signaux A sur les vrais futures (60 jours)</div>
     <div style="overflow-x:auto"><table class="tr" id="trades"></table></div>
   </div>
 
-  <div class="card" style="padding:20px">
-    <div class="card-title" style="margin-bottom:6px">⚙️ Installation (une seule fois)</div>
-    <div class="step"><div class="step-num">1</div><div>Cliquez <b>« Copier l'indicateur »</b>.</div></div>
-    <div class="step"><div class="step-num">2</div><div>TradingView → <b>Pine Editor</b> (en bas) → <b>Créer un nouveau → Indicateur</b> → <b>Ctrl+A</b>, <b>Ctrl+V</b> → <b>Enregistrer</b> → <b>Ajouter au graphique</b>.</div></div>
-    <div class="step"><div class="step-num">3</div><div><b>Retirez les anciens indicateurs</b> « GEX ES/NQ », « GEX Levels » ou « Plan GEX » du graphique.</div></div>
-    <div class="step"><div class="step-num">4</div><div>Graphique ES, MES, NQ ou MNQ en <b>5 ou 15 minutes</b>. Le tableau en haut à droite affiche la tendance, les niveaux, le setup en cours et le dernier signal.</div></div>
-    <div class="step"><div class="step-num">5</div><div><b>Alertes</b> : Alerte → Condition « Signaux ES/NQ » → « Signal d'ACHAT », « Signal de VENTE » ou « Setup en préparation ».</div></div>
-  </div>
-
-  <div class="card" style="padding:20px">
-    <div class="card-title" style="margin-bottom:6px">🧭 Couche optionnelle : plan GEX du jour (options CBOE)</div>
-    <p class="muted" style="margin:0 0 12px">
-      Désactivée par défaut&nbsp;: les zones GEX n'ont pas encore assez d'historique pour être validées statistiquement
-      (elles sont archivées chaque jour pour les tester). Pour l'afficher, cochez «&nbsp;Plan GEX du jour&nbsp;» dans les
-      paramètres de l'indicateur, et recopiez l'indicateur chaque jour après 8h30 New York pour le plan du jour.
-    </p>
-    <div class="lv-grid" id="levels"></div>
+  <div class="warn muted" style="margin-bottom:16px">
+    <b>Gestion du risque.</b> Le signal A gagne en moyenne +0,2 R par trade sur 7 ans, avec environ 45 % de trades gagnants&nbsp;:
+    les séries de pertes sont normales (pire creux historique ≈ −17 R sur ES, −12,5 R sur NQ, −25 R en jouant les deux).
+    Risquez un montant <b>fixe et petit</b> par trade (par exemple 0,25 à 0,5 % du capital) pour traverser ces séries.
+    Les performances passées ne garantissent pas les résultats futurs&nbsp;; outil d'aide à la décision, pas un conseil en investissement.
   </div>
 
   <details class="card" style="padding:16px 20px">
@@ -122,9 +159,9 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
   </details>
 
   <p class="muted" style="margin:0 4px 70px">
-    Backtest reproductible&nbsp;: <code>backtest/signals_backtest.py</code> (données Yahoo Finance ES=F / NQ=F, bougies 1 h),
-    même logique bougie par bougie que l'indicateur, recalculé automatiquement chaque semaine. Outil d'aide à la décision,
-    pas un conseil en investissement.
+    Méthode et code reproductibles&nbsp;: <code>backtest/intraday/</code> (Dukascopy 5 min 2020–2026, découverte 2020–2022, validation 2023–2026),
+    suivi hebdomadaire sur les vrais futures (<code>backtest/recent_futures.py</code>) et signal B (<code>backtest/signals_backtest.py</code>).
+    L'indicateur reproduit les backtests trade pour trade.
   </p>
 </div>
 
@@ -160,78 +197,97 @@ const $ = id => document.getElementById(id);
 const fmt = (v, d = 2) => v == null ? '—' : Number(v).toLocaleString('fr-FR', { maximumFractionDigits: d });
 const sgn = (v, d = 2) => v == null ? '—' : Math.abs(v) < 0.5 * 10 ** -d ? '0' : (v >= 0 ? '+' : '') + fmt(v, d);
 const frDate = s => s.split('-').reverse().join('/');
+const NAME = { ES: 'ES · MES — S&P 500', NQ: 'NQ · MNQ — Nasdaq 100' };
 let pine = null;
 
-function equitySvg(trades) {
-  if (!trades.length) return '';
-  let eq = 0; const pts = [0];
-  trades.forEach(t => { eq += t.r; pts.push(eq); });
-  const W = 300, H = 110, pad = 6;
-  const mn = Math.min(...pts), mx = Math.max(...pts);
-  const x = i => pad + (W - 2 * pad) * i / (pts.length - 1);
-  const y = v => H - pad - (H - 2 * pad) * (v - mn) / ((mx - mn) || 1);
-  const d = pts.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
-  return `<svg class="eq" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Courbe des résultats cumulés en R">
-    <line x1="${pad}" x2="${W - pad}" y1="${y(0)}" y2="${y(0)}" stroke="currentColor" stroke-opacity=".25" stroke-dasharray="3 3"/>
-    <path d="${d}" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round"/></svg>`;
+function yearBars(byYear) {
+  const ys = Object.entries(byYear);
+  const mx = Math.max(...ys.map(([, v]) => Math.abs(v.totR || 0)), 1);
+  return '<div class="bars">' + ys.map(([y, v]) => {
+    const r = v.totR || 0, h = Math.max(2, 90 * Math.abs(r) / mx);
+    return `<div class="bar" title="${y} : ${v.n} trades, ${sgn(r, 1)} R"><em>${sgn(r, 0)}</em><i style="height:${h}%;background:${r >= 0 ? '#0ca30c' : '#e34948'}"></i><span>${y}</span></div>`;
+  }).join('') + '</div><div style="height:16px"></div>';
 }
 
-function renderStats(bt) {
-  $('bt-date').textContent = 'backtest du ' + frDate(bt.generated.slice(0, 10));
-  const name = { ES: 'ES · MES — S&P 500', NQ: 'NQ · MNQ — Nasdaq 100' };
-  $('stats').innerHTML = Object.entries(bt.markets).map(([m, v]) => {
+function renderA(res) {
+  $('statsA').innerHTML = Object.entries(res.markets).map(([m, v]) => {
+    const s = v.summary, pos = Object.values(v.by_year).filter(x => (x.totR || 0) > 0).length;
+    return `<div class="sc"><div class="st">${NAME[m]} · 2020 → 2026</div>
+      <div class="kv"><span>Trades</span><b>${s.n} (≈ ${fmt(s.per_day)} / jour)</b></div>
+      <div class="kv"><span>Gagnants</span><b>${fmt(s.win, 1)} %</b></div>
+      <div class="kv"><span>Profit factor</span><b>${fmt(s.PF)}</b></div>
+      <div class="kv"><span>Gain moyen par trade</span><b class="pos">${sgn(s.avgR)} R</b></div>
+      <div class="kv"><span>Total / pire creux</span><b>${sgn(s.totR, 0)} R / ${fmt(s.dd, 1)} R</b></div>
+      <div class="kv"><span>Découverte 20-22 · validation 23-26</span><b>${sgn(v.discovery_2020_2022.avgR)} · ${sgn(v.validation_2023_2026.avgR)} R</b></div>
+      <div class="kv"><span>Années positives</span><b>${pos} / ${Object.keys(v.by_year).length}</b></div>
+      ${yearBars(v.by_year)}
+      <div class="muted">Résultat par année, en R (1 R = risque d'un trade).</div></div>`;
+  }).join('');
+  if (res.portfolio) {
+    const p = res.portfolio.summary;
+    $('statsA').innerHTML += `<div class="sc"><div class="st">Portefeuille ES + NQ</div>
+      <div class="kv"><span>Trades</span><b>${p.n}</b></div>
+      <div class="kv"><span>Gain moyen / profit factor</span><b class="pos">${sgn(p.avgR)} R · ${fmt(p.PF)}</b></div>
+      <div class="kv"><span>Total / pire creux</span><b>${sgn(p.totR, 0)} R / ${fmt(p.dd, 1)} R</b></div>
+      ${yearBars(res.portfolio.by_year)}
+      <div class="muted">Positif chaque année de 2020 à 2026 (2024 ≈ neutre).</div></div>`;
+  }
+}
+
+function renderRecent(rec) {
+  $('recentA').innerHTML = Object.entries(rec.markets).map(([m, v]) => {
     const s = v.summary;
-    const years = Object.entries(v.by_year).map(([y, ys]) =>
-      `<div class="kv"><span>${y}</span><b class="${ys.total_r >= 0 ? 'pos' : 'neg'}">${ys.n} trades · ${sgn(ys.total_r, 1)} R</b></div>`).join('');
-    return `<div class="stat-card"><div class="stat-title">${name[m] || m}</div>
+    return `<div class="sc"><div class="st">${m} futures · 60 derniers jours (suivi réel)</div>
+      <div class="kv"><span>Période</span><b>${v.period ? frDate(v.period[0]) + ' → ' + frDate(v.period[1]) : '—'}</b></div>
+      <div class="kv"><span>Trades · gagnants</span><b>${s.n || 0} · ${s.n ? fmt(s.win, 0) + ' %' : '—'}</b></div>
+      <div class="kv"><span>Résultat</span><b class="${(s.totR || 0) >= 0 ? 'pos' : 'neg'}">${s.n ? sgn(s.totR, 1) + ' R (' + sgn(s.avgR) + ' R/trade)' : '—'}</b></div></div>`;
+  }).join('');
+  const all = Object.entries(rec.markets).flatMap(([m, v]) => v.trades.map(t => ({ m, ...t })))
+    .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)).slice(0, 15);
+  const why = { tgt: '✓ objectif', stop: '✗ stop', eod: 'sortie 15h55' };
+  $('trades').innerHTML = '<tr><th>Date (NY)</th><th>Marché</th><th>Signal</th><th>Entrée</th><th>Stop</th><th>Objectif</th><th>Sortie</th><th>Résultat</th></tr>' +
+    all.map(t => `<tr><td>${frDate(t.date)} ${t.time}</td><td>${t.m}</td><td class="${t.side > 0 ? 'pos' : 'neg'}">${t.side > 0 ? '▲ ACHAT A' : '▼ VENTE A'}</td>
+      <td>${fmt(t.entry)}</td><td>${fmt(t.stop)}</td><td>${fmt(t.target)}</td><td>${why[t.why] || t.why}</td>
+      <td class="${t.r >= 0 ? 'pos' : 'neg'}">${sgn(t.r)} R</td></tr>`).join('');
+}
+
+function renderB(bt) {
+  $('statsB').innerHTML = Object.entries(bt.markets).map(([m, v]) => {
+    const s = v.summary;
+    return `<div class="sc"><div class="st">${NAME[m]} · 2 ans</div>
       <div class="kv"><span>Signaux</span><b>${s.n}</b></div>
       <div class="kv"><span>Gagnants</span><b>${fmt(s.win_rate, 1)} %</b></div>
       <div class="kv"><span>Profit factor</span><b>${fmt(s.profit_factor)}</b></div>
-      <div class="kv"><span>Espérance par trade</span><b class="${s.expectancy_r >= 0 ? 'pos' : 'neg'}">${sgn(s.expectancy_r)} R</b></div>
-      <div class="kv"><span>Total</span><b class="${s.total_r >= 0 ? 'pos' : 'neg'}">${sgn(s.total_r, 1)} R</b></div>
-      <div class="kv"><span>Pire série de pertes</span><b class="neg">${fmt(s.max_drawdown_r)} R</b></div>
-      ${years}
-      ${equitySvg(v.trades)}
-      <div class="muted">Résultats cumulés en R (1 R = le risque d'un trade), du ${frDate(v.period[0])} au ${frDate(v.period[1])}</div>
-    </div>`;
+      <div class="kv"><span>Gain moyen par trade</span><b class="pos">${sgn(s.expectancy_r)} R</b></div>
+      <div class="kv"><span>En cours</span><b>${v.open_trade ? (v.open_trade.side > 0 ? '▲ ACHAT ' : '▼ VENTE ') + frDate(v.open_trade.date) : 'aucun'}</b></div></div>`;
   }).join('');
-  const all = Object.entries(bt.markets).flatMap(([m, v]) => v.trades.map(t => ({ m, ...t }))
-      .concat(v.open_trade ? [{ m, ...v.open_trade, why: 'en cours', r: null }] : []))
-    .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)).slice(0, 12);
-  const why = { objectif: '✓ objectif', stop: '✗ stop', 'clôture': 'sortie 16h', 'fin de données': 'fin de données' };
-  $('trades').innerHTML = '<tr><th>Date (NY)</th><th>Marché</th><th>Signal</th><th>Niveau</th><th>Entrée</th><th>Stop</th><th>Objectif</th><th>Sortie</th><th>Résultat</th></tr>' +
-    all.map(t => `<tr><td>${frDate(t.date)} ${t.time}</td><td>${t.m}</td>
-      <td class="${t.side > 0 ? 'pos' : 'neg'}">${t.side > 0 ? '▲ ACHAT' : '▼ VENTE'}</td><td>${t.level} ${fmt(t.level_px)}</td>
-      <td>${fmt(t.entry)}</td><td>${fmt(t.stop)}</td><td>${fmt(t.target)}</td><td>${why[t.why] || t.why}</td>
-      <td class="${t.r == null ? '' : t.r >= 0 ? 'pos' : 'neg'}">${t.r == null ? '⏳ en cours' : sgn(t.r) + ' R'}</td></tr>`).join('');
 }
 
-function renderGex(lv) {
-  const label = { SPX: 'S&P 500 · SPX → ES / MES', NDX: 'Nasdaq 100 · NDX → NQ / MNQ' };
-  $('levels').innerHTML = ['SPX', 'NDX'].map(sym => {
+function renderDay(lv) {
+  $('day-pill').textContent = 'plan du ' + frDate(lv.day);
+  const evs = (lv.datasets.find(d => d.events) || {}).events || [];
+  $('events').innerHTML = evs.length ? evs.map(e => `<div class="kv"><span>${e.time} NY · ${e.title}</span><b class="${e.impact === 'fort' ? 'neg' : 'warnc'}">${e.impact}${e.forecast ? ' · prév. ' + e.forecast : ''}</b></div>`).join('')
+    : 'Aucune annonce US majeure ce jour-là.';
+  $('heat').innerHTML = ['SPX', 'NDX'].map(sym => {
     const d = lv.datasets.find(x => x.symbol === sym);
-    if (!d || !d.available) return '';
-    const pl = d.plan || {};
-    const row = (n, l, c) => `<div class="kv"><span>${n} ${l ? '★'.repeat(l.stars) : ''}</span><b style="color:${c}">${l ? fmt(l.strike) : '—'}</b></div>`;
-    return `<div class="stat-card"><div class="stat-title">${label[sym]} · plan du ${frDate(d.day)}</div>
-      ${row('R2', pl.R2, '#e34948')}${row('R1', pl.R1, '#e34948')}${row('S1', pl.S1, '#0ca30c')}${row('S2', pl.S2, '#0ca30c')}
-      <div class="kv"><span>Expected move</span><b>${fmt(pl.em_down, 0)} – ${fmt(pl.em_up, 0)}</b></div>
-      <div class="kv"><span>Pivot gamma</span><b>${fmt(pl.pivot, 0)}</b></div>
-      <div class="muted">En points d'indice (convertis en ES/NQ dans l'indicateur).</div></div>`;
+    if (!d || !d.heat) return '';
+    const k = d.heat.strikes, g = d.heat.net_gex, mx = Math.max(...g.map(Math.abs), 1);
+    const rows = k.map((s, i) => ({ s, g: g[i] })).reverse();
+    return `<div class="sc"><div class="st">${sym === 'SPX' ? 'SPX → ES / MES' : 'NDX → NQ / MNQ'}</div><div class="heat">` +
+      rows.map((r, i) => `<div><span style="width:52px">${i % 5 === 0 ? fmt(r.s, 0) : ''}</span><i style="background:${r.g >= 0 ? '#2a78d6' : '#e34948'};opacity:${(0.08 + 0.92 * Math.abs(r.g) / mx).toFixed(2)}"></i></div>`).join('') +
+      '</div><div class="muted" style="margin-top:6px">Strikes en points d\'indice (convertis en ES/NQ dans l\'indicateur).</div></div>';
   }).join('');
 }
 
 async function load() {
-  try {
-    const [code, bt] = await Promise.all([get('tradingview/GEX_Levels_ES_NQ.pine', true), get('backtest/results.json')]);
-    pine = code;
-    $('code').textContent = code;
-    $('copy-btn').disabled = false;
-    renderStats(bt);
-  } catch (e) {
-    $('bt-date').textContent = 'données indisponibles';
-  }
-  try { renderGex(await get('tradingview/levels.json')); } catch (e) {}
+  const jobs = [
+    get('tradingview/GEX_Levels_ES_NQ.pine', true).then(code => { pine = code; $('code').textContent = code; $('copy-btn').disabled = false; }),
+    get('backtest/intraday_results.json').then(renderA),
+    get('backtest/recent_results.json').then(renderRecent),
+    get('backtest/results.json').then(renderB),
+    get('tradingview/levels.json').then(renderDay),
+  ];
+  await Promise.allSettled(jobs);
 }
 
 $('copy-btn').addEventListener('click', async () => {

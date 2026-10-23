@@ -324,9 +324,9 @@ plotshape(showSqzDots ? 0.0 : na, title = "Etat squeeze", style = shape.circle, 
 plotshape(bullSignal, title = "Retournement haussier", style = shape.circle, location = location.belowbar, color = color.new(color.green, 0), size = size.small)
 plotshape(bearSignal, title = "Retournement baissier", style = shape.circle, location = location.abovebar, color = color.new(color.red, 0),   size = size.small)
 
-// Croix noire = perte de momentum apres le dernier signal
-plotshape(showExitCross and exitAfterBull, title = "Perte de momentum (apres achat)", style = shape.xcross, location = location.abovebar, color = color.new(color.black, 0), size = size.small)
-plotshape(showExitCross and exitAfterBear, title = "Perte de momentum (apres vente)", style = shape.xcross, location = location.belowbar, color = color.new(color.black, 0), size = size.small)
+// Croix blanche discrete = perte de momentum apres le dernier signal
+plotshape(showExitCross and exitAfterBull, title = "Perte de momentum (apres achat)", style = shape.xcross, location = location.abovebar, color = color.new(color.white, 0), size = size.tiny)
+plotshape(showExitCross and exitAfterBear, title = "Perte de momentum (apres vente)", style = shape.xcross, location = location.belowbar, color = color.new(color.white, 0), size = size.tiny)
 
 // =========================================================================
 // ALERTES

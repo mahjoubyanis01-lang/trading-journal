@@ -59,6 +59,7 @@ input long   InpMagic      = 20251023; // Magic number
 input group "Affichage (historique sur le graphique)"
 input bool   InpDraw        = true;  // Dessiner l'historique des trades
 input bool   InpClearOnInit = false; // Effacer l'historique au (re)demarrage
+input int    InpHistoryBars = 5000;  // Bougies d'historique a simuler au demarrage (0 = tout)
 
 //=================== ETAT GLOBAL ====================================
 // Heiken Ashi (etat de la derniere bougie close traitee)
@@ -371,9 +372,10 @@ int OnInit()
 void OnDeinit(const int reason) { Comment(""); }
 
 //=================== COEUR : TRAITEMENT D'UNE BOUGIE CLOSE ==========
-void ProcessClosedBar()
+// Traite une bougie close. live=false : passe d'historique au demarrage,
+// les trades sont SIMULES (aucun ordre envoye) mais dessines et comptes.
+void ProcessBar(const int sh, const bool live)
   {
-   int sh = 1; // la derniere bougie close
    double o = iOpen(_Symbol, _Period, sh);
    double h = iHigh(_Symbol, _Period, sh);
    double l = iLow(_Symbol, _Period, sh);
@@ -521,54 +523,90 @@ void ProcessClosedBar()
    if(g_pendingExit == -1 && g_sigBar >= 0 && g_barCount > g_sigBar && g_momUpCnt >= InpCrossBars && c < g_sigPrice)
      { exitAfterBear = true; g_pendingExit = 0; }
 
-   //--- 6) suivi du trade : stop sorti chez le broker ?
-   ulong ticket; long ptype; double popen;
-   bool havePos = GetOurPosition(ticket, ptype, popen);
-   if(g_trOpen && !havePos)
-     {
-      // position close par le broker (SL initial ou SL break-even)
-      RecordResult(g_trBE ? 0.0 : -1.0);
-      DrawClose(iTime(_Symbol, _Period, sh), g_trBE ? g_trEnt : g_trSl,
-                g_trBE ? "BE 0 R" : "-1 R",
-                g_trBE ? clrGray : clrRed, false);
-      g_trOpen = false;
-     }
+   datetime bt = iTime(_Symbol, _Period, sh);
 
-   //--- 7) gestion du trade actif : break-even puis sortie croix
-   if(g_trOpen && havePos)
-      DrawExtend(iTime(_Symbol, _Period, sh));
-   if(g_trOpen && havePos && g_barCount > g_trStartBar)
+   if(live)
      {
-      if(InpUseBE && !g_trBE)
+      //--- 6a) mode DIRECT : le stop reel est chez le broker
+      ulong ticket; long ptype; double popen;
+      bool havePos = GetOurPosition(ticket, ptype, popen);
+      if(g_trOpen && !havePos)
         {
-         bool beNow = g_trDir == 1 ? (h >= g_trEnt + InpBeTrigger * g_trRisk)
-                                   : (l <= g_trEnt - InpBeTrigger * g_trRisk);
-         if(beNow)
+         // position close par le broker (SL initial ou SL break-even)
+         RecordResult(g_trBE ? 0.0 : -1.0);
+         DrawClose(bt, g_trBE ? g_trEnt : g_trSl, g_trBE ? "BE 0 R" : "-1 R", g_trBE ? clrGray : clrRed, false);
+         g_trOpen = false;
+        }
+      if(g_trOpen && havePos)
+         DrawExtend(bt);
+      if(g_trOpen && havePos && g_barCount > g_trStartBar)
+        {
+         if(InpUseBE && !g_trBE)
            {
-            if(ModifySL(ticket, g_trEnt))
+            bool beNow = g_trDir == 1 ? (h >= g_trEnt + InpBeTrigger * g_trRisk)
+                                      : (l <= g_trEnt - InpBeTrigger * g_trRisk);
+            if(beNow && ModifySL(ticket, g_trEnt))
               {
                g_trBE = true;
-               DrawBE(iTime(_Symbol, _Period, sh), g_trEnt);
+               DrawBE(bt, g_trEnt);
                Print("HA Sig EA : break-even active, SL ramene a l'entree");
               }
            }
-        }
-      bool crossExit = g_trDir == 1 ? exitAfterBull : exitAfterBear;
-      if(crossExit)
-        {
-         double res = g_trDir * (c - g_trEnt) / g_trRisk;
-         if(CloseByTicket(ticket))
+         bool crossExit = g_trDir == 1 ? exitAfterBull : exitAfterBear;
+         if(crossExit)
            {
-            RecordResult(res);
-            string resTxt = (res >= 0 ? "+" : "") + DoubleToString(res, 2) + " R";
-            color  resCol = res > 0.01 ? clrLime : res < -0.01 ? clrRed : clrGray;
-            DrawClose(iTime(_Symbol, _Period, sh), c, resTxt, resCol, true);
-            g_trOpen = false;
+            double res = g_trDir * (c - g_trEnt) / g_trRisk;
+            if(CloseByTicket(ticket))
+              {
+               RecordResult(res);
+               string resTxt = (res >= 0 ? "+" : "") + DoubleToString(res, 2) + " R";
+               color  resCol = res > 0.01 ? clrLime : res < -0.01 ? clrRed : clrGray;
+               DrawClose(bt, c, resTxt, resCol, true);
+               g_trOpen = false;
+              }
            }
         }
      }
+   else
+     {
+      //--- 6b) mode HISTORIQUE : trade virtuel, aucun ordre envoye
+      if(g_trOpen && g_barCount > g_trStartBar)
+        {
+         double stopLvl = g_trBE ? g_trEnt : g_trSl;
+         bool slHit = g_trDir == 1 ? (l <= stopLvl) : (h >= stopLvl);
+         bool crossExit = g_trDir == 1 ? exitAfterBull : exitAfterBear;
+         if(slHit)
+           {
+            // stop prioritaire (conservateur)
+            RecordResult(g_trBE ? 0.0 : -1.0);
+            DrawClose(bt, stopLvl, g_trBE ? "BE 0 R" : "-1 R", g_trBE ? clrGray : clrRed, false);
+            g_trOpen = false;
+           }
+         else if(crossExit)
+           {
+            double res = g_trDir * (c - g_trEnt) / g_trRisk;
+            RecordResult(res);
+            string resTxt = (res >= 0 ? "+" : "") + DoubleToString(res, 2) + " R";
+            color  resCol = res > 0.01 ? clrLime : res < -0.01 ? clrRed : clrGray;
+            DrawClose(bt, c, resTxt, resCol, true);
+            g_trOpen = false;
+           }
+         else if(InpUseBE && !g_trBE)
+           {
+            bool beNow = g_trDir == 1 ? (h >= g_trEnt + InpBeTrigger * g_trRisk)
+                                      : (l <= g_trEnt - InpBeTrigger * g_trRisk);
+            if(beNow)
+              {
+               g_trBE = true;
+               DrawBE(bt, g_trEnt);
+              }
+           }
+        }
+      if(g_trOpen)
+         DrawExtend(bt);
+     }
 
-   //--- 8) nouveaux signaux : uniquement sans trade en cours
+   //--- 7) nouveaux signaux : uniquement sans trade en cours
    bool sigBull = brkUp && !g_trOpen;
    bool sigBear = brkDn && !g_trOpen;
 
@@ -580,12 +618,19 @@ void ProcessClosedBar()
       double risk = MathAbs(ent - sl);
       if(risk > 0)
         {
-         double lots = LotsForRisk(risk);
-         bool ok = OpenMarket(openDir, lots, sl);
+         bool ok = true;
+         if(live)
+           {
+            double lots = LotsForRisk(risk);
+            ok = OpenMarket(openDir, lots, sl);
+            if(ok)
+               PrintFormat("HA Sig EA : %s | entree ref %.5f | SL %.5f | risque %.5f | lots %.2f",
+                           openDir == 1 ? "LONG" : "SHORT", ent, sl, risk, lots);
+           }
          if(ok)
            {
             g_trId++;
-            DrawOpen(iTime(_Symbol, _Period, sh), ent, sl, openDir);
+            DrawOpen(bt, ent, sl, openDir);
             g_trOpen = true;
             g_trDir = openDir;
             g_trEnt = ent;
@@ -597,25 +642,58 @@ void ProcessClosedBar()
             g_pendingExit = openDir;
             g_sigBar = g_barCount;
             g_sigPrice = ent;
-            PrintFormat("HA Sig EA : %s | entree ref %.5f | SL %.5f | risque %.5f | lots %.2f",
-                        openDir == 1 ? "LONG" : "SHORT", ent, sl, risk, lots);
            }
         }
      }
 
+   if(live)
+      UpdateComment();
+  }
+
+//=================== PASSE D'HISTORIQUE AU DEMARRAGE ================
+void WarmUp()
+  {
+   int total = Bars(_Symbol, _Period);
+   int minNeed = InpKcLength * 2 + 5;
+   int start = total - minNeed;
+   if(InpHistoryBars > 0)
+      start = MathMin(start, InpHistoryBars);
+   if(start < 2)
+      return;
+   for(int sh = start; sh >= 2; sh--)
+      ProcessBar(sh, false);
+   // transition : un trade virtuel encore ouvert n'est pas repris en reel
+   if(g_trOpen)
+     {
+      Print("HA Sig EA : trade virtuel abandonne a la bascule en direct");
+      g_trOpen = false;
+     }
    UpdateComment();
+   ChartRedraw(0);
+   PrintFormat("HA Sig EA : historique simule sur %d bougies, %d trades traces", start - 1, g_btN);
   }
 
 //=================== TICK ===========================================
+bool g_warmed = false;
+
 void OnTick()
   {
+   if(Bars(_Symbol, _Period) < InpKcLength * 2 + 10)
+      return;
    datetime t0 = iTime(_Symbol, _Period, 0);
+   if(!g_warmed)
+     {
+      // premiere activation : rejoue l'historique du graphique (trades
+      // virtuels dessines + stats), puis traite la derniere bougie close
+      WarmUp();
+      g_warmed = true;
+      g_lastBarTime = t0;
+      ProcessBar(1, true);
+      return;
+     }
    if(t0 == g_lastBarTime)
       return;              // pas de nouvelle bougie : le stop reel est chez le broker
    g_lastBarTime = t0;
-   // s'assure qu'il y a assez d'historique pour les calculs
-   if(Bars(_Symbol, _Period) < InpKcLength * 2 + InpNormLen + 5)
-      return;
-   ProcessClosedBar();
+   ProcessBar(1, true);
   }
 //+------------------------------------------------------------------+

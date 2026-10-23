@@ -1,8 +1,9 @@
 {
   "name": "Trading Journal",
   "short_name": "TJ",
-  "description": "Journal de trading institutionnel",
-  "start_url": "/trading-journal/",
+  "description": "Journal de trading institutionnel + heatmap Options GEX",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f8f8f6",
   "theme_color": "#111110",
@@ -10,5 +11,13 @@
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Options GEX",
+      "short_name": "GEX",
+      "url": "./options.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }

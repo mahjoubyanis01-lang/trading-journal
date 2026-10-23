@@ -115,3 +115,17 @@ Page : **`options.html`** (lien « Options GEX » dans la navigation du journal)
 - **Backtest** : toutes les journées restent archivées dans le repo — sélecteur « Journée (backtest) » dans la page, et bouton **Export** pour télécharger le JSON complet de la journée. Lancement manuel possible : onglet *Actions* → *Options GEX snapshot* → *Run workflow*.
 
 Ajouter un symbole : éditer le dict `SYMBOLS` dans `scripts/fetch_options_snapshot.py`.
+
+## 💻 Application locale (sur ton PC)
+
+Deux façons d'avoir l'app en local :
+
+### Option A — Installer la PWA (le plus simple)
+Ouvre https://mahjoubyanis01-lang.github.io/trading-journal/ dans Chrome ou Edge, puis clique sur l'icône **« Installer l'application »** dans la barre d'adresse. L'app s'ouvre dans sa propre fenêtre, avec une icône dans le menu Démarrer, et fonctionne hors-ligne (les données GEX se rafraîchissent automatiquement depuis le repo quand tu es en ligne).
+
+### Option B — Mode 100 % local et autonome
+1. Télécharge le repo : bouton **Code → Download ZIP** (ou `git clone`), décompresse-le.
+2. Double-clique sur **`Lancer Trading Journal.bat`** (Windows) ou lance `python3 local_app.py` (macOS/Linux).
+3. L'app s'ouvre dans le navigateur sur `http://127.0.0.1:8765` et, tant qu'elle tourne, **prend elle-même un snapshot CBOE toutes les 30 minutes** pendant les heures de marché US — directement depuis ton PC, sans dépendre de GitHub.
+
+Les snapshots locaux sont enregistrés dans `data/options/` au même format que ceux du workflow GitHub Actions : ton historique de backtest reste unifié. Prérequis : [Python 3.9+](https://www.python.org/downloads/) (cocher « Add Python to PATH » à l'installation).

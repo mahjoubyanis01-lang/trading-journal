@@ -31,7 +31,7 @@ grpTrade = "Trade : sortie sur couleur HA ou croix"
 showTrade  = input.bool(true, "Gerer un trade par signal (entree + resultat)", group = grpTrade, tooltip = "Un seul trade a la fois, sans aucun stop fixe ni break-even. La position se clot des que la bougie Heiken Ashi change de couleur contre le trade, ou a la croix de perte de momentum -- gain ou perte, peu importe. Resultat affiche en R a la cloture.")
 slLen      = input.int(5, "Bougies pour l'unite de risque (R)", minval = 1, maxval = 50, group = grpTrade, tooltip = "Sert UNIQUEMENT a mesurer les resultats en R : 1 R = distance entre l'entree et l'extreme des N dernieres bougies au moment du signal. Ce n'est PAS un stop, aucune position n'est coupee a ce niveau.")
 entCol     = input.color(color.new(color.gray, 0),  "Ligne d'entree", group = grpTrade)
-flipBars   = input.int(2, "Bougies HA opposees consecutives pour sortir", minval = 1, maxval = 10, group = grpTrade, tooltip = "Nombre de bougies Heiken Ashi consecutives de couleur opposee au trade necessaires pour clore la position. 1 = la moindre bougie contraire sort (tres nerveux en 1 minute). 2-3 = le changement de couleur est confirme.")
+flipBars   = input.int(1, "Bougies de couleur opposee pour sortir", minval = 1, maxval = 10, group = grpTrade, tooltip = "La couleur testee est celle AFFICHEE a l'ecran : famille violette (momentum positif) ou famille rouge (momentum negatif). Achat clos des que la bougie passe en famille rouge, vente close des qu'elle passe en famille violette. 1 = des la premiere bougie de couleur opposee ; 2-3 = changement confirme. Seules les couleurs apparues APRES l'entree comptent.")
 
 grpDash = "Tableau de bord"
 showDash   = input.bool(true, "Afficher le tableau de bord", group = grpDash)
@@ -230,20 +230,24 @@ float tradeRes = na
 bool exitFlipLong  = false
 bool exitFlipShort = false
 
-// Compteurs de bougies HA consecutives de chaque couleur
-var int haBearCnt = 0
-var int haBullCnt = 0
-haBearCnt := haClose < haOpen ? haBearCnt + 1 : 0
-haBullCnt := haClose > haOpen ? haBullCnt + 1 : 0
+// Compteurs de bougies consecutives par FAMILLE DE COULEUR AFFICHEE :
+// famille violette = momentum normalise positif (degrade gris -> violet),
+// famille rouge = momentum normalise negatif (degrade rouge -> gris).
+// C'est la couleur visible a l'ecran, celle dont parle la regle de sortie.
+var int colRedCnt    = 0
+var int colPurpleCnt = 0
+colRedCnt    := normVal < 0 ? colRedCnt + 1 : 0
+colPurpleCnt := normVal > 0 ? colPurpleCnt + 1 : 0
 
-// 1) suivi du trade actif : sortie sur flip HA confirme ou croix.
-// Le flip exige 'flipBars' bougies HA opposees CONSECUTIVES, dont la
-// serie a commence apres l'entree (une bougie contraire isolee ne sort
-// plus la position).
+// 1) suivi du trade actif : sortie sur changement de couleur ou croix.
+// Achat clos quand la bougie passe en famille ROUGE ; vente close quand
+// elle passe en famille VIOLETTE. Seule une serie de couleur commencee
+// APRES l'entree compte : la couleur deja presente au moment du signal
+// (ex. achat pris encore dans le rouge de l'extreme) ne sort pas le trade.
 if trDir != 0
     line.set_x2(trLine, bar_index)
     if bar_index > trStartBar
-        bool flipAgainst = trDir == 1 ? (haBearCnt >= flipBars and bar_index - haBearCnt >= trStartBar) : (haBullCnt >= flipBars and bar_index - haBullCnt >= trStartBar)
+        bool flipAgainst = trDir == 1 ? (colRedCnt >= flipBars and bar_index - colRedCnt >= trStartBar) : (colPurpleCnt >= flipBars and bar_index - colPurpleCnt >= trStartBar)
         bool crossExit   = trDir == 1 ? exitAfterBull : exitAfterBear
         if flipAgainst or crossExit
             float res = trDir * (close - trEnt) / math.max(trRisk, syminfo.mintick)

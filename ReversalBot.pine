@@ -1,5 +1,12 @@
 // @version=6
-strategy("ReversalBot", overlay=true, max_labels_count=500, max_lines_count=500, default_qty_type=strategy.fixed, default_qty_value=1)
+// margin_long/short = 0 : sans ça, le simulateur applique une marge de 100 %
+// et SAUTE SILENCIEUSEMENT tout ordre dont la valeur dépasse le capital
+// fictif (100 K par défaut). Le sizing au risque (f_qty) produit des
+// positions d'autant plus grosses que le SL est serré : les meilleurs
+// setups (SL collé au sweep) dépassaient le capital et n'étaient jamais
+// remplis — d'où des prises de position « irrégulières ». À 0 %, le
+// simulateur se comporte comme un compte à levier (MT5).
+strategy("ReversalBot", overlay=true, max_labels_count=500, max_lines_count=500, default_qty_type=strategy.fixed, default_qty_value=1, margin_long=0, margin_short=0)
 
 // ══ INPUTS ═══════════════════════════════════════════════════════════
 i_risk   = input.float(100.0, "Montant risque",    group="Config")

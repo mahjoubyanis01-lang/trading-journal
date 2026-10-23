@@ -29,8 +29,8 @@
 #property version   "1.00"
 #property strict
 
-#include <Trade/Trade.mqh>
-CTrade trade;
+// Aucune dependance : les ordres passent par OrderSend() natif,
+// pas besoin de la bibliotheque standard <Trade\Trade.mqh>.
 
 //=================== INPUTS =========================================
 input group "Squeeze momentum"
@@ -144,6 +144,80 @@ double ComputeVal(int shift)
    return a + b * (len - 1);
   }
 
+//=================== ORDRES (OrderSend natif) =======================
+ENUM_ORDER_TYPE_FILLING FillingMode()
+  {
+   long fl = SymbolInfoInteger(_Symbol, SYMBOL_FILLING_MODE);
+   if((fl & SYMBOL_FILLING_FOK) != 0) return ORDER_FILLING_FOK;
+   if((fl & SYMBOL_FILLING_IOC) != 0) return ORDER_FILLING_IOC;
+   return ORDER_FILLING_RETURN;
+  }
+
+bool OpenMarket(int dir, double lots, double sl)
+  {
+   MqlTradeRequest req; MqlTradeResult res;
+   ZeroMemory(req); ZeroMemory(res);
+   req.action       = TRADE_ACTION_DEAL;
+   req.symbol       = _Symbol;
+   req.volume       = lots;
+   req.type         = dir == 1 ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+   req.price        = dir == 1 ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   req.sl           = NormalizeDouble(sl, _Digits);
+   req.deviation    = 20;
+   req.magic        = (ulong)InpMagic;
+   req.comment      = dir == 1 ? "HA Sig L" : "HA Sig S";
+   req.type_filling = FillingMode();
+   if(!OrderSend(req, res) || (res.retcode != TRADE_RETCODE_DONE && res.retcode != TRADE_RETCODE_PLACED && res.retcode != TRADE_RETCODE_DONE_PARTIAL))
+     {
+      PrintFormat("HA Sig EA : echec d'ouverture (retcode %d)", res.retcode);
+      return false;
+     }
+   return true;
+  }
+
+bool ModifySL(ulong ticket, double newSl)
+  {
+   if(!PositionSelectByTicket(ticket)) return false;
+   MqlTradeRequest req; MqlTradeResult res;
+   ZeroMemory(req); ZeroMemory(res);
+   req.action   = TRADE_ACTION_SLTP;
+   req.symbol   = PositionGetString(POSITION_SYMBOL);
+   req.position = ticket;
+   req.sl       = NormalizeDouble(newSl, _Digits);
+   req.tp       = PositionGetDouble(POSITION_TP);
+   if(!OrderSend(req, res) || res.retcode != TRADE_RETCODE_DONE)
+     {
+      PrintFormat("HA Sig EA : echec de modification du SL (retcode %d)", res.retcode);
+      return false;
+     }
+   return true;
+  }
+
+bool CloseByTicket(ulong ticket)
+  {
+   if(!PositionSelectByTicket(ticket)) return false;
+   long   ptype = PositionGetInteger(POSITION_TYPE);
+   double vol   = PositionGetDouble(POSITION_VOLUME);
+   MqlTradeRequest req; MqlTradeResult res;
+   ZeroMemory(req); ZeroMemory(res);
+   req.action       = TRADE_ACTION_DEAL;
+   req.symbol       = _Symbol;
+   req.position     = ticket;
+   req.volume       = vol;
+   req.type         = ptype == POSITION_TYPE_BUY ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
+   req.price        = ptype == POSITION_TYPE_BUY ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   req.deviation    = 20;
+   req.magic        = (ulong)InpMagic;
+   req.comment      = "HA Sig exit croix";
+   req.type_filling = FillingMode();
+   if(!OrderSend(req, res) || (res.retcode != TRADE_RETCODE_DONE && res.retcode != TRADE_RETCODE_DONE_PARTIAL))
+     {
+      PrintFormat("HA Sig EA : echec de cloture (retcode %d)", res.retcode);
+      return false;
+     }
+   return true;
+  }
+
 //=================== POSITION =======================================
 bool GetOurPosition(ulong &ticket, long &ptype, double &popen)
   {
@@ -212,8 +286,6 @@ void UpdateComment()
 //=================== INIT ===========================================
 int OnInit()
   {
-   trade.SetExpertMagicNumber(InpMagic);
-   trade.SetDeviationInPoints(20);
    return INIT_SUCCEEDED;
   }
 
@@ -389,7 +461,7 @@ void ProcessClosedBar()
                                    : (l <= g_trEnt - InpBeTrigger * g_trRisk);
          if(beNow)
            {
-            if(trade.PositionModify(ticket, g_trEnt, 0.0))
+            if(ModifySL(ticket, g_trEnt))
               {
                g_trBE = true;
                Print("HA Sig EA : break-even active, SL ramene a l'entree");
@@ -400,7 +472,7 @@ void ProcessClosedBar()
       if(crossExit)
         {
          double res = g_trDir * (c - g_trEnt) / g_trRisk;
-         if(trade.PositionClose(ticket))
+         if(CloseByTicket(ticket))
            {
             RecordResult(res);
             g_trOpen = false;
@@ -421,8 +493,7 @@ void ProcessClosedBar()
       if(risk > 0)
         {
          double lots = LotsForRisk(risk);
-         bool ok = openDir == 1 ? trade.Buy(lots, _Symbol, 0.0, sl, 0.0, "HA Sig L")
-                                : trade.Sell(lots, _Symbol, 0.0, sl, 0.0, "HA Sig S");
+         bool ok = OpenMarket(openDir, lots, sl);
          if(ok)
            {
             g_trOpen = true;

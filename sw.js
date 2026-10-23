@@ -1,4 +1,4 @@
-const CACHE = 'tj-v2';
+const CACHE = 'tj-v3';
 // Chemins relatifs au scope du service worker : fonctionne sur GitHub Pages
 // (/trading-journal/) comme en local (http://127.0.0.1:876x/).
 const ASSETS = [
@@ -9,6 +9,7 @@ const ASSETS = [
   'manifest.json',
   'options.html',
   'options.js',
+  'tradingview.html',
   'icon-192.png',
   'icon-512.png',
 ];
@@ -28,7 +29,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   // Les données d'options doivent toujours être fraîches : réseau d'abord.
-  if (url.pathname.includes('/data/') || url.hostname === 'raw.githubusercontent.com') {
+  if (url.pathname.includes('/data/') || url.pathname.includes('/tradingview/') || url.hostname === 'raw.githubusercontent.com') {
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;
   }

@@ -1,0 +1,192 @@
+//@version=6
+// ════════════════════════════════════════════════════════════════════════
+//  GEX Levels ES / NQ — niveaux de gamma exposure CBOE pour futures mini/micro
+//  Détection automatique : ES, MES (S&P 500) · NQ, MNQ (Nasdaq 100)
+//  + SPX, SPY, NDX, QQQ et CFD US500 / NAS100.
+//
+//  Données : chaînes d'options CBOE, snapshot du 2026-10-23 14:35 (New York).
+//  Ce fichier est régénéré automatiquement après chaque snapshot (toutes les
+//  30 min en séance US) : https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html
+//  TradingView n'autorise aucun accès internet depuis Pine : pour rafraîchir,
+//  recopiez la dernière version (bouton « Copier » de la page ci-dessus).
+//  La conversion indice -> futures (base ES/SPX, NQ/NDX) est, elle, calculée
+//  en temps réel par TradingView.
+// ════════════════════════════════════════════════════════════════════════
+indicator("GEX Levels ES/NQ (CBOE)", shorttitle = "GEX ES/NQ", overlay = true, max_lines_count = 100, max_labels_count = 100)
+
+// ── DONNÉES (générées automatiquement — ne pas modifier) ─────────────────
+GENERATED = "2026-10-23 14:35 (New York)"
+SPX_TS    = 1792780555000  // 2026-10-23T14:35:55-04:00
+SPX_SPOT  = 7634.5298
+SPX_FLIP  = 7735.45
+SPX_CW    = 8000.0
+SPX_PW    = 7650.0
+SPX_0CW   = 7650.0
+SPX_0PW   = 7650.0
+SPX_NET   = -70598.954
+SPX_0EXP  = "2026-10-23"
+var array<float> SPX_K = array.from(7650.0, 7600.0, 7500.0, 7625.0, 7630.0, 7700.0, 7640.0, 7550.0, 7450.0, 7900.0, 7620.0, 7400.0, 7635.0, 7850.0, 7590.0)
+var array<float> SPX_G = array.from(-8025.686, -7448.076, -5701.075, -4685.988, -3771.55, -3435.578, -3325.785, -2755.287, -2638.516, 2622.726, -2527.388, -2268.994, -2134.79, 1883.863, -1866.401)
+
+SPY_TS    = 1792780555000  // 2026-10-23T14:35:55-04:00
+SPY_SPOT  = 761.0
+SPY_FLIP  = 763.75
+SPY_CW    = 762.0
+SPY_PW    = 760.0
+SPY_0CW   = 762.0
+SPY_0PW   = 760.0
+SPY_NET   = -17025.416
+SPY_0EXP  = "2026-10-23"
+var array<float> SPY_K = array.from(760.0, 750.0, 755.0, 745.0, 761.0, 762.0, 765.0, 740.0, 767.0, 735.0, 759.0, 757.0, 800.0, 730.0, 780.0)
+var array<float> SPY_G = array.from(-3202.047, -2527.739, -2523.347, -1015.421, -989.435, -913.063, -698.441, -666.004, -593.533, -542.784, -495.601, -431.639, 397.915, -377.677, 372.046)
+
+NDX_TS    = 1792780555000  // 2026-10-23T14:35:55-04:00
+NDX_SPOT  = 29020.6426
+NDX_FLIP  = 29027.03
+NDX_CW    = 29675.0
+NDX_PW    = 29100.0
+NDX_0CW   = 29230.0
+NDX_0PW   = 29100.0
+NDX_NET   = -2178.862
+NDX_0EXP  = "2026-10-23"
+var array<float> NDX_K = array.from(29675.0, 29100.0, 29200.0, 30200.0, 29000.0, 27500.0, 29230.0, 28000.0, 29400.0, 28900.0, 28950.0, 28970.0, 29060.0, 28500.0, 29030.0)
+var array<float> NDX_G = array.from(586.086, -497.655, -240.868, -217.96, -210.381, -197.411, 156.817, -155.133, 151.933, -132.898, -125.571, -124.309, 90.957, -88.936, 86.662)
+
+QQQ_TS    = 1792780555000  // 2026-10-23T14:35:55-04:00
+QQQ_SPOT  = 705.84
+QQQ_FLIP  = 705.96
+QQQ_CW    = 710.0
+QQQ_PW    = 700.0
+QQQ_0CW   = 710.0
+QQQ_0PW   = 705.0
+QQQ_NET   = -8327.261
+QQQ_0EXP  = "2026-10-23"
+var array<float> QQQ_K = array.from(700.0, 690.0, 705.0, 680.0, 711.0, 710.0, 695.0, 675.0, 685.0, 720.0, 713.0, 703.0, 707.0, 670.0, 704.0)
+var array<float> QQQ_G = array.from(-1313.106, -947.249, -883.099, -586.275, -567.45, -517.059, -488.975, -438.888, -334.033, -281.036, -211.734, -205.256, -200.615, -176.132, -155.595)
+
+// ── PARAMÈTRES ───────────────────────────────────────────────────────────
+srcMode    = input.string("Indice (SPX / NDX)", "Source des options", options = ["Indice (SPX / NDX)", "ETF (SPY / QQQ)"])
+mktMode    = input.string("Auto", "Marché", options = ["Auto", "S&P 500", "Nasdaq 100"])
+showTop    = input.int(8, "Strikes GEX majeurs affichés", minval = 0, maxval = 15)
+show0dte   = input.bool(true, "Murs de l'échéance la plus proche (0DTE)")
+showTable  = input.bool(true, "Tableau d'informations")
+lineLen    = input.int(150, "Longueur des lignes vers la gauche (barres)", minval = 5, maxval = 4000)
+colPos     = input.color(#2a78d6, "Call wall / GEX positif")
+colNeg     = input.color(#e34948, "Put wall / GEX négatif")
+colFlip    = input.color(#eda100, "Gamma flip")
+
+// ── DÉTECTION DU MARCHÉ ─────────────────────────────────────────────────
+string root = syminfo.root
+string tk   = syminfo.ticker
+bool isSP = root == "ES" or root == "MES" or tk == "SPX" or tk == "SPY" or str.contains(tk, "US500") or str.contains(tk, "SPX500") or str.contains(tk, "SP500")
+bool isNQ = root == "NQ" or root == "MNQ" or tk == "NDX" or tk == "QQQ" or str.contains(tk, "NAS100") or str.contains(tk, "US100") or str.contains(tk, "NDX100") or str.contains(tk, "USTEC")
+string mkt = mktMode == "S&P 500" ? "SP" : mktMode == "Nasdaq 100" ? "NQ" : isSP ? "SP" : isNQ ? "NQ" : "NONE"
+bool useEtf = srcMode == "ETF (SPY / QQQ)"
+string srcName = mkt == "NQ" ? (useEtf ? "QQQ" : "NDX") : (useEtf ? "SPY" : "SPX")
+string srcTv   = mkt == "NQ" ? (useEtf ? "NASDAQ:QQQ" : "NASDAQ:NDX") : (useEtf ? "AMEX:SPY" : "SP:SPX")
+string altTv   = mkt == "NQ" ? (useEtf ? "NASDAQ:QQQ" : "TVC:NDX") : (useEtf ? "AMEX:SPY" : "TVC:SPX")
+
+pickF(string k, float a, float b, float c, float d) => k == "SPX" ? a : k == "SPY" ? b : k == "NDX" ? c : d
+pickI(string k, int a, int b, int c, int d) => k == "SPX" ? a : k == "SPY" ? b : k == "NDX" ? c : d
+pickS(string k, string a, string b, string c, string d) => k == "SPX" ? a : k == "SPY" ? b : k == "NDX" ? c : d
+pickA(string k, array<float> a, array<float> b, array<float> c, array<float> d) => k == "SPX" ? a : k == "SPY" ? b : k == "NDX" ? c : d
+
+int   dTs   = pickI(srcName, SPX_TS, SPY_TS, NDX_TS, QQQ_TS)
+float dSpot = pickF(srcName, SPX_SPOT, SPY_SPOT, NDX_SPOT, QQQ_SPOT)
+float dFlip = pickF(srcName, SPX_FLIP, SPY_FLIP, NDX_FLIP, QQQ_FLIP)
+float dCW   = pickF(srcName, SPX_CW, SPY_CW, NDX_CW, QQQ_CW)
+float dPW   = pickF(srcName, SPX_PW, SPY_PW, NDX_PW, QQQ_PW)
+float d0CW  = pickF(srcName, SPX_0CW, SPY_0CW, NDX_0CW, QQQ_0CW)
+float d0PW  = pickF(srcName, SPX_0PW, SPY_0PW, NDX_0PW, QQQ_0PW)
+float dNet  = pickF(srcName, SPX_NET, SPY_NET, NDX_NET, QQQ_NET)
+string d0Exp = pickS(srcName, SPX_0EXP, SPY_0EXP, NDX_0EXP, QQQ_0EXP)
+array<float> dK = pickA(srcName, SPX_K, SPY_K, NDX_K, QQQ_K)
+array<float> dG = pickA(srcName, SPX_G, SPY_G, NDX_G, QQQ_G)
+
+// ── CONVERSION TEMPS RÉEL INDICE -> INSTRUMENT DU GRAPHIQUE ─────────────
+// ratio = prix du graphique / prix de l'indice source, mis à jour à chaque
+// barre où l'indice cote (base futures live), conservé hors séance.
+bool chartIsSrc = tk == srcName
+float idxMain = request.security(srcTv, timeframe.period, close, gaps = barmerge.gaps_on, ignore_invalid_symbol = true)
+float idxAlt  = request.security(altTv, timeframe.period, close, gaps = barmerge.gaps_on, ignore_invalid_symbol = true)
+float idx = na(idxMain) ? idxAlt : idxMain
+var float ratio = na
+if chartIsSrc
+    ratio := 1.0
+else if not na(idx) and idx > 0
+    ratio := close / idx
+bool liveBasis = not na(ratio)
+float conv = liveBasis ? ratio : (na(dSpot) ? na : close / dSpot)
+
+// ── NIVEAUX CONVERTIS (séries, utilisables pour les alertes) ────────────
+float flipY = dFlip * conv
+float cwY   = dCW * conv
+float pwY   = dPW * conv
+
+fmtG(float v) =>
+    na(v) ? "—" : math.abs(v) >= 1000 ? (v >= 0 ? "+" : "") + str.tostring(v / 1000, "#.#") + " Md$" : (v >= 0 ? "+" : "") + str.tostring(v, "#") + " M$"
+
+// ── DESSIN ──────────────────────────────────────────────────────────────
+var array<line>  lns = array.new<line>()
+var array<label> lbs = array.new<label>()
+
+drawLevel(float y, float srcLvl, string name, color col, int w, string sty, bool same) =>
+    if not na(y)
+        int x1 = math.max(0, bar_index - lineLen)
+        array.push(lns, line.new(x1, y, bar_index, y, extend = extend.right, color = col, width = w, style = sty))
+        string txt = name + "  " + str.tostring(math.round_to_mintick(y)) + (same ? "" : "  (" + srcName + " " + str.tostring(srcLvl, "#.##") + ")")
+        array.push(lbs, label.new(bar_index + 3, y, txt, style = label.style_label_left, color = color.new(col, 82), textcolor = col, size = size.small))
+
+if barstate.islast
+    while array.size(lns) > 0
+        line.delete(array.pop(lns))
+    while array.size(lbs) > 0
+        label.delete(array.pop(lbs))
+    if mkt != "NONE" and not na(conv)
+        float maxAbs = 0.0
+        for g in dG
+            maxAbs := math.max(maxAbs, math.abs(g))
+        int n = 0
+        for [i, k] in dK
+            if n < showTop and (na(dCW) or k != dCW) and (na(dPW) or k != dPW)
+                float g = array.get(dG, i)
+                int w = 1 + int(math.round(2 * math.abs(g) / math.max(maxAbs, 1e-9)))
+                color c = g >= 0 ? color.new(colPos, 45) : color.new(colNeg, 45)
+                drawLevel(k * conv, k, "GEX " + fmtG(g), c, w, line.style_solid, chartIsSrc)
+                n += 1
+        if show0dte
+            drawLevel(d0CW * conv, d0CW, "0DTE call wall", colPos, 1, line.style_dotted, chartIsSrc)
+            drawLevel(d0PW * conv, d0PW, "0DTE put wall", colNeg, 1, line.style_dotted, chartIsSrc)
+        drawLevel(flipY, dFlip, "Gamma flip", colFlip, 2, line.style_dashed, chartIsSrc)
+        drawLevel(pwY, dPW, "PUT WALL", colNeg, 3, line.style_solid, chartIsSrc)
+        drawLevel(cwY, dCW, "CALL WALL", colPos, 3, line.style_solid, chartIsSrc)
+
+// ── TABLEAU D'INFORMATIONS ──────────────────────────────────────────────
+var table info = table.new(position.top_right, 2, 7, border_width = 1)
+if barstate.islast and showTable
+    color fg = chart.fg_color
+    color bg = color.new(chart.bg_color, 10)
+    float ageH = dTs > 0 ? (timenow - dTs) / 3600000.0 : na
+    string ageTxt = na(ageH) ? "aucune donnée" : ageH < 1 ? "à jour (" + str.tostring(math.round(ageH * 60)) + " min)" : ageH < 20 ? "il y a " + str.tostring(ageH, "#.#") + " h" : "PÉRIMÉ — recopier le script"
+    color ageCol = na(ageH) or ageH >= 20 ? colNeg : ageH < 1 ? color.new(#0ca30c, 0) : colFlip
+    string mktTxt = mkt == "NONE" ? "non reconnu — choisir le marché" : syminfo.ticker + " → " + srcName
+    bool posGamma = not na(dNet) and dNet >= 0
+    table.cell(info, 0, 0, "GEX ES/NQ", text_color = fg, bgcolor = bg, text_size = size.small)
+    table.cell(info, 1, 0, "CBOE", text_color = fg, bgcolor = bg, text_size = size.small)
+    table.cell(info, 0, 1, "Marché", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(info, 1, 1, mktTxt, text_color = mkt == "NONE" ? colNeg : fg, bgcolor = bg, text_size = size.small)
+    table.cell(info, 0, 2, "Données", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(info, 1, 2, dTs > 0 ? str.format_time(dTs, "dd/MM HH:mm", "America/New_York") + " NY" : "—", text_color = fg, bgcolor = bg, text_size = size.small)
+    table.cell(info, 0, 3, "Fraîcheur", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(info, 1, 3, ageTxt, text_color = ageCol, bgcolor = bg, text_size = size.small)
+    table.cell(info, 0, 4, "Régime", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(info, 1, 4, na(dNet) ? "—" : (posGamma ? "Gamma + (marché amorti) " : "Gamma − (marché volatil) ") + fmtG(dNet), text_color = posGamma ? colPos : colNeg, bgcolor = bg, text_size = size.small)
+    table.cell(info, 0, 5, "Base", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(info, 1, 5, chartIsSrc ? "graphique = source" : (liveBasis ? "live ×" + str.tostring(ratio, "#.####") : "approx. (indice indisponible)"), text_color = fg, bgcolor = bg, text_size = size.small)
+    table.cell(info, 0, 6, "0DTE", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(info, 1, 6, "échéance " + d0Exp, text_color = fg, bgcolor = bg, text_size = size.small)
+
+// ── ALERTES ─────────────────────────────────────────────────────────────
+alertcondition(ta.cross(close, flipY), "Croisement du gamma flip", "{{ticker}} croise le gamma flip GEX")
+alertcondition(ta.crossover(high, cwY), "Test du call wall", "{{ticker}} atteint le call wall GEX")
+alertcondition(ta.crossunder(low, pwY), "Test du put wall", "{{ticker}} atteint le put wall GEX")

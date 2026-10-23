@@ -23,6 +23,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 OUT = ROOT / "data" / "options"
 CBOE_URL = "https://cdn.cboe.com/api/global/delayed_quotes/options/{cboe}.json"
 OPT_RE = re.compile(r"^[A-Z]+(\d{6})([CP])(\d{8})$")
@@ -82,6 +83,7 @@ def build_snapshot(sym: str, cfg: dict, raw: dict, now_ny: datetime) -> dict:
 
     per_strike: dict[float, list[float]] = {}  # strike -> [cGex,pGex,cOI,pOI,cVol,pVol,cDex,pDex]
     per_exp: dict[str, float] = {}             # expiration -> net GEX
+    per_exp_strike: dict[str, dict[float, list[float]]] = {}  # exp -> strike -> [cGex,pGex]
 
     for o in data["options"]:
         parsed = parse_option(o["option"])
@@ -102,6 +104,8 @@ def build_snapshot(sym: str, cfg: dict, raw: dict, now_ny: datetime) -> dict:
         gex = gamma * oi * 100 * spot * spot * 0.01 / 1e6
         dex = delta * oi * 100 * spot * 0.01 / 1e6  # delta des puts déjà négatif
         row = per_strike.setdefault(strike, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        erow = per_exp_strike.setdefault(exp, {}).setdefault(strike, [0.0, 0.0])
+        erow[0 if cp == "C" else 1] += gex if cp == "C" else -gex
         if cp == "C":
             row[0] += gex
             row[2] += oi
@@ -137,6 +141,20 @@ def build_snapshot(sym: str, cfg: dict, raw: dict, now_ny: datetime) -> dict:
     call_wall = strikes[call_gex.index(max(call_gex))] if strikes else None
     put_wall = strikes[put_gex.index(min(put_gex))] if strikes else None
 
+    # Échéance la plus proche (0DTE les jours où elle existe) : murs propres
+    nearest = None
+    if per_exp_strike:
+        exp0 = min(per_exp_strike)
+        rows0 = per_exp_strike[exp0]
+        k0 = sorted(rows0)
+        nearest = {
+            "expiration": exp0,
+            "dte": (datetime.strptime(exp0, "%Y-%m-%d").date() - today).days,
+            "call_wall": max(k0, key=lambda k: rows0[k][0]),
+            "put_wall": min(k0, key=lambda k: rows0[k][1]),
+            "net_gex": round(sum(r[0] + r[1] for r in rows0.values()), 3),
+        }
+
     return {
         "symbol": sym,
         "cboe": cfg["cboe"],
@@ -165,6 +183,7 @@ def build_snapshot(sym: str, cfg: dict, raw: dict, now_ny: datetime) -> dict:
             "call_wall": call_wall,
             "put_wall": put_wall,
         },
+        "nearest_expiry": nearest,
     }
 
 
@@ -172,7 +191,8 @@ def market_open(now_ny: datetime) -> bool:
     if now_ny.weekday() >= 5:
         return False
     hm = now_ny.hour * 60 + now_ny.minute
-    return 9 * 60 + 20 <= hm <= 16 * 60 + 25
+    # 8h30 : snapshot pré-marché (open interest OCC du jour déjà publié)
+    return 8 * 60 + 30 <= hm <= 16 * 60 + 25
 
 
 def save(sym: str, snap: dict, force: bool) -> bool:
@@ -250,6 +270,9 @@ def run(syms=None, force: bool = False) -> int:
     if wrote or not manifest_file.exists():
         OUT.mkdir(parents=True, exist_ok=True)
         manifest_file.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    if wrote:
+        import build_pine
+        build_pine.build()
     return 0
 
 

@@ -2,10 +2,10 @@ name: Options GEX snapshot
 
 on:
   schedule:
-    # Toutes les 30 min, 13h-21h UTC lun-ven : couvre les heures de marché US
-    # (9h30-16h00 New York) en heure d'été comme en heure d'hiver. Le script
+    # Toutes les 30 min, 12h-21h UTC lun-ven : couvre le pré-marché (8h30) et
+    # les heures de marché US (9h30-16h00 New York), heure d'été comme d'hiver. Le script
     # lui-même ignore les exécutions hors marché (heure de New York).
-    - cron: '9,39 13-21 * * 1-5'
+    - cron: '9,39 12-21 * * 1-5'
   workflow_dispatch:
     inputs:
       force:
@@ -39,7 +39,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/options
+          git add data/options tradingview
           if git diff --cached --quiet; then
             echo "Aucun nouveau snapshot."
             exit 0

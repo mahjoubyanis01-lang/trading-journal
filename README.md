@@ -135,14 +135,17 @@ Les snapshots locaux sont enregistrés dans `data/options/` au même format que 
 
 ---
 
-## 📈 Indicateur TradingView — Plan du jour ES/NQ (points de retournement)
+## 📈 Indicateur TradingView — Signaux ES/NQ (cassure validée)
 
-Page : **https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html** → « Copier l'indicateur avec le plan du jour ».
+Page : **https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html** → « Copier l'indicateur », à coller une fois dans le Pine Editor.
 
-- **R1/R2 (résistances) et S1/S2 (supports)** : strikes où le gamma des options (|GEX calls| + |GEX puts|) est le plus concentré à portée de la séance (fenêtre = max(2 × expected move, 1,2 %) du spot), espacés d'au moins 0,3 % ; force ★ à ★★★ selon le poids relatif, +1 en confluence avec un mur 0DTE, un mur global ou une borne de l'expected move.
-- **Pivot gamma** (gamma flip, s'il est à portée) et **bornes de l'expected move** (straddle ATM 0DTE, repli IV 30 j).
-- **Plan figé** : calculé à partir du snapshot qui verrouille la journée (`data/levels/<SYM>/<jour>.json`, dès 8h30 New York), archivé jour par jour pour le backtest.
-- **Rien ne bouge** : l'écart futures/indice est mesuré en moyenne de 9h30 à 9h45 New York puis gelé toute la séance (avant : écart de la veille, marqué « provisoire ») ; le plan est dessiné une seule fois (plus une fois au gel de 9h45), jamais recalculé à chaque tick.
-- Détection automatique : ES, MES → SPX · NQ, MNQ → NDX. Alertes : test R1/R2, test S1/S2, pivot, sortie de l'expected move.
+**Signal unique, rare, validé par backtest** — calculé par TradingView lui-même en temps réel (bougies 1 h, sans repeindre), rien à recopier :
+1. PDH / PDL = plus haut / plus bas de la séance cash de la veille (bougies 1 h 10h–15h NY).
+2. Tendance = clôture de la veille vs moyenne des 20 dernières clôtures → achats seulement en tendance haussière, ventes seulement en baissière.
+3. Cassure acceptée = 2 clôtures 1 h consécutives au-delà du niveau.
+4. Retest = le prix revient toucher le niveau et clôture du bon côté → ▲ ACHAT / ▼ VENTE.
+5. Stop 6 pts ES / 24 pts NQ derrière le niveau, objectif 2R, sortie au plus tard 16h00 NY, 1 signal max par jour.
 
-**Routine** : une copie par jour après 8h30 New York (14h30 Paris) — Pine Editor, Ctrl+A, Ctrl+V, Enregistrer. TradingView interdit tout accès internet depuis Pine Script, d'où cette copie.
+**Backtest** (`backtest/signals_backtest.py`, Yahoo Finance, 2 ans de bougies 1 h, frais inclus, recalculé chaque samedi par `.github/workflows/backtest-weekly.yml`, résultats dans `backtest/results.json`) : ES ≈ 34 signaux, 62 % gagnants, PF 2,1 ; NQ ≈ 15 signaux, 67 % gagnants, PF 3,0. Retenu parmi plusieurs familles testées (faux cassements, cassure du range d'ouverture, momentum intraday…) car c'est la seule robuste : positive sur 78/81 réglages voisins (ES) et 81/81 (NQ), alors que la même règle à contre-tendance perd. Échantillon limité (≈ 50 trades) : les performances passées ne garantissent pas les résultats futurs.
+
+**Couche optionnelle « Plan GEX du jour »** (désactivée par défaut) : R1/R2, S1/S2, pivot gamma et expected move issus des options CBOE, figés chaque matin dès 8h30 NY (`data/levels/`). Non validée statistiquement à ce jour ; nécessite de recopier l'indicateur chaque jour.

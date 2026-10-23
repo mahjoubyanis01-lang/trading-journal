@@ -1,22 +1,35 @@
 //@version=6
 // ════════════════════════════════════════════════════════════════════════
-//  PLAN DU JOUR ES / NQ — points de retournement potentiels (options CBOE)
-//  Plan du 2026-10-23 · détection automatique : ES, MES -> SPX · NQ, MNQ -> NDX
+//  SIGNAUX ES / NQ — cassure validée du plus haut / plus bas de la veille
+//  Détection automatique : ES, MES (S&P 500) · NQ, MNQ (Nasdaq 100)
 //
-//  R1/R2 : résistances · S1/S2 : supports — strikes où le gamma des options
-//  est le plus concentré à portée de la séance (les dealers y couvrent le
-//  plus : le prix a tendance à y buter ou y rebondir). ★ = force du niveau.
-//  Pivot gamma : au-dessus, marché plutôt amorti ; en dessous, plus nerveux.
-//  Expected move : bornes du mouvement attendu par le marché des options.
+//  Signal calculé par TradingView lui-même, en temps réel, sur bougies 1 h
+//  (quelle que soit l'unité de temps du graphique), sans repeindre :
+//   1. PDH / PDL = plus haut / plus bas de la séance cash de la veille
+//      (bougies 1 h de 10h à 15h, heure de New York).
+//   2. Tendance  = clôture de la veille vs moyenne des 20 dernières clôtures.
+//   3. Cassure ACCEPTÉE : 2 clôtures 1 h consécutives au-delà du niveau.
+//   4. RETEST : le prix revient toucher le niveau et clôture du bon côté.
+//   => ACHAT / VENTE uniquement dans le sens de la tendance, 1 signal maximum
+//      par jour, stop derrière le niveau, objectif 2R, sortie au plus tard
+//      à 16h00 New York.
 //
-//  Le plan est calculé une fois par jour et DESSINÉ UNE SEULE FOIS : il ne
-//  bouge pas pendant la séance (base futures/indice de la veille, figée).
-//  Plan du jour suivant (dès 8h30 New York / 14h30 Paris) :
+//  Backtest de référence (2 ans, bougies 1 h, frais inclus) :
+//   ES (2024-06-02 -> 2026-10-23) : 33 signaux · 64 % gagnants · PF 2.08 · +0.31 R/trade, pire série -2.39 R
+//   NQ (2024-06-02 -> 2026-10-23) : 15 signaux · 67 % gagnants · PF 3.02 · +0.63 R/trade, pire série -2.7 R
+//  Les performances passées ne garantissent pas les résultats futurs.
+//
+//  Couche optionnelle « Plan GEX » (options CBOE, plan du 2026-10-23) : contexte,
+//  non validé statistiquement ; à recopier chaque jour depuis
 //  https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html
 // ════════════════════════════════════════════════════════════════════════
-indicator("Plan du jour ES/NQ — retournements GEX", shorttitle = "Plan GEX", overlay = true, max_lines_count = 40, max_labels_count = 40, max_boxes_count = 40)
+indicator("Signaux ES/NQ — cassure validée + niveaux clés", shorttitle = "Signaux ES/NQ", overlay = true, max_lines_count = 300, max_labels_count = 300, max_boxes_count = 50)
 
-// ── PLAN DU JOUR (généré automatiquement — ne pas modifier) ──────────────
+// ── BACKTEST DE RÉFÉRENCE (généré automatiquement) ───────────────────────
+ES_REF = "33 signaux · 64 % gagnants · PF 2.08 · +0.31 R/trade"
+NQ_REF = "15 signaux · 67 % gagnants · PF 3.02 · +0.63 R/trade"
+
+// ── PLAN GEX DU JOUR (généré automatiquement — couche optionnelle) ────────
 SPX_DAY   = "2026-10-23"
 SPX_LOCK  = "14:46"
 SPX_NET   = -73366.429
@@ -82,53 +95,246 @@ QQQ_EMH   = 707.56
 QQQ_EML   = 703.77
 
 // ── PARAMÈTRES ───────────────────────────────────────────────────────────
-mktMode   = input.string("Auto", "Marché", options = ["Auto", "S&P 500", "Nasdaq 100"])
-srcMode   = input.string("Indice (SPX / NDX)", "Source des options", options = ["Indice (SPX / NDX)", "ETF (SPY / QQQ)"])
-showEM    = input.bool(true, "Expected move (bornes du jour)")
-showPiv   = input.bool(true, "Pivot gamma")
-showTable = input.bool(true, "Tableau du plan")
-zonePct   = input.float(0.04, "Épaisseur des zones (% du prix)", minval = 0.0, maxval = 0.5, step = 0.01)
-colRes    = input.color(#e34948, "Résistances")
-colSup    = input.color(#0ca30c, "Supports")
-colPiv    = input.color(#eda100, "Pivot gamma")
-colEM     = input.color(#9085e9, "Expected move")
+mktMode   = input.string("Auto", "Marché", options = ["Auto", "S&P 500 (ES / MES)", "Nasdaq 100 (NQ / MNQ)"])
+showSig   = input.bool(true, "Signaux d'achat / vente", group = "Affichage")
+showLv    = input.bool(true, "Plus haut / plus bas de la veille (PDH / PDL)", group = "Affichage")
+showTable = input.bool(true, "Tableau", group = "Affichage")
+showGex   = input.bool(false, "Plan GEX du jour (contexte, non validé)", group = "Affichage")
+colBuy    = input.color(#0ca30c, "Achat / support", group = "Couleurs")
+colSell   = input.color(#e34948, "Vente / résistance", group = "Couleurs")
+colLv     = input.color(#9085e9, "PDH / PDL", group = "Couleurs")
+colPiv    = input.color(#eda100, "Pivot gamma (GEX)", group = "Couleurs")
 
-// ── DÉTECTION DU MARCHÉ ─────────────────────────────────────────────────
+// ── MARCHÉ ───────────────────────────────────────────────────────────────
 string root = syminfo.root
 string tk   = syminfo.ticker
 bool isSP = root == "ES" or root == "MES" or tk == "SPX" or tk == "SPY" or str.contains(tk, "US500") or str.contains(tk, "SPX500") or str.contains(tk, "SP500")
 bool isNQ = root == "NQ" or root == "MNQ" or tk == "NDX" or tk == "QQQ" or str.contains(tk, "NAS100") or str.contains(tk, "US100") or str.contains(tk, "NDX100") or str.contains(tk, "USTEC")
-string mkt = mktMode == "S&P 500" ? "SP" : mktMode == "Nasdaq 100" ? "NQ" : isSP ? "SP" : isNQ ? "NQ" : "NONE"
-bool useEtf = srcMode == "ETF (SPY / QQQ)"
-string srcName = mkt == "NQ" ? (useEtf ? "QQQ" : "NDX") : (useEtf ? "SPY" : "SPX")
-string srcTv   = mkt == "NQ" ? (useEtf ? "NASDAQ:QQQ" : "NASDAQ:NDX") : (useEtf ? "AMEX:SPY" : "SP:SPX")
-string altTv   = mkt == "NQ" ? (useEtf ? "NASDAQ:QQQ" : "TVC:NDX") : (useEtf ? "AMEX:SPY" : "TVC:SPX")
+string mkt = mktMode == "S&P 500 (ES / MES)" ? "SP" : mktMode == "Nasdaq 100 (NQ / MNQ)" ? "NQ" : isSP ? "SP" : isNQ ? "NQ" : "NONE"
+bool isFut = root == "ES" or root == "MES" or root == "NQ" or root == "MNQ"
+bool tfOk = timeframe.isintraday and timeframe.in_seconds() <= 3600
 
-pickF(string k, float a, float b, float c, float d) => k == "SPX" ? a : k == "SPY" ? b : k == "NDX" ? c : d
-pickI(string k, int a, int b, int c, int d) => k == "SPX" ? a : k == "SPY" ? b : k == "NDX" ? c : d
-pickS(string k, string a, string b, string c, string d) => k == "SPX" ? a : k == "SPY" ? b : k == "NDX" ? c : d
+// Paramètres validés par le backtest (points de futures)
+bool  nqP    = mkt == "NQ"
+float P_TOL  = nqP ? 8.0 : 2.0
+float P_STOP = nqP ? 24.0 : 6.0
+float P_MINR = nqP ? 12.0 : 3.0
+float P_MAXR = nqP ? 120.0 : 30.0
+float P_COST = nqP ? 2.0 : 0.5
 
-string dDay  = pickS(srcName, SPX_DAY, SPY_DAY, NDX_DAY, QQQ_DAY)
-string dLock = pickS(srcName, SPX_LOCK, SPY_LOCK, NDX_LOCK, QQQ_LOCK)
-string dEmSrc = pickS(srcName, SPX_EMSRC, SPY_EMSRC, NDX_EMSRC, QQQ_EMSRC)
-float dNet = pickF(srcName, SPX_NET, SPY_NET, NDX_NET, QQQ_NET)
-float dR2  = pickF(srcName, SPX_R2, SPY_R2, NDX_R2, QQQ_R2)
-float dR1  = pickF(srcName, SPX_R1, SPY_R1, NDX_R1, QQQ_R1)
-float dS1  = pickF(srcName, SPX_S1, SPY_S1, NDX_S1, QQQ_S1)
-float dS2  = pickF(srcName, SPX_S2, SPY_S2, NDX_S2, QQQ_S2)
-int   sR2  = pickI(srcName, SPX_R2S, SPY_R2S, NDX_R2S, QQQ_R2S)
-int   sR1  = pickI(srcName, SPX_R1S, SPY_R1S, NDX_R1S, QQQ_R1S)
-int   sS1  = pickI(srcName, SPX_S1S, SPY_S1S, NDX_S1S, QQQ_S1S)
-int   sS2  = pickI(srcName, SPX_S2S, SPY_S2S, NDX_S2S, QQQ_S2S)
-float dPiv = pickF(srcName, SPX_PIV, SPY_PIV, NDX_PIV, QQQ_PIV)
-float dEmH = pickF(srcName, SPX_EMH, SPY_EMH, NDX_EMH, QQQ_EMH)
-float dEmL = pickF(srcName, SPX_EML, SPY_EML, NDX_EML, QQQ_EML)
+px(float v) => na(v) ? "—" : str.tostring(math.round_to_mintick(v))
 
-// ── BASE FUTURES / INDICE, GELÉE POUR LA SÉANCE ─────────────────────────
-// L'écart futures/indice est mesuré en moyenne sur 9h30-9h45 New York puis
-// gelé toute la journée (la clôture, faussée par l'enchère, n'est pas utilisée).
-// Avant 9h45 : écart gelé de la séance précédente, marqué « provisoire ».
-bool chartIsSrc = tk == srcName
+// ── MOTEUR DU SIGNAL (exécuté sur les bougies 1 h) ───────────────────────
+// Même ordre d'opérations que backtest/signals_backtest.py.
+// Les sorties d'événements sont décalées d'une bougie ([1]) et lues avec
+// lookahead_on : aucun signal ne peut apparaître avant la clôture de sa bougie.
+engine(float tol, float stopOff, float minRisk, float maxRisk, float cost) =>
+    int h = hour(time, "America/New_York")
+    int dw = dayofweek(time, "America/New_York")
+    bool rth = h >= 10 and h <= 15 and dw != dayofweek.saturday and dw != dayofweek.sunday
+    string d = str.format_time(time, "yyyy-MM-dd", "America/New_York")
+    var string rthDay = ""
+    var float curH = na
+    var float curL = na
+    var float curC = na
+    var float pdh = na
+    var float pdl = na
+    var array<float> closes = array.new<float>()
+    var int trend = 0
+    var float c1 = na
+    var float c2 = na
+    var int stH = 0
+    var int stL = 0
+    var int sdH = 0
+    var int sdL = 0
+    var bool done = false
+    var int tSide = 0
+    var float tEntry = na
+    var float tStop = na
+    var float tTgt = na
+    var float tRisk = na
+    var float tLevel = na
+    var int nT = 0
+    var int nW = 0
+    var float sumR = 0.0
+    int sig = 0
+    int xCode = 0
+    float xPx = na
+    float xR = na
+    if rth
+        bool newDay = d != rthDay
+        if newDay and tSide != 0
+            xCode := 4
+            xPx := curC
+        if newDay
+            if rthDay != ""
+                pdh := curH
+                pdl := curL
+                array.push(closes, curC)
+                int n = array.size(closes)
+                if n >= 20
+                    float s = 0.0
+                    for j = n - 20 to n - 1
+                        s += array.get(closes, j)
+                    trend := curC > s / 20 ? 1 : -1
+            rthDay := d
+            curH := high
+            curL := low
+            c1 := na
+            c2 := na
+            stH := 0
+            stL := 0
+            done := false
+        if tSide != 0 and xCode == 0
+            if tSide > 0
+                if low <= tStop
+                    xCode := 2
+                    xPx := tStop
+                else if high >= tTgt
+                    xCode := 1
+                    xPx := tTgt
+            else
+                if high >= tStop
+                    xCode := 2
+                    xPx := tStop
+                else if low <= tTgt
+                    xCode := 1
+                    xPx := tTgt
+            if xCode == 0 and h == 15
+                xCode := 3
+                xPx := close
+        if xCode != 0
+            xR := (tSide * (xPx - tEntry) - cost) / tRisk
+            nT += 1
+            sumR += xR
+            if xR > 0
+                nW += 1
+            tSide := 0
+        if h <= 14 and not done and not na(pdh) and trend != 0
+            if stH == 0
+                if not na(c2) and c2 <= pdh and c1 > pdh and close > pdh
+                    stH := 1
+                    sdH := 1
+                else if not na(c2) and c2 >= pdh and c1 < pdh and close < pdh
+                    stH := 1
+                    sdH := -1
+            else if stH == 1
+                if (sdH > 0 and low <= pdh + tol) or (sdH < 0 and high >= pdh - tol)
+                    if sdH * (close - pdh) > 0 and sdH == trend
+                        float stp = pdh - sdH * stopOff
+                        float rk = math.abs(close - stp)
+                        if rk >= minRisk and rk <= maxRisk
+                            sig := sdH
+                            tSide := sdH
+                            tEntry := close
+                            tStop := stp
+                            tRisk := rk
+                            tTgt := close + sdH * 2 * rk
+                            tLevel := pdh
+                            done := true
+                    stH := 2
+            if not done
+                if stL == 0
+                    if not na(c2) and c2 <= pdl and c1 > pdl and close > pdl
+                        stL := 1
+                        sdL := 1
+                    else if not na(c2) and c2 >= pdl and c1 < pdl and close < pdl
+                        stL := 1
+                        sdL := -1
+                else if stL == 1
+                    if (sdL > 0 and low <= pdl + tol) or (sdL < 0 and high >= pdl - tol)
+                        if sdL * (close - pdl) > 0 and sdL == trend
+                            float stp = pdl - sdL * stopOff
+                            float rk = math.abs(close - stp)
+                            if rk >= minRisk and rk <= maxRisk
+                                sig := sdL
+                                tSide := sdL
+                                tEntry := close
+                                tStop := stp
+                                tRisk := rk
+                                tTgt := close + sdL * 2 * rk
+                                tLevel := pdl
+                                done := true
+                        stL := 2
+        curH := math.max(curH, high)
+        curL := math.min(curL, low)
+        curC := close
+        c2 := c1
+        c1 := close
+    int sigT = sig != 0 ? time : na
+    int xT = xCode != 0 ? time : na
+    int pend = rth and h <= 14 and not done and trend != 0 ? (stH == 1 and sdH == trend ? sdH : stL == 1 and sdL == trend ? sdL : 0) : 0
+    float pendLv = stH == 1 and sdH == trend ? pdh : pdl
+    float dispH = rth ? pdh : curH
+    float dispL = rth ? pdl : curL
+    [sigT[1], sig[1], tEntry[1], tStop[1], tTgt[1], tLevel[1], xT[1], xCode[1], xPx[1], xR[1], dispH, dispL, trend, pend[1], pendLv[1], nT[1], nW[1], sumR[1]]
+
+[sigT, sigSide, eEntry, eStop, eTgt, eLv, exT, exCode, exPx, exR, dH, dL, trendD, pendSide, pendLv, nTot, nWin, sumRt] = request.security(syminfo.tickerid, "60", engine(P_TOL, P_STOP, P_MINR, P_MAXR, P_COST), lookahead = barmerge.lookahead_on)
+
+// ── PDH / PDL ────────────────────────────────────────────────────────────
+bool lvOn = showLv and isFut and tfOk
+bool lvChange = dH != dH[1] or dL != dL[1]
+plot(lvOn and not lvChange ? dH : na, "PDH", color = colLv, linewidth = 2, style = plot.style_linebr)
+plot(lvOn and not lvChange ? dL : na, "PDL", color = colLv, linewidth = 2, style = plot.style_linebr)
+if lvOn and lvChange and not na(dH)
+    label.new(bar_index, dH, "PDH " + px(dH), style = label.style_label_lower_left, color = color.new(colLv, 85), textcolor = colLv, size = size.small)
+    label.new(bar_index, dL, "PDL " + px(dL), style = label.style_label_upper_left, color = color.new(colLv, 85), textcolor = colLv, size = size.small)
+
+// ── SIGNAUX ──────────────────────────────────────────────────────────────
+bool sigOn = showSig and isFut and tfOk and mkt != "NONE"
+var int lastSigT = 0
+var int lastExT = 0
+var line lnE = na
+var line lnS = na
+var line lnT = na
+var bool inTrade = false
+var string lastTxt = "aucun sur l'historique chargé"
+bool newSig = sigOn and not na(sigT) and sigT != lastSigT
+bool newBuy = newSig and sigSide > 0
+bool newSell = newSig and sigSide < 0
+if newSig
+    lastSigT := sigT
+    color c = sigSide > 0 ? colBuy : colSell
+    string lvName = eLv == dH ? "PDH" : "PDL"
+    label.new(bar_index, sigSide > 0 ? low : high, (sigSide > 0 ? "▲ ACHAT" : "▼ VENTE") + "\nretest " + lvName + " " + px(eLv) + "\nentrée " + px(eEntry) + "  stop " + px(eStop) + "\nobjectif " + px(eTgt) + " (2R)", yloc = sigSide > 0 ? yloc.belowbar : yloc.abovebar, style = sigSide > 0 ? label.style_label_up : label.style_label_down, color = c, textcolor = color.white, size = size.normal)
+    lnE := line.new(bar_index, eEntry, bar_index + 1, eEntry, color = c, width = 2)
+    lnS := line.new(bar_index, eStop, bar_index + 1, eStop, color = colSell, style = line.style_dashed)
+    lnT := line.new(bar_index, eTgt, bar_index + 1, eTgt, color = colBuy, style = line.style_dashed)
+    inTrade := true
+    lastTxt := (sigSide > 0 ? "ACHAT " : "VENTE ") + str.format_time(sigT, "dd/MM HH:mm", "America/New_York") + " NY · en cours"
+if inTrade
+    line.set_x2(lnE, bar_index)
+    line.set_x2(lnS, bar_index)
+    line.set_x2(lnT, bar_index)
+if sigOn and not na(exT) and exT != lastExT
+    lastExT := exT
+    if inTrade
+        inTrade := false
+        string res = (exCode == 1 ? "✓ objectif " : exCode == 2 ? "✗ stop " : "sortie 16h ") + (exR >= 0 ? "+" : "") + str.tostring(exR, "0.0") + "R"
+        label.new(bar_index, exPx, res, style = label.style_label_left, color = color.new(exR >= 0 ? colBuy : colSell, 75), textcolor = exR >= 0 ? colBuy : colSell, size = size.small)
+        lastTxt := str.replace(lastTxt, "en cours", res)
+
+// ── PLAN GEX (couche optionnelle) ────────────────────────────────────────
+string srcName = mkt == "NQ" ? "NDX" : "SPX"
+string srcTv   = mkt == "NQ" ? "NASDAQ:NDX" : "SP:SPX"
+string altTv   = mkt == "NQ" ? "TVC:NDX" : "TVC:SPX"
+pickF(string k, float a, float b) => k == "SPX" ? a : b
+pickI(string k, int a, int b) => k == "SPX" ? a : b
+pickS(string k, string a, string b) => k == "SPX" ? a : b
+string gDay = pickS(srcName, SPX_DAY, NDX_DAY)
+float gR2 = pickF(srcName, SPX_R2, NDX_R2)
+float gR1 = pickF(srcName, SPX_R1, NDX_R1)
+float gS1 = pickF(srcName, SPX_S1, NDX_S1)
+float gS2 = pickF(srcName, SPX_S2, NDX_S2)
+int   sR2 = pickI(srcName, SPX_R2S, NDX_R2S)
+int   sR1 = pickI(srcName, SPX_R1S, NDX_R1S)
+int   sS1 = pickI(srcName, SPX_S1S, NDX_S1S)
+int   sS2 = pickI(srcName, SPX_S2S, NDX_S2S)
+float gPiv = pickF(srcName, SPX_PIV, NDX_PIV)
+float gEmH = pickF(srcName, SPX_EMH, NDX_EMH)
+float gEmL = pickF(srcName, SPX_EML, NDX_EML)
+
+// Écart futures / indice : moyenne 9h30-9h45 NY, gelée pour la séance.
 float idxMain = request.security(srcTv, timeframe.period, close, gaps = barmerge.gaps_on, ignore_invalid_symbol = true)
 float idxAlt  = request.security(altTv, timeframe.period, close, gaps = barmerge.gaps_on, ignore_invalid_symbol = true)
 float idx = na(idxMain) ? idxAlt : idxMain
@@ -142,9 +348,9 @@ var int    dayStart   = na
 bool justFrozen = false
 if session.isfirstbar
     dayStart := time
-if not chartIsSrc and not na(idx) and idx > 0
+if not na(idx) and idx > 0
     string nyDay = str.format_time(time, "yyyy-MM-dd", "America/New_York")
-    int hm = hour(time, "America/New_York") * 60 + minute(time, "America/New_York")
+    int hmNy = hour(time, "America/New_York") * 60 + minute(time, "America/New_York")
     if nyDay != accDay
         ratioPrev := frozen ? ratioFinal : accN > 0 ? accSum / accN : ratioPrev
         accDay := nyDay
@@ -153,98 +359,82 @@ if not chartIsSrc and not na(idx) and idx > 0
         frozen := false
         ratioFinal := na
     if not frozen
-        if hm < 9 * 60 + 45 or accN == 0
+        if hmNy < 9 * 60 + 45 or accN == 0
             accSum += close / idx
             accN += 1
-        if hm >= 9 * 60 + 45
+        if hmNy >= 9 * 60 + 45
             ratioFinal := accSum / accN
             frozen := true
             justFrozen := true
-bool frozenToday = frozen and accDay == str.format_time(time, "yyyy-MM-dd", "America/New_York")
-bool provisional = not chartIsSrc and not frozenToday
-float conv = chartIsSrc ? 1.0 : frozen ? ratioFinal : not na(ratioPrev) ? ratioPrev : accN > 0 ? accSum / accN : na
-
-float r2Y  = dR2 * conv
-float r1Y  = dR1 * conv
-float s1Y  = dS1 * conv
-float s2Y  = dS2 * conv
-float pivY = dPiv * conv
-float emhY = dEmH * conv
-float emlY = dEmL * conv
+float conv = frozen ? ratioFinal : not na(ratioPrev) ? ratioPrev : accN > 0 ? accSum / accN : na
 
 stars(int s) => s >= 3 ? "★★★" : s == 2 ? "★★" : s == 1 ? "★" : ""
-px(float v) => na(v) ? "—" : str.tostring(math.round_to_mintick(v))
+var array<box>   gBx = array.new<box>()
+var array<line>  gLn = array.new<line>()
+var array<label> gLb = array.new<label>()
 
-// ── DESSIN ──────────────────────────────────────────────────────────────
-// Dessiné une fois sur la dernière barre confirmée, puis une seule autre
-// fois quand l'écart du jour est gelé (9h45 NY). Jamais recalculé ensuite.
-var array<box>   bxs = array.new<box>()
-var array<line>  lns = array.new<line>()
-var array<label> lbs = array.new<label>()
-var table tb = table.new(position.top_right, 2, 8, border_width = 1)
-
-zone(float y, string name, int s, color col, int xs, int xl) =>
+gZone(float y, string name, int s, color col, int xs, int xl) =>
     if not na(y)
-        float h = y * zonePct / 100
-        array.push(bxs, box.new(xs, y + h, xl, y - h, xloc = xloc.bar_time, extend = extend.right, border_color = color.new(col, 40), bgcolor = color.new(col, 88 - 6 * s)))
-        array.push(lns, line.new(xs, y, xl, y, xloc = xloc.bar_time, extend = extend.right, color = col, width = math.max(1, s)))
-        array.push(lbs, label.new(xl, y, name + " " + stars(s) + "   " + px(y), xloc = xloc.bar_time, style = label.style_label_left, color = color.new(col, 80), textcolor = col, size = size.normal))
+        float hh = y * 0.0004
+        array.push(gBx, box.new(xs, y + hh, xl, y - hh, xloc = xloc.bar_time, extend = extend.right, border_color = color.new(col, 40), bgcolor = color.new(col, 88 - 6 * s)))
+        array.push(gLb, label.new(xl, y, "GEX " + name + " " + stars(s) + "  " + px(y), xloc = xloc.bar_time, style = label.style_label_left, color = color.new(col, 82), textcolor = col, size = size.small))
 
-level(float y, string name, color col, string sty, int xs, int xl) =>
+gLine(float y, string name, color col, string sty, int xs, int xl) =>
     if not na(y)
-        array.push(lns, line.new(xs, y, xl, y, xloc = xloc.bar_time, extend = extend.right, color = col, width = 2, style = sty))
-        array.push(lbs, label.new(xl, y, name + "   " + px(y), xloc = xloc.bar_time, style = label.style_label_left, color = color.new(col, 85), textcolor = col, size = size.small))
+        array.push(gLn, line.new(xs, y, xl, y, xloc = xloc.bar_time, extend = extend.right, color = col, width = 1, style = sty))
+        array.push(gLb, label.new(xl, y, name + "  " + px(y), xloc = xloc.bar_time, style = label.style_label_left, color = color.new(col, 85), textcolor = col, size = size.small))
 
-drawPlan() =>
-    while array.size(bxs) > 0
-        box.delete(array.pop(bxs))
-    while array.size(lns) > 0
-        line.delete(array.pop(lns))
-    while array.size(lbs) > 0
-        label.delete(array.pop(lbs))
-    table.clear(tb, 0, 0, 1, 7)
-    color fg = chart.fg_color
-    color bg = color.new(chart.bg_color, 8)
-    if mkt == "NONE" or na(conv)
-        table.cell(tb, 0, 0, mkt == "NONE" ? "Plan GEX : marché non reconnu — choisir S&P 500 ou Nasdaq 100 dans les paramètres" : "Plan GEX : cours de " + srcName + " indisponible pour convertir les niveaux", text_color = color.white, bgcolor = colRes, text_size = size.small)
-    else
+drawGex() =>
+    while array.size(gBx) > 0
+        box.delete(array.pop(gBx))
+    while array.size(gLn) > 0
+        line.delete(array.pop(gLn))
+    while array.size(gLb) > 0
+        label.delete(array.pop(gLb))
+    if showGex and mkt != "NONE" and not na(conv)
         int xs = na(dayStart) ? time : dayStart
         int xl = time + 6 * timeframe.in_seconds() * 1000
-        if showEM
-            level(emhY, "BORNE HAUTE (expected move)", colEM, line.style_dashed, xs, xl)
-            level(emlY, "BORNE BASSE (expected move)", colEM, line.style_dashed, xs, xl)
-        if showPiv
-            level(pivY, "PIVOT GAMMA", colPiv, line.style_dotted, xs, xl)
-        zone(r2Y, "R2", sR2, colRes, xs, xl)
-        zone(r1Y, "R1", sR1, colRes, xs, xl)
-        zone(s1Y, "S1", sS1, colSup, xs, xl)
-        zone(s2Y, "S2", sS2, colSup, xs, xl)
-        if showTable
-            bool isToday = dDay == str.format_time(timenow, "yyyy-MM-dd", "America/New_York")
-            string dd = dDay == "" ? "—" : str.substring(dDay, 8, 10) + "/" + str.substring(dDay, 5, 7)
-            bool posGamma = not na(dNet) and dNet >= 0
-            table.cell(tb, 0, 0, "PLAN DU " + dd, text_color = fg, bgcolor = bg, text_size = size.normal)
-            table.cell(tb, 1, 0, syminfo.ticker + " → " + srcName + " · plan figé " + dLock + " NY", text_color = fg, bgcolor = bg, text_size = size.small)
-            table.cell(tb, 0, 1, "Statut", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
-            table.cell(tb, 1, 1, isToday ? "✓ plan du jour" : "plan de la séance précédente (nouveau dès 8h30 NY)", text_color = isToday ? colSup : colPiv, bgcolor = bg, text_size = size.small)
-            table.cell(tb, 0, 2, "Résistances", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
-            table.cell(tb, 1, 2, "R1 " + px(r1Y) + " " + stars(sR1) + "   R2 " + px(r2Y) + " " + stars(sR2), text_color = colRes, bgcolor = bg, text_size = size.small)
-            table.cell(tb, 0, 3, "Supports", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
-            table.cell(tb, 1, 3, "S1 " + px(s1Y) + " " + stars(sS1) + "   S2 " + px(s2Y) + " " + stars(sS2), text_color = colSup, bgcolor = bg, text_size = size.small)
-            table.cell(tb, 0, 4, "Expected move", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
-            table.cell(tb, 1, 4, px(emlY) + " – " + px(emhY) + " (" + dEmSrc + ")", text_color = colEM, bgcolor = bg, text_size = size.small)
-            table.cell(tb, 0, 5, "Pivot gamma", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
-            table.cell(tb, 1, 5, px(pivY), text_color = colPiv, bgcolor = bg, text_size = size.small)
-            table.cell(tb, 0, 6, "Régime", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
-            table.cell(tb, 1, 6, na(dNet) ? "—" : posGamma ? "Gamma + : rebonds sur niveaux, range" : "Gamma − : mouvements amplifiés, cassures", text_color = fg, bgcolor = bg, text_size = size.small)
-            table.cell(tb, 0, 7, "Écart " + srcName, text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
-            table.cell(tb, 1, 7, chartIsSrc ? "graphique = source" : provisional ? "provisoire (veille) — gelé à 9h45 NY" : "gelé à 9h45 NY ×" + str.tostring(conv, "#.#####"), text_color = provisional ? colPiv : fg, bgcolor = bg, text_size = size.small)
+        gLine(gEmH * conv, "EM haut", colLv, line.style_dashed, xs, xl)
+        gLine(gEmL * conv, "EM bas", colLv, line.style_dashed, xs, xl)
+        gLine(gPiv * conv, "Pivot gamma", colPiv, line.style_dotted, xs, xl)
+        gZone(gR2 * conv, "R2", sR2, colSell, xs, xl)
+        gZone(gR1 * conv, "R1", sR1, colSell, xs, xl)
+        gZone(gS1 * conv, "S1", sS1, colBuy, xs, xl)
+        gZone(gS2 * conv, "S2", sS2, colBuy, xs, xl)
 
 if barstate.islastconfirmedhistory or (justFrozen and barstate.isrealtime and barstate.isconfirmed)
-    drawPlan()
+    drawGex()
 
-// ── ALERTES ─────────────────────────────────────────────────────────────
-alertcondition(ta.crossover(high, r1Y) or ta.crossover(high, r2Y), "Test d'une résistance (R1/R2)", "{{ticker}} teste une résistance du plan GEX")
-alertcondition(ta.crossunder(low, s1Y) or ta.crossunder(low, s2Y), "Test d'un support (S1/S2)", "{{ticker}} teste un support du plan GEX")
-alertcondition(ta.cross(close, pivY), "Croisement du pivot gamma", "{{ticker}} croise le pivot gamma")
-alertcondition(ta.crossover(high, emhY) or ta.crossunder(low, emlY), "Sortie de l'expected move", "{{ticker}} sort de l'expected move du jour")
+// ── TABLEAU ──────────────────────────────────────────────────────────────
+var table tb = table.new(position.top_right, 2, 8, border_width = 1)
+if barstate.islast and showTable
+    color fg = chart.fg_color
+    color bg = color.new(chart.bg_color, 8)
+    string mktTxt = not isFut ? "signaux validés sur ES, MES, NQ, MNQ uniquement" : not tfOk ? "unité de temps ≤ 1 h requise (5 ou 15 min conseillé)" : syminfo.ticker + (mkt == "NQ" ? " · Nasdaq 100" : " · S&P 500")
+    string trendTxt = trendD == 1 ? "haussière → achats uniquement" : trendD == -1 ? "baissière → ventes uniquement" : "en calcul (20 séances requises)"
+    string pendTxt = pendSide != 0 ? "cassure acceptée " + (pendSide > 0 ? "au-dessus de " : "sous ") + (pendLv == dH ? "PDH " : "PDL ") + px(pendLv) + " → signal si retest" : "aucun — on ne force pas de trade"
+    string refTxt = mkt == "NQ" ? NQ_REF : ES_REF
+    string chartTxt = nTot > 0 ? str.tostring(nTot) + " signaux · " + str.tostring(100.0 * nWin / nTot, "0") + " % gagnants · " + (sumRt >= 0 ? "+" : "") + str.tostring(sumRt, "0.0") + " R" : "aucun signal clôturé sur l'historique chargé"
+    table.cell(tb, 0, 0, "SIGNAUX ES/NQ", text_color = fg, bgcolor = bg, text_size = size.normal)
+    table.cell(tb, 1, 0, mktTxt, text_color = isFut and tfOk ? fg : colSell, bgcolor = bg, text_size = size.small)
+    table.cell(tb, 0, 1, "Tendance 20 j", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(tb, 1, 1, trendTxt, text_color = trendD == 1 ? colBuy : trendD == -1 ? colSell : fg, bgcolor = bg, text_size = size.small)
+    table.cell(tb, 0, 2, "PDH / PDL", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(tb, 1, 2, px(dH) + " / " + px(dL), text_color = colLv, bgcolor = bg, text_size = size.small)
+    table.cell(tb, 0, 3, "Setup en cours", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(tb, 1, 3, pendTxt, text_color = pendSide > 0 ? colBuy : pendSide < 0 ? colSell : fg, bgcolor = bg, text_size = size.small)
+    table.cell(tb, 0, 4, "Dernier signal", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(tb, 1, 4, lastTxt, text_color = fg, bgcolor = bg, text_size = size.small)
+    table.cell(tb, 0, 5, "Backtest 2 ans", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(tb, 1, 5, refTxt, text_color = fg, bgcolor = bg, text_size = size.small)
+    table.cell(tb, 0, 6, "Sur ce graphique", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+    table.cell(tb, 1, 6, chartTxt, text_color = fg, bgcolor = bg, text_size = size.small)
+    if showGex
+        bool isToday = gDay == str.format_time(timenow, "yyyy-MM-dd", "America/New_York")
+        table.cell(tb, 0, 7, "Plan GEX", text_color = fg, bgcolor = bg, text_size = size.small, text_halign = text.align_left)
+        table.cell(tb, 1, 7, (isToday ? "du jour" : "du " + gDay + " (recopier)") + " · R1 " + px(gR1 * conv) + " · S1 " + px(gS1 * conv), text_color = isToday ? fg : colPiv, bgcolor = bg, text_size = size.small)
+
+// ── ALERTES ──────────────────────────────────────────────────────────────
+alertcondition(newBuy, "Signal d'ACHAT ES/NQ", "{{ticker}} : signal d'ACHAT — cassure validée + retest dans la tendance")
+alertcondition(newSell, "Signal de VENTE ES/NQ", "{{ticker}} : signal de VENTE — cassure validée + retest dans la tendance")
+alertcondition(sigOn and nz(pendSide) != 0 and nz(pendSide[1]) == 0, "Setup en préparation", "{{ticker}} : cassure acceptée d'un niveau clé — signal possible au retest")

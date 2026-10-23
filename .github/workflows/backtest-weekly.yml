@@ -1,0 +1,42 @@
+name: Backtest hebdomadaire des signaux
+
+on:
+  schedule:
+    # Samedi 10h17 UTC : marchés fermés, données de la semaine complètes
+    - cron: '17 10 * * 6'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: options-snapshot
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Backtest 2 ans (Yahoo Finance) + régénération de l'indicateur
+        run: |
+          python3 backtest/signals_backtest.py
+          python3 scripts/build_pine.py
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backtest/results.json tradingview
+          if git diff --cached --quiet; then
+            echo "Aucun changement."
+            exit 0
+          fi
+          git commit -m "data: backtest hebdomadaire des signaux ES/NQ $(date -u '+%Y-%m-%d')"
+          for i in 1 2 3; do
+            git push && exit 0
+            git pull --rebase
+          done
+          git push

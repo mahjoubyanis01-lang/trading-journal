@@ -53,6 +53,9 @@ i_p3     = input.bool(true, "P3",              group="Affichage")
 i_p4     = input.bool(true, "P4",              group="Affichage")
 i_sig    = input.bool(true, "Signal",          group="Affichage")
 i_vwap   = input.bool(true, "VWAP",            group="Affichage")
+i_col_vwap    = input.color(color.new(color.teal, 30), "Couleur VWAP",     group="Affichage")
+i_col_vwap_up = input.color(color.new(color.aqua, 55), "Couleur VWAP +1σ", group="Affichage")
+i_col_vwap_dn = input.color(color.new(color.aqua, 55), "Couleur VWAP -1σ", group="Affichage")
 i_lvl    = input.bool(true, "Niveaux",         group="Affichage")
 i_diag   = input.bool(true, "Diagnostic (raisons de non-entrée)", group="Affichage")
 i_liq     = input.bool(true, "Niveaux de liquidité",               group="Affichage")
@@ -1060,11 +1063,11 @@ if was_open and not pos_open and strategy.opentrades == 0
     stored_xid        := ""
     stored_sess       := ""
 
-// ══ PLOTS NIVEAUX ═════════════════════════════════════════════════════
-// Les 3 plots du VWAP journalier (central + bandes ±1σ, cibles TP de f_tp)
-// sont déplacés en FIN de script avec leurs inputs couleur : un input doit
-// précéder son usage dans le code, et tout input ajouté ici décalerait les
-// réglages déjà enregistrés sur le graphique.
+// ══ PLOTS VWAP + NIVEAUX ══════════════════════════════════════════════
+// Les 3 niveaux du VWAP journalier : central + bandes ±1σ (cibles TP de f_tp)
+plot(i_vwap ? vw : na, "VWAP",     color=i_col_vwap,    linewidth=1)
+plot(i_vwap ? vu : na, "VWAP +1σ", color=i_col_vwap_up, linewidth=1)
+plot(i_vwap ? vl : na, "VWAP -1σ", color=i_col_vwap_dn, linewidth=1)
 plot(i_lvl and st == 1 ? p1e : na, "P1",  color=color.new(color.orange,20), linewidth=1, style=plot.style_linebr)
 plot(i_lvl and not na(pp2) ? pp2 : na, "PP2", color=color.new(color.purple,20), linewidth=1, style=plot.style_linebr)
 // Lignes de liquidité INTERNES du bot : le range que les sweeps doivent
@@ -1552,16 +1555,3 @@ alertcondition(al_arb_l     and ev_arb_l,     "Arbitrage London",            "�
 alertcondition(al_sl        and ev_sl,        "Stop Loss touché",            "❌ Stop Loss touché")
 alertcondition(al_tp        and ev_tp,        "Take Profit touché",          "🎯 Take Profit atteint")
 alertcondition(al_cancel    and ev_cancel,    "Ordre annulé",                "🚫 Ordre en attente annulé — liquidité opposée ou tendance invalidée")
-
-// ══ COULEURS VWAP ═════════════════════════════════════════════════════
-// Inputs déclarés tout en FIN de script, APRÈS le dernier input d'origine :
-// TradingView associe les réglages enregistrés par POSITION dans la liste
-// des inputs, donc aucun réglage existant n'est décalé. Les plots VWAP
-// vivent ici pour la même raison — un input doit précéder son usage.
-// Le champ group= les range quand même dans « Affichage ».
-i_col_vwap    = input.color(color.new(color.teal, 30), "Couleur VWAP",     group="Affichage")
-i_col_vwap_up = input.color(color.new(color.aqua, 55), "Couleur VWAP +1σ", group="Affichage")
-i_col_vwap_dn = input.color(color.new(color.aqua, 55), "Couleur VWAP -1σ", group="Affichage")
-plot(i_vwap ? vw : na, "VWAP",     color=i_col_vwap,    linewidth=1)
-plot(i_vwap ? vu : na, "VWAP +1σ", color=i_col_vwap_up, linewidth=1)
-plot(i_vwap ? vl : na, "VWAP -1σ", color=i_col_vwap_dn, linewidth=1)

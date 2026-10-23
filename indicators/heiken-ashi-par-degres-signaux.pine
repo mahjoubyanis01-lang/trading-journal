@@ -27,13 +27,10 @@ showExitCross = input.bool(true, "Croix noire de perte de momentum", group = grp
 crossBars     = input.int(2, "Bougies de repli pour confirmer la croix", group = grpSig, minval = 1, maxval = 10, tooltip = "Nombre de bougies CONSECUTIVES de momentum a contre-sens du signal necessaires pour poser la croix. 1 = des le premier flechissement (bruyant). 2-3 = la perte d'elan est confirmee et le risque de retournement du prix est reel.")
 maxWait      = input.int(0, "Validite du niveau (barres, 0 = illimitee)", group = grpSig, minval = 0, maxval = 500, tooltip = "Nombre de barres au-dela duquel un niveau non casse est abandonne.")
 
-grpTrade = "Entree / SL (box) - sortie a la croix"
-showTrade  = input.bool(true, "Afficher entree + box SL sur chaque signal", group = grpTrade, tooltip = "Un seul trade a la fois : tant qu'il n'est pas clos (SL, BE ou croix), aucun nouveau signal n'est affiche. Le trade cloture a la croix de perte de momentum, au prix de cloture de cette bougie, resultat affiche en R.")
-slLen      = input.int(5, "Bougies pour le SL (plus bas / plus haut)", minval = 1, maxval = 50, group = grpTrade, tooltip = "Achat : SL = plus bas des N dernieres bougies. Vente : SL = plus haut des N dernieres bougies.")
-slCol      = input.color(color.new(color.red, 80),  "Box SL", group = grpTrade, inline = "tc")
-entCol     = input.color(color.new(color.gray, 0),  "Entree", group = grpTrade, inline = "tc")
-useBE      = input.bool(true, "Break-even : SL ramene a l'entree des +1 R", group = grpTrade, tooltip = "Des que le gain latent atteint le seuil (en R), le stop passe a l'entree. Un retour sur l'entree cloture alors le trade a 0 R (BE) au lieu de -1 R.")
-beTrigger  = input.float(1.0, "Declenchement du break-even (en R)", minval = 0.1, step = 0.25, group = grpTrade)
+grpTrade = "Trade : sortie sur couleur HA ou croix"
+showTrade  = input.bool(true, "Gerer un trade par signal (entree + resultat)", group = grpTrade, tooltip = "Un seul trade a la fois, sans aucun stop fixe ni break-even. La position se clot des que la bougie Heiken Ashi change de couleur contre le trade, ou a la croix de perte de momentum -- gain ou perte, peu importe. Resultat affiche en R a la cloture.")
+slLen      = input.int(5, "Bougies pour l'unite de risque (R)", minval = 1, maxval = 50, group = grpTrade, tooltip = "Sert UNIQUEMENT a mesurer les resultats en R : 1 R = distance entre l'entree et l'extreme des N dernieres bougies au moment du signal. Ce n'est PAS un stop, aucune position n'est coupee a ce niveau.")
+entCol     = input.color(color.new(color.gray, 0),  "Ligne d'entree", group = grpTrade)
 
 grpDash = "Tableau de bord"
 showDash   = input.bool(true, "Afficher le tableau de bord", group = grpDash)
@@ -193,96 +190,64 @@ var int momUpCnt = 0
 momDnCnt := nz(val) < nz(val[1]) ? momDnCnt + 1 : 0
 momUpCnt := nz(val) > nz(val[1]) ? momUpCnt + 1 : 0
 
-// La croix n'est VALIDE que si le PNL est POSITIF : le prix doit etre
-// au-dela du prix du signal dans le sens du trade. Si le momentum
-// s'essouffle en perte, pas de croix -- le trade attend le SL ou un
-// retour en profit avec l'essoufflement toujours present.
-var int   pendingExit = 0    // 1 = achat en attente de croix, -1 = vente, 0 = rien
-var int   sigBarIdx   = na
-var float sigPrice    = na   // prix d'entree de reference (cloture du signal)
+// La croix se declenche quel que soit le PnL : elle clot la position,
+// gain ou perte, peu importe.
+var int pendingExit = 0    // 1 = achat en attente de croix, -1 = vente, 0 = rien
+var int sigBarIdx   = na
 bool exitAfterBull = false
 bool exitAfterBear = false
-if pendingExit == 1 and not na(sigBarIdx) and bar_index > sigBarIdx and momDnCnt >= crossBars and close > sigPrice
+if pendingExit == 1 and not na(sigBarIdx) and bar_index > sigBarIdx and momDnCnt >= crossBars
     exitAfterBull := true
     pendingExit := 0
-if pendingExit == -1 and not na(sigBarIdx) and bar_index > sigBarIdx and momUpCnt >= crossBars and close < sigPrice
+if pendingExit == -1 and not na(sigBarIdx) and bar_index > sigBarIdx and momUpCnt >= crossBars
     exitAfterBear := true
     pendingExit := 0
 // =========================================================================
-// TRADE UNIQUE : ENTREE / BOX SL, SORTIE A LA CROIX
+// TRADE UNIQUE : SORTIE SUR CHANGEMENT DE COULEUR HA OU CROIX
 // =========================================================================
-// Gestion identique a l'indicateur HA Zones pour le risque :
-//  - SL initial = plus bas (achat) / plus haut (vente) des 'slLen'
-//    dernieres bougies ; -1 R s'il est touche
-//  - break-even a +1 R : stop ramene a l'entree, cloture a 0 R (BE)
-// Mais PAS de TP fixe : le trade CLOTURE A LA CROIX de perte de momentum,
-// au prix de cloture de la bougie de croix, resultat affiche en R
-// (positif ou negatif selon ou en est le prix par rapport a l'entree).
+// Aucun stop fixe, aucun break-even, aucune couverture : la position se
+// clot au premier des deux evenements, gain ou perte peu importe :
+//  - la bougie Heiken Ashi change de couleur CONTRE le trade
+//    (bougie HA baissiere pendant un achat, haussiere pendant une vente)
+//  - la croix de perte de momentum s'affiche
+// Le R ne sert qu'a MESURER le resultat : 1 R = distance entre l'entree
+// et l'extreme des 'slLen' dernieres bougies au moment du signal.
 // Tant que le trade est ouvert, aucun nouveau signal n'est affiche.
 float slLow  = ta.lowest(low, slLen)
 float slHigh = ta.highest(high, slLen)
 
 var int   trDir      = 0      // 0 = pas de trade en cours
 var float trEnt      = na
-var float trSl       = na
+var float trRisk     = na     // unite de mesure du R (pas un stop)
 var int   trStartBar = na
-var bool  trBE       = false
-var box   trBoxSl    = na
 var line  trLine     = na
-var line  trBeLine   = na
 
 // Resultat du trade clos sur cette bougie (na = aucun), pour les stats
 float tradeRes = na
+bool exitFlipLong  = false
+bool exitFlipShort = false
 
-// 1) suivi du trade actif : extension, stop (initial ou BE), sortie croix
+// 1) suivi du trade actif : sortie sur flip HA ou croix
 if trDir != 0
-    box.set_right(trBoxSl, bar_index)
     line.set_x2(trLine, bar_index)
-    if not na(trBeLine)
-        line.set_x2(trBeLine, bar_index)
     if bar_index > trStartBar
-        float risk0 = math.max(math.abs(trEnt - trSl), syminfo.mintick)
-        float slLevel = trBE ? trEnt : trSl
-        bool slHit = trDir == 1 ? low <= slLevel : high >= slLevel
-        bool crossExit = trDir == 1 ? exitAfterBull : exitAfterBear
-        if slHit
-            // stop prioritaire (conservateur) : -1 R, ou 0 R si break-even
-            string resTxt = trBE ? "BE 0 R" : "-1 R"
-            color  resCol = trBE ? color.new(color.gray, 0) : color.new(color.red, 0)
-            label.new(bar_index, slLevel, resTxt, color = resCol, textcolor = color.white, style = trDir == 1 ? label.style_label_up : label.style_label_down, size = size.small)
-            tradeRes := trBE ? 0.0 : -1.0
-            trDir := 0
-            // economie d'objets : l'entree reste visible comme bord de la
-            // box SL ; les lignes du trade clos sont liberees pour que
-            // l'affichage couvre plus de jours (limite TradingView : 500)
-            line.delete(trLine)
-            trLine := na
-            if not na(trBeLine)
-                line.delete(trBeLine)
-                trBeLine := na
-        else if crossExit
-            // sortie a la croix : resultat au prix de cloture de la bougie
-            float res = trDir * (close - trEnt) / risk0
+        bool flipAgainst = trDir == 1 ? haClose < haOpen : haClose > haOpen
+        bool crossExit   = trDir == 1 ? exitAfterBull : exitAfterBear
+        if flipAgainst or crossExit
+            float res = trDir * (close - trEnt) / math.max(trRisk, syminfo.mintick)
             string resTxt = (res >= 0 ? "+" : "") + str.tostring(res, "#.##") + " R"
             color  resCol = res > 0.01 ? color.new(color.green, 0) : res < -0.01 ? color.new(color.red, 0) : color.new(color.gray, 0)
             label.new(bar_index, close, resTxt, color = resCol, textcolor = color.white, style = label.style_label_left, size = size.small)
             tradeRes := res
+            exitFlipLong  := flipAgainst and trDir == 1 and not crossExit
+            exitFlipShort := flipAgainst and trDir == -1 and not crossExit
             trDir := 0
+            // economie d'objets : la ligne du trade clos est liberee
             line.delete(trLine)
             trLine := na
-            if not na(trBeLine)
-                line.delete(trBeLine)
-                trBeLine := na
-        else if useBE and not trBE
-            bool beNow = trDir == 1 ? high >= trEnt + beTrigger * risk0 : low <= trEnt - beTrigger * risk0
-            if beNow
-                trBE := true
-                trBeLine := line.new(bar_index, trEnt, bar_index + 1, trEnt, color = color.new(color.orange, 0), width = 2, style = line.style_dashed)
-                label.new(bar_index, trEnt, "BE", color = color.new(color.orange, 0), textcolor = color.white, style = trDir == 1 ? label.style_label_down : label.style_label_up, size = size.tiny)
 
-// Statistiques de backtest en R (courbe d'equite : BE = 0, SL = -1,
-// croix = +R ; le drawdown est mesure pic-a-creux sur cette courbe,
-// donc perte + BE + perte = -2 R de drawdown)
+// Statistiques de backtest en R (courbe d'equite ; le drawdown est
+// mesure pic-a-creux sur cette courbe)
 var int   btN      = 0
 var int   btWin    = 0
 var int   btLoss   = 0
@@ -315,26 +280,20 @@ bool sigBear = bearSignal and (not showTrade or trDir == 0)
 int openDir = showTrade and sigBull ? 1 : showTrade and sigBear ? -1 : 0
 if openDir != 0
     float ent = close
-    float sl  = openDir == 1 ? slLow : slHigh
-    if math.abs(ent - sl) > 0
-        trDir      := openDir
-        trEnt      := ent
-        trSl       := sl
-        trStartBar := bar_index
-        trBE       := false
-        trBeLine   := na
-        trBoxSl := box.new(bar_index, math.max(ent, sl), bar_index + 1, math.min(ent, sl), bgcolor = slCol, border_color = color.new(slCol, 0), text = "SL " + str.tostring(sl, format.mintick), text_color = color.new(slCol, 0), text_size = size.tiny, text_halign = text.align_center)
-        trLine  := line.new(bar_index, ent, bar_index + 1, ent, color = entCol, width = 2)
+    float riskRef = openDir == 1 ? ent - slLow : slHigh - ent
+    trDir      := openDir
+    trEnt      := ent
+    trRisk     := math.max(riskRef, syminfo.mintick)
+    trStartBar := bar_index
+    trLine  := line.new(bar_index, ent, bar_index + 1, ent, color = entCol, width = 2)
 
 // 4) armement de la croix sur le signal effectivement affiche
 if sigBull
     pendingExit := 1
     sigBarIdx := bar_index
-    sigPrice := close
 if sigBear
     pendingExit := -1
     sigBarIdx := bar_index
-    sigPrice := close
 
 // =========================================================================
 // AFFICHAGE
@@ -389,5 +348,7 @@ if barstate.islast and showDash
 // =========================================================================
 alertcondition(sigBull, title = "Retournement haussier", message = "HA Sig : cassure du haut de la bougie rouge vive de reference (point vert) sur {{ticker}} {{interval}}")
 alertcondition(sigBear, title = "Retournement baissier", message = "HA Sig : cassure du bas de la bougie violette vive de reference (point rouge) sur {{ticker}} {{interval}}")
-alertcondition(exitAfterBull, title = "Perte de momentum apres achat", message = "HA Sig : perte de momentum apres le signal d'achat (croix noire) sur {{ticker}} {{interval}}")
-alertcondition(exitAfterBear, title = "Perte de momentum apres vente", message = "HA Sig : perte de momentum apres le signal de vente (croix noire) sur {{ticker}} {{interval}}")
+alertcondition(exitAfterBull, title = "Perte de momentum apres achat", message = "HA Sig : sortie du LONG a la croix sur {{ticker}} {{interval}}")
+alertcondition(exitAfterBear, title = "Perte de momentum apres vente", message = "HA Sig : sortie du SHORT a la croix sur {{ticker}} {{interval}}")
+alertcondition(exitFlipLong,  title = "Sortie LONG (couleur HA)",  message = "HA Sig : sortie du LONG sur changement de couleur Heiken Ashi sur {{ticker}} {{interval}}")
+alertcondition(exitFlipShort, title = "Sortie SHORT (couleur HA)", message = "HA Sig : sortie du SHORT sur changement de couleur Heiken Ashi sur {{ticker}} {{interval}}")

@@ -41,6 +41,11 @@ entCol     = input.color(color.new(color.gray, 0),  "Entree", group = grpTrade, 
 useBE      = input.bool(true, "Break-even : SL ramene a l'entree des +1 R", group = grpTrade, tooltip = "Des que le gain latent atteint le seuil (en R), le stop passe a l'entree. Un retour sur l'entree cloture alors le trade a 0 R (BE) au lieu de -1 R.")
 beTrigger  = input.float(1.0, "Declenchement du break-even (en R)", minval = 0.1, step = 0.25, group = grpTrade)
 
+grpDash = "Tableau de bord"
+showDash   = input.bool(true, "Afficher le tableau de bord", group = grpDash)
+dashPosIn  = input.string("Haut droite", "Position", options = ["Haut droite", "Haut gauche", "Bas droite", "Bas gauche"], group = grpDash)
+dashSizeIn = input.string("Petit", "Taille du texte", options = ["Minuscule", "Petit", "Normal"], group = grpDash)
+
 // =========================================================================
 // HEIKEN ASHI (OHLC)
 // =========================================================================
@@ -341,6 +346,9 @@ var box   trBoxSl    = na
 var line  trLine     = na
 var line  trBeLine   = na
 
+// Resultat du trade clos sur cette bougie (na = aucun), pour les stats
+float tradeRes = na
+
 // 1) suivi du trade actif : extension, stop (initial ou BE), sortie croix
 if trDir != 0
     box.set_right(trBoxSl, bar_index)
@@ -357,6 +365,7 @@ if trDir != 0
             string resTxt = trBE ? "BE 0 R" : "-1 R"
             color  resCol = trBE ? color.new(color.gray, 0) : color.new(color.red, 0)
             label.new(bar_index, slLevel, resTxt, color = resCol, textcolor = color.white, style = trDir == 1 ? label.style_label_up : label.style_label_down, size = size.small)
+            tradeRes := trBE ? 0.0 : -1.0
             trDir := 0
         else if crossExit
             // sortie a la croix : resultat au prix de cloture de la bougie
@@ -364,6 +373,7 @@ if trDir != 0
             string resTxt = (res >= 0 ? "+" : "") + str.tostring(res, "#.##") + " R"
             color  resCol = res > 0.01 ? color.new(color.green, 0) : res < -0.01 ? color.new(color.red, 0) : color.new(color.gray, 0)
             label.new(bar_index, close, resTxt, color = resCol, textcolor = color.white, style = label.style_label_left, size = size.small)
+            tradeRes := res
             trDir := 0
         else if useBE and not trBE
             bool beNow = trDir == 1 ? high >= trEnt + beTrigger * risk0 : low <= trEnt - beTrigger * risk0
@@ -371,6 +381,33 @@ if trDir != 0
                 trBE := true
                 trBeLine := line.new(bar_index, trEnt, bar_index + 1, trEnt, color = color.new(color.orange, 0), width = 2, style = line.style_dashed)
                 label.new(bar_index, trEnt, "BE", color = color.new(color.orange, 0), textcolor = color.white, style = trDir == 1 ? label.style_label_down : label.style_label_up, size = size.tiny)
+
+// Statistiques de backtest en R (courbe d'equite : BE = 0, SL = -1,
+// croix = +R ; le drawdown est mesure pic-a-creux sur cette courbe,
+// donc perte + BE + perte = -2 R de drawdown)
+var int   btN      = 0
+var int   btWin    = 0
+var int   btLoss   = 0
+var int   btBE     = 0
+var float btSum    = 0.0
+var float btGrossW = 0.0
+var float btGrossL = 0.0
+var float btPeak   = 0.0
+var float btDdMax  = 0.0
+if not na(tradeRes)
+    btN   += 1
+    btSum += tradeRes
+    if tradeRes > 0.01
+        btWin += 1
+        btGrossW += tradeRes
+    else if tradeRes < -0.01
+        btLoss += 1
+        btGrossL += -tradeRes
+    else
+        btBE += 1
+    btPeak  := math.max(btPeak, btSum)
+    btDdMax := math.max(btDdMax, btPeak - btSum)
+float btDdCur = btPeak - btSum
 
 // 2) nouveaux signaux : uniquement s'il n'y a pas de trade en cours
 bool sigBull = bullSignal and (not showTrade or trDir == 0)
@@ -416,6 +453,38 @@ plotshape(sigBear, title = "Retournement baissier", style = shape.circle, locati
 // Croix blanche discrete = perte de momentum apres le dernier signal
 plotshape(showExitCross and exitAfterBull, title = "Perte de momentum (apres achat)", style = shape.xcross, location = location.abovebar, color = color.new(color.white, 0), size = size.tiny)
 plotshape(showExitCross and exitAfterBear, title = "Perte de momentum (apres vente)", style = shape.xcross, location = location.belowbar, color = color.new(color.white, 0), size = size.tiny)
+
+// =========================================================================
+// TABLEAU DE BORD (backtest en R)
+// =========================================================================
+f_dashPos(string s) => s == "Haut gauche" ? position.top_left : s == "Bas droite" ? position.bottom_right : s == "Bas gauche" ? position.bottom_left : position.top_right
+f_dashSize(string s) => s == "Minuscule" ? size.tiny : s == "Normal" ? size.normal : size.small
+
+var table dash = table.new(f_dashPos(dashPosIn), 2, 8, border_width = 1, border_color = color.new(color.gray, 70), bgcolor = color.new(color.black, 75))
+
+f_dcell(int c, int r, string t, color tc, bool hdr) =>
+    table.cell(dash, c, r, t, text_color = tc, text_size = f_dashSize(dashSizeIn), bgcolor = hdr ? color.new(color.navy, 30) : color.new(color.black, 80))
+
+if barstate.islast and showDash
+    color cOk = color.new(color.lime, 0)
+    color cKo = color.new(color.red, 0)
+    color cWh = color.new(color.white, 0)
+    f_dcell(0, 0, "HA SIG - BACKTEST (R)", cWh, true)
+    f_dcell(1, 0, syminfo.ticker, cWh, true)
+    f_dcell(0, 1, "Trades (G / P / BE)", cWh, false)
+    f_dcell(1, 1, str.tostring(btN) + "  (" + str.tostring(btWin) + " / " + str.tostring(btLoss) + " / " + str.tostring(btBE) + ")", cWh, false)
+    f_dcell(0, 2, "Taux de reussite", cWh, false)
+    f_dcell(1, 2, btN > 0 ? str.tostring(100.0 * btWin / btN, "#.#") + " %" : "-", cWh, false)
+    f_dcell(0, 3, "Profit factor", cWh, false)
+    f_dcell(1, 3, btGrossL > 0 ? str.tostring(btGrossW / btGrossL, "#.##") : btGrossW > 0 ? "inf" : "-", cWh, false)
+    f_dcell(0, 4, "Esperance / trade", cWh, false)
+    f_dcell(1, 4, btN > 0 ? (btSum / btN >= 0 ? "+" : "") + str.tostring(btSum / btN, "#.##") + " R" : "-", btN > 0 and btSum >= 0 ? cOk : btN > 0 ? cKo : cWh, false)
+    f_dcell(0, 5, "PNL total", cWh, false)
+    f_dcell(1, 5, (btSum >= 0 ? "+" : "") + str.tostring(btSum, "#.##") + " R", btSum >= 0 ? cOk : cKo, false)
+    f_dcell(0, 6, "Drawdown actuel", cWh, false)
+    f_dcell(1, 6, btDdCur > 0 ? "-" + str.tostring(btDdCur, "#.##") + " R" : "0 R", btDdCur > 0 ? cKo : cWh, false)
+    f_dcell(0, 7, "Drawdown max", cWh, false)
+    f_dcell(1, 7, btDdMax > 0 ? "-" + str.tostring(btDdMax, "#.##") + " R" : "0 R", btDdMax > 0 ? cKo : cWh, false)
 
 // =========================================================================
 // ALERTES

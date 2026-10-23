@@ -1058,29 +1058,12 @@ if was_open and not pos_open and strategy.opentrades == 0
     p3_p2_2           := na
     stored_id         := ""
     stored_xid        := ""
-    stored_sess      := ""
+    stored_sess       := ""
 
-// ══ COULEURS VWAP + INFOS TP/SL (inputs) ══════════════════════════════
-// Déclarés ICI et non avec les autres inputs d'affichage : TradingView
-// associe les réglages enregistrés par POSITION dans la liste des inputs, et
-// tout ajout décale ce qui suit. Placés juste avant les plots qui les
-// consomment, ils laissent intactes les positions des 73 premiers inputs —
-// risque, sessions, index, couleurs, webhook — et ne décalent que i_db_slref
-// (bool, défaut true) et les groupes LuxAlgo / Alertes, restés à leurs
-// valeurs d'usine. Le champ group= les range quand même au bon endroit.
-i_col_vwap    = input.color(color.new(color.teal, 30), "Couleur VWAP",     group="Affichage")
-i_col_vwap_up = input.color(color.new(color.aqua, 55), "Couleur VWAP +1σ", group="Affichage")
-i_col_vwap_dn = input.color(color.new(color.aqua, 55), "Couleur VWAP -1σ", group="Affichage")
-// Pine ne capte pas les CLICS sur une box : l'équivalent le plus proche est
-// un label ancré sur les lignes TP / SL de la position, dont le TOOLTIP
-// (survol ou clic du label) donne le détail — RR et valeur en devise.
-i_info        = input.bool(true, "Infos RR / PnL sur TP & SL", group="Affichage")
-
-// ══ PLOTS VWAP + NIVEAUX ══════════════════════════════════════════════
-// Les 3 niveaux du VWAP journalier : central + bandes ±1σ (cibles TP de f_tp)
-plot(i_vwap ? vw : na, "VWAP",     color=i_col_vwap,    linewidth=1)
-plot(i_vwap ? vu : na, "VWAP +1σ", color=i_col_vwap_up, linewidth=1)
-plot(i_vwap ? vl : na, "VWAP -1σ", color=i_col_vwap_dn, linewidth=1)
+// ══ PLOTS NIVEAUX ═════════════════════════════════════════════════════
+// Les 3 plots du VWAP journalier (central + bandes ±1σ) sont déplacés en FIN
+// de script, avec leurs inputs couleur : un input doit précéder son usage, et
+// tout input ajouté au milieu décalerait les réglages déjà enregistrés.
 plot(i_lvl and st == 1 ? p1e : na, "P1",  color=color.new(color.orange,20), linewidth=1, style=plot.style_linebr)
 plot(i_lvl and not na(pp2) ? pp2 : na, "PP2", color=color.new(color.purple,20), linewidth=1, style=plot.style_linebr)
 // Lignes de liquidité INTERNES du bot : le range que les sweeps doivent
@@ -1111,6 +1094,11 @@ fill(p_entry,      p_sl, color=i_boxes and sl_in_loss ? i_col_sl : na, title="Zo
 fill(p_blue_inner, p_tp, color=i_boxes and has_signal ? i_col_tp : na, title="Zone TP")
 
 // ══ INFOS TP / SL — RR & VALEUR EN DEVISE ═════════════════════════════
+// Pine ne capte pas les CLICS sur une box : l'équivalent le plus proche est
+// un label ancré sur les lignes TP / SL de la position, dont le TOOLTIP
+// (survol ou clic du label) donne le détail — RR et valeur en devise.
+// Suit l'interrupteur existant « Zones SL/TP » (i_boxes) : AUCUN input neuf,
+// donc aucun décalage des réglages enregistrés.
 // La valeur monétaire dérive du modèle de risque du bot : 1R = i_risk i_curr,
 // puisque le sizing f_qty calibre la distance entry → SL initial à i_risk.
 // Les labels suivent le SL ÉVOLUTIF (BE, trailing P3, arbitrage) en direct.
@@ -1125,7 +1113,7 @@ f_rr_txt(float rr) =>
 float info_ep   = not na(stored_entry_real) ? stored_entry_real : stored_e
 bool  info_buy  = strategy.position_size > 0
 float info_risk = not na(info_ep) and not na(stored_orig_sl) ? math.abs(info_ep - stored_orig_sl) : na
-bool  show_info = i_info and has_signal and not na(info_risk) and info_risk > 0
+bool  show_info = i_boxes and has_signal and not na(info_risk) and info_risk > 0
 
 float info_dir  = info_buy ? 1.0 : -1.0
 float rr_tp_v   = show_info ? (stored_tp      - info_ep) / info_risk * info_dir : na
@@ -1198,7 +1186,7 @@ if barstate.islast
     table.clear(tb, 0, 0, 1, 15)
     int r = 0
 
-    table.cell(tb, 0, r, "REVERSAL BOT v3.5", text_color=color.white, text_size=size.small, bgcolor=color.new(color.navy, 30))
+    table.cell(tb, 0, r, "REVERSAL BOT v3.6", text_color=color.white, text_size=size.small, bgcolor=color.new(color.navy, 30))
     table.cell(tb, 1, r, syminfo.ticker,  text_color=color.white, text_size=size.small, bgcolor=color.new(color.navy, 30))
     r := r + 1
 
@@ -1641,3 +1629,16 @@ alertcondition(al_arb_l     and ev_arb_l,     "Arbitrage London",            "�
 alertcondition(al_sl        and ev_sl,        "Stop Loss touché",            "❌ Stop Loss touché")
 alertcondition(al_tp        and ev_tp,        "Take Profit touché",          "🎯 Take Profit atteint")
 alertcondition(al_cancel    and ev_cancel,    "Ordre annulé",                "🚫 Ordre en attente annulé — liquidité opposée ou tendance invalidée")
+
+// ══ COULEURS VWAP ═════════════════════════════════════════════════════
+// Inputs déclarés tout en FIN de script, APRÈS le dernier input d'origine
+// (al_cancel) : TradingView associe les réglages enregistrés par POSITION
+// dans la liste des inputs, donc aucun réglage existant n'est décalé. Les
+// plots VWAP vivent ici pour la même raison — un input doit précéder son
+// usage. Le champ group= les range quand même dans « Affichage ».
+i_col_vwap    = input.color(color.new(color.teal, 30), "Couleur VWAP",     group="Affichage")
+i_col_vwap_up = input.color(color.new(color.aqua, 55), "Couleur VWAP +1σ", group="Affichage")
+i_col_vwap_dn = input.color(color.new(color.aqua, 55), "Couleur VWAP -1σ", group="Affichage")
+plot(i_vwap ? vw : na, "VWAP",     color=i_col_vwap,    linewidth=1)
+plot(i_vwap ? vu : na, "VWAP +1σ", color=i_col_vwap_up, linewidth=1)
+plot(i_vwap ? vl : na, "VWAP -1σ", color=i_col_vwap_dn, linewidth=1)

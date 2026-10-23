@@ -23,13 +23,14 @@ jobs:
       - name: Backtest 2 ans (Yahoo Finance) + régénération de l'indicateur
         run: |
           python3 backtest/signals_backtest.py
+          python3 backtest/recent_futures.py
           python3 scripts/build_pine.py
 
       - name: Commit & push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add backtest/results.json tradingview
+          git add backtest/results.json backtest/recent_results.json tradingview
           if git diff --cached --quiet; then
             echo "Aucun changement."
             exit 0

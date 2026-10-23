@@ -135,17 +135,13 @@ Les snapshots locaux sont enregistrés dans `data/options/` au même format que 
 
 ---
 
-## 📈 Indicateur TradingView — Signaux ES/NQ (cassure validée)
+## 📈 Indicateur TradingView — ES/NQ Pro (biais de séance, niveaux, signaux, heatmap)
 
-Page : **https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html** → « Copier l'indicateur », à coller une fois dans le Pine Editor.
+Page : **https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html** → « Copier l'indicateur du jour ».
 
-**Signal unique, rare, validé par backtest** — calculé par TradingView lui-même en temps réel (bougies 1 h, sans repeindre), rien à recopier :
-1. PDH / PDL = plus haut / plus bas de la séance cash de la veille (bougies 1 h 10h–15h NY).
-2. Tendance = clôture de la veille vs moyenne des 20 dernières clôtures → achats seulement en tendance haussière, ventes seulement en baissière.
-3. Cassure acceptée = 2 clôtures 1 h consécutives au-delà du niveau.
-4. Retest = le prix revient toucher le niveau et clôture du bon côté → ▲ ACHAT / ▼ VENTE.
-5. Stop 6 pts ES / 24 pts NQ derrière le niveau, objectif 2R, sortie au plus tard 16h00 NY, 1 signal max par jour.
-
-**Backtest** (`backtest/signals_backtest.py`, Yahoo Finance, 2 ans de bougies 1 h, frais inclus, recalculé chaque samedi par `.github/workflows/backtest-weekly.yml`, résultats dans `backtest/results.json`) : ES ≈ 34 signaux, 62 % gagnants, PF 2,1 ; NQ ≈ 15 signaux, 67 % gagnants, PF 3,0. Retenu parmi plusieurs familles testées (faux cassements, cassure du range d'ouverture, momentum intraday…) car c'est la seule robuste : positive sur 78/81 réglages voisins (ES) et 81/81 (NQ), alors que la même règle à contre-tendance perd. Échantillon limité (≈ 50 trades) : les performances passées ne garantissent pas les résultats futurs.
-
-**Couche optionnelle « Plan GEX du jour »** (désactivée par défaut) : R1/R2, S1/S2, pivot gamma et expected move issus des options CBOE, figés chaque matin dès 8h30 NY (`data/levels/`). Non validée statistiquement à ce jour ; nécessite de recopier l'indicateur chaque jour.
+- **Signal A — cassure d'ouverture dans le sens de Londres** (≈ 0,6 position/jour en jouant ES + NQ) : biais = sens de Londres (2h00 → 9h25 NY) ; première clôture 5 min hors du range 9h30–9h45 avant 11h30 dans le sens du biais → achat ; vente seulement si la tendance 20 jours est baissière ; stop au milieu du range, objectif 2R, sortie 15h55. **2020–2026 (Dukascopy 5 min, frais inclus)** : ES 563 trades, PF 1,34, +0,20 R/trade ; NQ 513 trades, PF 1,39, +0,22 R/trade ; portefeuille ES+NQ positif chaque année. Découverte 2020–2022 / validation 2023–2026 positives sur les deux marchés. Méthode : [`backtest/intraday/README.md`](backtest/intraday/README.md).
+- **Signal B — retest du plus haut / plus bas de la veille dans la tendance** (bougies 1 h, rare).
+- **Niveaux de séance** : Asie, Londres, veille (PDH/PDL), range d'ouverture.
+- **Biais macro** : testé (tendance, nuit, gap, VIX et structure, taux, dollar, FOMC, annonces 8h30) — aucune variable ne prédit seule la direction ; seul le biais de Londres comme filtre d'entrée et la tendance 20 j pour les ventes sont retenus. VIX et annonces du jour affichés en contexte.
+- **Heatmap GEX en dégradé** (options CBOE du jour) et **annonces macro US du jour** (ForexFactory) : couches du jour, à recopier après 14h30 Paris.
+- Les moteurs Pine reproduisent les backtests **trade pour trade** (transcriptions vérifiées). Suivi glissant sur les vrais futures (60 jours) chaque samedi : `backtest/recent_results.json`.

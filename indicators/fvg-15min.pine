@@ -29,10 +29,11 @@
 //     structure 15m haussière (P1->P4), un signal de vente une structure
 //     baissière. La touche reste en attente si la tendance bascule dans la
 //     fenêtre de validité.
-//   - FILTRE DE PERTINENCE (score de confluence, 5 critères) : momentum
+//   - FILTRE DE PERTINENCE (score de confluence, 6 critères) : momentum
 //     Squeeze (LazyBear) dans le sens, tendance 15m alignée, corps de bougie
 //     de confirmation fort (x ATR), clôture au-delà de la zone, volume
-//     supérieur à sa moyenne. Seuls les signaux atteignant le score minimal
+//     supérieur à sa moyenne, déplacement créateur de la zone fort.
+//     Seuls les signaux atteignant le score minimal
 //     s'affichent ; la couleur du point est graduée par le score
 //     (clair = score minimal, foncé = tous les critères réunis).
 //   - FILTRES ISSUS DE L'ANALYSE DE DONNÉES (828 signaux, ES 15m, 60 jours,
@@ -85,7 +86,7 @@ bearSigCol  = input.color(color.new(color.red, 0),   "Signal vente", group = grp
 
 grpFilt     = "Filtre de pertinence (score de confluence)"
 useScore    = input.bool(true, "Activer le filtre par score", group = grpFilt, tooltip = "Chaque signal est noté sur les critères actifs ci-dessous. Seuls ceux atteignant le score minimal s'affichent. Le score est affiché dans le label et détaillé dans son infobulle.")
-minScore    = input.int(3,     "Score minimal requis", group = grpFilt, minval = 0, maxval = 5, tooltip = "Si moins de critères sont actifs que ce seuil, le seuil est abaissé au nombre de critères actifs.")
+minScore    = input.int(3,     "Score minimal requis", group = grpFilt, minval = 0, maxval = 6, tooltip = "Si moins de critères sont actifs que ce seuil, le seuil est abaissé au nombre de critères actifs.")
 useFMom     = input.bool(false, "Momentum Squeeze (LazyBear) dans le sens", group = grpFilt, tooltip = "Désactivé par défaut : aucun pouvoir prédictif mesuré sur 828 signaux ES 15m (60 jours).")
 momLen      = input.int(20,    "Longueur du momentum", group = grpFilt, minval = 5)
 useFTrend   = input.bool(true, "Tendance 15m (P1-P4) alignée", group = grpFilt)

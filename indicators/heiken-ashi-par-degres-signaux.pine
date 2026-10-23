@@ -31,6 +31,7 @@ grpTrade = "Trade : sortie sur couleur HA ou croix"
 showTrade  = input.bool(true, "Gerer un trade par signal (entree + resultat)", group = grpTrade, tooltip = "Un seul trade a la fois, sans aucun stop fixe ni break-even. La position se clot des que la bougie Heiken Ashi change de couleur contre le trade, ou a la croix de perte de momentum -- gain ou perte, peu importe. Resultat affiche en R a la cloture.")
 slLen      = input.int(5, "Bougies pour l'unite de risque (R)", minval = 1, maxval = 50, group = grpTrade, tooltip = "Sert UNIQUEMENT a mesurer les resultats en R : 1 R = distance entre l'entree et l'extreme des N dernieres bougies au moment du signal. Ce n'est PAS un stop, aucune position n'est coupee a ce niveau.")
 entCol     = input.color(color.new(color.gray, 0),  "Ligne d'entree", group = grpTrade)
+flipBars   = input.int(2, "Bougies HA opposees consecutives pour sortir", minval = 1, maxval = 10, group = grpTrade, tooltip = "Nombre de bougies Heiken Ashi consecutives de couleur opposee au trade necessaires pour clore la position. 1 = la moindre bougie contraire sort (tres nerveux en 1 minute). 2-3 = le changement de couleur est confirme.")
 
 grpDash = "Tableau de bord"
 showDash   = input.bool(true, "Afficher le tableau de bord", group = grpDash)
@@ -191,15 +192,17 @@ momDnCnt := nz(val) < nz(val[1]) ? momDnCnt + 1 : 0
 momUpCnt := nz(val) > nz(val[1]) ? momUpCnt + 1 : 0
 
 // La croix se declenche quel que soit le PnL : elle clot la position,
-// gain ou perte, peu importe.
+// gain ou perte, peu importe. La serie de bougies de repli doit avoir
+// commence APRES le signal : les bougies anterieures a l'entree ne
+// comptent pas (sinon la position sortait des la bougie suivante).
 var int pendingExit = 0    // 1 = achat en attente de croix, -1 = vente, 0 = rien
 var int sigBarIdx   = na
 bool exitAfterBull = false
 bool exitAfterBear = false
-if pendingExit == 1 and not na(sigBarIdx) and bar_index > sigBarIdx and momDnCnt >= crossBars
+if pendingExit == 1 and not na(sigBarIdx) and bar_index > sigBarIdx and momDnCnt >= crossBars and bar_index - momDnCnt >= sigBarIdx
     exitAfterBull := true
     pendingExit := 0
-if pendingExit == -1 and not na(sigBarIdx) and bar_index > sigBarIdx and momUpCnt >= crossBars
+if pendingExit == -1 and not na(sigBarIdx) and bar_index > sigBarIdx and momUpCnt >= crossBars and bar_index - momUpCnt >= sigBarIdx
     exitAfterBear := true
     pendingExit := 0
 // =========================================================================
@@ -227,11 +230,20 @@ float tradeRes = na
 bool exitFlipLong  = false
 bool exitFlipShort = false
 
-// 1) suivi du trade actif : sortie sur flip HA ou croix
+// Compteurs de bougies HA consecutives de chaque couleur
+var int haBearCnt = 0
+var int haBullCnt = 0
+haBearCnt := haClose < haOpen ? haBearCnt + 1 : 0
+haBullCnt := haClose > haOpen ? haBullCnt + 1 : 0
+
+// 1) suivi du trade actif : sortie sur flip HA confirme ou croix.
+// Le flip exige 'flipBars' bougies HA opposees CONSECUTIVES, dont la
+// serie a commence apres l'entree (une bougie contraire isolee ne sort
+// plus la position).
 if trDir != 0
     line.set_x2(trLine, bar_index)
     if bar_index > trStartBar
-        bool flipAgainst = trDir == 1 ? haClose < haOpen : haClose > haOpen
+        bool flipAgainst = trDir == 1 ? (haBearCnt >= flipBars and bar_index - haBearCnt >= trStartBar) : (haBullCnt >= flipBars and bar_index - haBullCnt >= trStartBar)
         bool crossExit   = trDir == 1 ? exitAfterBull : exitAfterBear
         if flipAgainst or crossExit
             float res = trDir * (close - trEnt) / math.max(trRisk, syminfo.mintick)

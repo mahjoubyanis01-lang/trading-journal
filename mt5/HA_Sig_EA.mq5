@@ -56,6 +56,10 @@ input bool   InpUseBE      = true;   // Break-even a +N R
 input double InpBeTrigger  = 1.0;    // Declenchement du break-even (en R)
 input long   InpMagic      = 20251023; // Magic number
 
+input group "Affichage (historique sur le graphique)"
+input bool   InpDraw        = true;  // Dessiner l'historique des trades
+input bool   InpClearOnInit = false; // Effacer l'historique au (re)demarrage
+
 //=================== ETAT GLOBAL ====================================
 // Heiken Ashi (etat de la derniere bougie close traitee)
 bool   g_haInit = false;
@@ -258,6 +262,79 @@ double LotsForRisk(double slDistance)
    return NormalizeLots(InpRiskMoney / riskPerLot);
   }
 
+//=================== DESSIN DE L'HISTORIQUE =========================
+long g_trId = 0;   // identifiant du trade courant (prefixe des objets)
+
+string ObjName(string tag) { return StringFormat("HASIG_%s_%I64d", tag, g_trId); }
+
+void DrawOpen(datetime t, double ent, double sl, int dir)
+  {
+   if(!InpDraw) return;
+   string rn = ObjName("BOX");
+   ObjectCreate(0, rn, OBJ_RECTANGLE, 0, t, ent, t, sl);
+   ObjectSetInteger(0, rn, OBJPROP_COLOR, C'120,30,30');
+   ObjectSetInteger(0, rn, OBJPROP_FILL, true);
+   ObjectSetInteger(0, rn, OBJPROP_BACK, true);
+   ObjectSetInteger(0, rn, OBJPROP_SELECTABLE, false);
+   string en = ObjName("ENT");
+   ObjectCreate(0, en, OBJ_TREND, 0, t, ent, t, ent);
+   ObjectSetInteger(0, en, OBJPROP_COLOR, clrSilver);
+   ObjectSetInteger(0, en, OBJPROP_WIDTH, 2);
+   ObjectSetInteger(0, en, OBJPROP_RAY_RIGHT, false);
+   ObjectSetInteger(0, en, OBJPROP_SELECTABLE, false);
+   string an = ObjName("IN");
+   ObjectCreate(0, an, dir == 1 ? OBJ_ARROW_BUY : OBJ_ARROW_SELL, 0, t, ent);
+   ObjectSetInteger(0, an, OBJPROP_COLOR, dir == 1 ? clrLime : clrRed);
+   ObjectSetInteger(0, an, OBJPROP_SELECTABLE, false);
+  }
+
+void DrawExtend(datetime t)
+  {
+   if(!InpDraw) return;
+   ObjectSetInteger(0, ObjName("BOX"), OBJPROP_TIME, 1, t);
+   ObjectSetInteger(0, ObjName("ENT"), OBJPROP_TIME, 1, t);
+   if(ObjectFind(0, ObjName("BE")) >= 0)
+      ObjectSetInteger(0, ObjName("BE"), OBJPROP_TIME, 1, t);
+  }
+
+void DrawBE(datetime t, double ent)
+  {
+   if(!InpDraw) return;
+   string bn = ObjName("BE");
+   ObjectCreate(0, bn, OBJ_TREND, 0, t, ent, t, ent);
+   ObjectSetInteger(0, bn, OBJPROP_COLOR, clrOrange);
+   ObjectSetInteger(0, bn, OBJPROP_STYLE, STYLE_DASH);
+   ObjectSetInteger(0, bn, OBJPROP_RAY_RIGHT, false);
+   ObjectSetInteger(0, bn, OBJPROP_SELECTABLE, false);
+   string bt = ObjName("BETXT");
+   ObjectCreate(0, bt, OBJ_TEXT, 0, t, ent);
+   ObjectSetString(0, bt, OBJPROP_TEXT, "BE");
+   ObjectSetInteger(0, bt, OBJPROP_COLOR, clrOrange);
+   ObjectSetInteger(0, bt, OBJPROP_FONTSIZE, 8);
+   ObjectSetInteger(0, bt, OBJPROP_SELECTABLE, false);
+  }
+
+void DrawClose(datetime t, double price, string txt, color col, bool isCross)
+  {
+   if(!InpDraw) return;
+   DrawExtend(t);
+   string tn = ObjName("RES");
+   ObjectCreate(0, tn, OBJ_TEXT, 0, t, price);
+   ObjectSetString(0, tn, OBJPROP_TEXT, txt);
+   ObjectSetInteger(0, tn, OBJPROP_COLOR, col);
+   ObjectSetInteger(0, tn, OBJPROP_FONTSIZE, 9);
+   ObjectSetInteger(0, tn, OBJPROP_SELECTABLE, false);
+   if(isCross)
+     {
+      string xn = ObjName("X");
+      ObjectCreate(0, xn, OBJ_ARROW, 0, t, price);
+      ObjectSetInteger(0, xn, OBJPROP_ARROWCODE, 251);   // croix (Wingdings)
+      ObjectSetInteger(0, xn, OBJPROP_COLOR, clrWhite);
+      ObjectSetInteger(0, xn, OBJPROP_SELECTABLE, false);
+     }
+   ChartRedraw(0);
+  }
+
 //=================== STATISTIQUES ===================================
 void RecordResult(double res)
   {
@@ -286,6 +363,8 @@ void UpdateComment()
 //=================== INIT ===========================================
 int OnInit()
   {
+   if(InpClearOnInit)
+      ObjectsDeleteAll(0, "HASIG_");
    return INIT_SUCCEEDED;
   }
 
@@ -449,10 +528,15 @@ void ProcessClosedBar()
      {
       // position close par le broker (SL initial ou SL break-even)
       RecordResult(g_trBE ? 0.0 : -1.0);
+      DrawClose(iTime(_Symbol, _Period, sh), g_trBE ? g_trEnt : g_trSl,
+                g_trBE ? "BE 0 R" : "-1 R",
+                g_trBE ? clrGray : clrRed, false);
       g_trOpen = false;
      }
 
    //--- 7) gestion du trade actif : break-even puis sortie croix
+   if(g_trOpen && havePos)
+      DrawExtend(iTime(_Symbol, _Period, sh));
    if(g_trOpen && havePos && g_barCount > g_trStartBar)
      {
       if(InpUseBE && !g_trBE)
@@ -464,6 +548,7 @@ void ProcessClosedBar()
             if(ModifySL(ticket, g_trEnt))
               {
                g_trBE = true;
+               DrawBE(iTime(_Symbol, _Period, sh), g_trEnt);
                Print("HA Sig EA : break-even active, SL ramene a l'entree");
               }
            }
@@ -475,6 +560,9 @@ void ProcessClosedBar()
          if(CloseByTicket(ticket))
            {
             RecordResult(res);
+            string resTxt = (res >= 0 ? "+" : "") + DoubleToString(res, 2) + " R";
+            color  resCol = res > 0.01 ? clrLime : res < -0.01 ? clrRed : clrGray;
+            DrawClose(iTime(_Symbol, _Period, sh), c, resTxt, resCol, true);
             g_trOpen = false;
            }
         }
@@ -496,6 +584,8 @@ void ProcessClosedBar()
          bool ok = OpenMarket(openDir, lots, sl);
          if(ok)
            {
+            g_trId++;
+            DrawOpen(iTime(_Symbol, _Period, sh), ent, sl, openDir);
             g_trOpen = true;
             g_trDir = openDir;
             g_trEnt = ent;

@@ -1,6 +1,6 @@
 {
  "day": "2026-10-23",
- "generated": "2026-10-23T18:46:41+00:00",
+ "generated": "2026-10-23T18:56:55+00:00",
  "pine_file": "GEX_Levels_ES_NQ.pine",
  "datasets": [
   {
@@ -8,236 +8,184 @@
    "available": true,
    "day": "2026-10-23",
    "locked_at": "2026-10-23T14:46:37-04:00",
-   "spot": 7632.7998,
-   "call_wall": 8000.0,
-   "put_wall": 7650.0,
-   "flip": 7735.39,
    "net_gex": -73366.429,
-   "zero_dte_call_wall": 7650.0,
-   "zero_dte_put_wall": 7650.0,
-   "zero_dte_expiration": "2026-10-23",
-   "em_up": 7645.7,
-   "em_down": 7619.9,
-   "em_source": "straddle 0DTE",
-   "key_strikes": [
-    {
-     "strike": 7600.0,
-     "net_gex": -7734.0
-    },
-    {
+   "plan": {
+    "spot": 7632.7998,
+    "window": 91.59,
+    "R1": {
      "strike": 7650.0,
-     "net_gex": -7517.2
+     "stars": 3,
+     "gamma_musd": 14290,
+     "confluence": [
+      "mur 0DTE",
+      "mur global",
+      "borne EM"
+     ]
     },
-    {
-     "strike": 7500.0,
-     "net_gex": -5713.6
-    },
-    {
-     "strike": 7625.0,
-     "net_gex": -5117.6
-    },
-    {
-     "strike": 7630.0,
-     "net_gex": -4029.1
-    },
-    {
+    "R2": {
      "strike": 7700.0,
-     "net_gex": -3393.1
+     "stars": 3,
+     "gamma_musd": 10573,
+     "confluence": []
     },
-    {
-     "strike": 7640.0,
-     "net_gex": -3277.1
+    "S1": {
+     "strike": 7625.0,
+     "stars": 3,
+     "gamma_musd": 8339,
+     "confluence": [
+      "borne EM"
+     ]
     },
-    {
-     "strike": 7550.0,
-     "net_gex": -2794.9
+    "S2": {
+     "strike": 7600.0,
+     "stars": 3,
+     "gamma_musd": 10774,
+     "confluence": []
     },
-    {
-     "strike": 7620.0,
-     "net_gex": -2706.3
-    },
-    {
-     "strike": 7450.0,
-     "net_gex": -2675.2
-    }
-   ]
+    "pivot": 7735.39,
+    "em_up": 7645.7,
+    "em_down": 7619.9,
+    "em_source": "straddle 0DTE"
+   }
   },
   {
    "symbol": "SPY",
    "available": true,
    "day": "2026-10-23",
    "locked_at": "2026-10-23T14:46:37-04:00",
-   "spot": 760.78,
-   "call_wall": 762.0,
-   "put_wall": 760.0,
-   "flip": 763.78,
    "net_gex": -17385.42,
-   "zero_dte_call_wall": 762.0,
-   "zero_dte_put_wall": 760.0,
-   "zero_dte_expiration": "2026-10-23",
-   "em_up": 762.4,
-   "em_down": 759.16,
-   "em_source": "straddle 0DTE",
-   "key_strikes": [
-    {
-     "strike": 760.0,
-     "net_gex": -3336.9
-    },
-    {
-     "strike": 750.0,
-     "net_gex": -2563.8
-    },
-    {
-     "strike": 755.0,
-     "net_gex": -2546.5
-    },
-    {
-     "strike": 761.0,
-     "net_gex": -1032.9
-    },
-    {
-     "strike": 745.0,
-     "net_gex": -1018.5
-    },
-    {
+   "plan": {
+    "spot": 760.78,
+    "window": 9.13,
+    "R1": {
      "strike": 762.0,
-     "net_gex": -896.2
+     "stars": 3,
+     "gamma_musd": 2464,
+     "confluence": [
+      "mur 0DTE",
+      "mur global",
+      "borne EM"
+     ]
     },
-    {
+    "R2": {
      "strike": 765.0,
-     "net_gex": -696.1
+     "stars": 2,
+     "gamma_musd": 1928,
+     "confluence": []
     },
-    {
-     "strike": 740.0,
-     "net_gex": -669.9
+    "S1": {
+     "strike": 760.0,
+     "stars": 3,
+     "gamma_musd": 4179,
+     "confluence": [
+      "mur 0DTE",
+      "mur global",
+      "borne EM"
+     ]
     },
-    {
-     "strike": 767.0,
-     "net_gex": -589.8
+    "S2": {
+     "strike": 755.0,
+     "stars": 2,
+     "gamma_musd": 2749,
+     "confluence": []
     },
-    {
-     "strike": 735.0,
-     "net_gex": -547.5
-    }
-   ]
+    "pivot": 763.78,
+    "em_up": 762.4,
+    "em_down": 759.16,
+    "em_source": "straddle 0DTE"
+   }
   },
   {
    "symbol": "NDX",
    "available": true,
    "day": "2026-10-23",
    "locked_at": "2026-10-23T14:46:37-04:00",
-   "spot": 29014.5723,
-   "call_wall": 29675.0,
-   "put_wall": 29100.0,
-   "flip": 29010.0,
    "net_gex": -2248.99,
-   "zero_dte_call_wall": 29030.0,
-   "zero_dte_put_wall": 29100.0,
-   "zero_dte_expiration": "2026-10-23",
-   "em_up": 29080.67,
-   "em_down": 28948.47,
-   "em_source": "straddle 0DTE",
-   "key_strikes": [
-    {
-     "strike": 29675.0,
-     "net_gex": 585.8
-    },
-    {
+   "plan": {
+    "spot": 29014.5723,
+    "window": 348.17,
+    "R1": {
      "strike": 29100.0,
-     "net_gex": -482.2
+     "stars": 3,
+     "gamma_musd": 778,
+     "confluence": [
+      "mur 0DTE",
+      "mur global",
+      "borne EM"
+     ]
     },
-    {
+    "R2": {
      "strike": 29200.0,
-     "net_gex": -240.3
+     "stars": 1,
+     "gamma_musd": 306,
+     "confluence": []
     },
-    {
+    "S1": {
      "strike": 29000.0,
-     "net_gex": -218.3
+     "stars": 3,
+     "gamma_musd": 480,
+     "confluence": [
+      "mur 0DTE"
+     ]
     },
-    {
-     "strike": 30200.0,
-     "net_gex": -218.2
+    "S2": {
+     "strike": 28900.0,
+     "stars": 1,
+     "gamma_musd": 157,
+     "confluence": []
     },
-    {
-     "strike": 27500.0,
-     "net_gex": -197.3
-    },
-    {
-     "strike": 28000.0,
-     "net_gex": -155.3
-    },
-    {
-     "strike": 29400.0,
-     "net_gex": 151.9
-    },
-    {
-     "strike": 28970.0,
-     "net_gex": -138.1
-    },
-    {
-     "strike": 28950.0,
-     "net_gex": -137.5
-    }
-   ]
+    "pivot": 29010.0,
+    "em_up": 29080.67,
+    "em_down": 28948.47,
+    "em_source": "straddle 0DTE"
+   }
   },
   {
    "symbol": "QQQ",
    "available": true,
    "day": "2026-10-23",
    "locked_at": "2026-10-23T14:46:37-04:00",
-   "spot": 705.67,
-   "call_wall": 710.0,
-   "put_wall": 700.0,
-   "flip": 705.96,
    "net_gex": -8362.909,
-   "zero_dte_call_wall": 706.0,
-   "zero_dte_put_wall": 705.0,
-   "zero_dte_expiration": "2026-10-23",
-   "em_up": 707.56,
-   "em_down": 703.77,
-   "em_source": "straddle 0DTE",
-   "key_strikes": [
-    {
-     "strike": 700.0,
-     "net_gex": -1319.5
+   "plan": {
+    "spot": 705.67,
+    "window": 8.47,
+    "R1": {
+     "strike": 706.0,
+     "stars": 2,
+     "gamma_musd": 616,
+     "confluence": [
+      "mur 0DTE"
+     ]
     },
-    {
-     "strike": 690.0,
-     "net_gex": -954.5
-    },
-    {
-     "strike": 705.0,
-     "net_gex": -926.8
-    },
-    {
-     "strike": 680.0,
-     "net_gex": -587.7
-    },
-    {
-     "strike": 711.0,
-     "net_gex": -530.9
-    },
-    {
+    "R2": {
      "strike": 710.0,
-     "net_gex": -502.6
+     "stars": 3,
+     "gamma_musd": 1441,
+     "confluence": [
+      "mur global"
+     ]
     },
-    {
-     "strike": 695.0,
-     "net_gex": -493.7
+    "S1": {
+     "strike": 705.0,
+     "stars": 3,
+     "gamma_musd": 1653,
+     "confluence": [
+      "mur 0DTE"
+     ]
     },
-    {
-     "strike": 675.0,
-     "net_gex": -439.3
+    "S2": {
+     "strike": 700.0,
+     "stars": 3,
+     "gamma_musd": 1462,
+     "confluence": [
+      "mur global"
+     ]
     },
-    {
-     "strike": 685.0,
-     "net_gex": -335.7
-    },
-    {
-     "strike": 720.0,
-     "net_gex": -279.8
-    }
-   ]
+    "pivot": 705.96,
+    "em_up": 707.56,
+    "em_down": 703.77,
+    "em_source": "straddle 0DTE"
+   }
   }
  ]
 }

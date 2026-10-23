@@ -367,6 +367,14 @@ if trDir != 0
             label.new(bar_index, slLevel, resTxt, color = resCol, textcolor = color.white, style = trDir == 1 ? label.style_label_up : label.style_label_down, size = size.small)
             tradeRes := trBE ? 0.0 : -1.0
             trDir := 0
+            // economie d'objets : l'entree reste visible comme bord de la
+            // box SL ; les lignes du trade clos sont liberees pour que
+            // l'affichage couvre plus de jours (limite TradingView : 500)
+            line.delete(trLine)
+            trLine := na
+            if not na(trBeLine)
+                line.delete(trBeLine)
+                trBeLine := na
         else if crossExit
             // sortie a la croix : resultat au prix de cloture de la bougie
             float res = trDir * (close - trEnt) / risk0
@@ -375,6 +383,11 @@ if trDir != 0
             label.new(bar_index, close, resTxt, color = resCol, textcolor = color.white, style = label.style_label_left, size = size.small)
             tradeRes := res
             trDir := 0
+            line.delete(trLine)
+            trLine := na
+            if not na(trBeLine)
+                line.delete(trBeLine)
+                trBeLine := na
         else if useBE and not trBE
             bool beNow = trDir == 1 ? high >= trEnt + beTrigger * risk0 : low <= trEnt - beTrigger * risk0
             if beNow

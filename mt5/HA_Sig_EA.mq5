@@ -66,7 +66,8 @@ enum ENUM_HIST_MODE
 
 input group "Affichage (historique sur le graphique)"
 input bool   InpDraw        = true;  // Dessiner l'historique des trades
-input bool   InpClearOnInit = false; // Effacer l'historique au (re)demarrage
+input bool   InpDrawHA      = true;  // Dessiner les bougies Heiken Ashi colorees
+input int    InpHaBars      = 1500;  // Bougies HA colorees conservees a l'ecran
 input ENUM_HIST_MODE InpHistMode = HIST_LAST_MONTH; // Periode d'historique a simuler
 input datetime InpHistFrom  = D'2026.01.01 00:00';  // Date de debut (mode Dates personnalisees)
 input datetime InpHistTo    = 0;                    // Date de fin (0 = jusqu'a maintenant)
@@ -125,6 +126,14 @@ long   g_cntVivid = 0;   // bougies vives (violet ou rouge)
 long   g_cntCycle = 0;   // cycles ouverts
 long   g_cntRef = 0;     // references posees (vive + P1)
 long   g_cntBrk = 0;     // cassures (signaux bruts)
+
+// Bougies HA colorees : anneau des bougies dessinees (pour effacer les
+// plus anciennes au-dela du plafond)
+datetime g_haRing[];
+int    g_haRingPos = 0;
+int    g_haRingCnt = 0;
+bool   g_haDrawEnabled = true;
+bool   g_orphanWarned = false;
 
 //=================== OUTILS SERIES ==================================
 double HighestHigh(int start, int count)
@@ -355,6 +364,65 @@ void DrawClose(datetime t, double price, string txt, color col, bool isCross)
    ChartRedraw(0);
   }
 
+//=================== BOUGIES HEIKEN ASHI COLOREES ===================
+// Reproduit la coloration TradingView : degrade gris -> violet #cd00db
+// pour normVal >= 0, rouge -> gris pour normVal < 0, assombrie quand le
+// momentum faiblit (equivalent de la transparence dampAlpha).
+void DrawHaBar(const datetime bt, const double hO, const double hH, const double hL, const double hC,
+               const double nv, const bool strong)
+  {
+   if(!InpDrawHA || InpHaBars <= 0 || !g_haDrawEnabled)
+      return;
+   double t;
+   int r, g, b;
+   if(nv >= 0)
+     {
+      t = nv / 100.0;
+      r = (int)MathRound(128 + (205 - 128) * t);
+      g = (int)MathRound(128 + (0   - 128) * t);
+      b = (int)MathRound(128 + (219 - 128) * t);
+     }
+   else
+     {
+      t = (nv + 100.0) / 100.0;   // -100 -> 0 : rouge -> gris
+      r = (int)MathRound(255 + (128 - 255) * t);
+      g = (int)MathRound(0   + (128 - 0) * t);
+      b = (int)MathRound(0   + (128 - 0) * t);
+     }
+   if(!strong)
+     {
+      r = (int)(r * 0.45);
+      g = (int)(g * 0.45);
+      b = (int)(b * 0.45);
+     }
+   color col = (color)((b << 16) | (g << 8) | r);
+   // anneau : efface la bougie coloree la plus ancienne si plafond atteint
+   if(g_haRingCnt >= InpHaBars)
+     {
+      datetime old = g_haRing[g_haRingPos];
+      ObjectDelete(0, "HASIG_HAW_" + (string)(long)old);
+      ObjectDelete(0, "HASIG_HAB_" + (string)(long)old);
+     }
+   else
+      g_haRingCnt++;
+   g_haRing[g_haRingPos] = bt;
+   g_haRingPos = (g_haRingPos + 1) % InpHaBars;
+   string wn = "HASIG_HAW_" + (string)(long)bt;
+   ObjectCreate(0, wn, OBJ_TREND, 0, bt, hL, bt, hH);
+   ObjectSetInteger(0, wn, OBJPROP_COLOR, col);
+   ObjectSetInteger(0, wn, OBJPROP_WIDTH, 1);
+   ObjectSetInteger(0, wn, OBJPROP_RAY_RIGHT, false);
+   ObjectSetInteger(0, wn, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, wn, OBJPROP_BACK, true);
+   string bn = "HASIG_HAB_" + (string)(long)bt;
+   ObjectCreate(0, bn, OBJ_TREND, 0, bt, MathMin(hO, hC), bt, MathMax(hO, hC));
+   ObjectSetInteger(0, bn, OBJPROP_COLOR, col);
+   ObjectSetInteger(0, bn, OBJPROP_WIDTH, 3);
+   ObjectSetInteger(0, bn, OBJPROP_RAY_RIGHT, false);
+   ObjectSetInteger(0, bn, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, bn, OBJPROP_BACK, true);
+  }
+
 //=================== STATISTIQUES ===================================
 void RecordResult(double res)
   {
@@ -383,11 +451,40 @@ void UpdateComment()
       g_epDir == 1 ? "VIOLET" : g_epDir == -1 ? "ROUGE" : "aucun"));
   }
 
-//=================== INIT ===========================================
+//=================== INIT / RESET ===================================
+// MetaTrader rappelle OnInit a chaque changement de reglages, de
+// periode ou de symbole, mais NE reinitialise PAS les variables
+// globales : sans ce reset complet, la simulation ne se relancait
+// jamais et les resultats restaient identiques quels que soient les
+// reglages choisis.
+void ResetState()
+  {
+   ObjectsDeleteAll(0, "HASIG_");
+   g_haInit = false;
+   g_haOpenPrev = 0; g_haClosePrev = 0;
+   ArrayResize(g_valHist, 0);
+   g_val = 0; g_valPrev = 0; g_normVal = 0;
+   g_strengthening = false;
+   g_momDnCnt = 0; g_momUpCnt = 0;
+   g_msInit = false; g_msTr = 1; g_msSt = 0;
+   g_msP2eSet = false; g_msPp2Set = false; g_msPp1Set = false; g_msHp1 = false;
+   g_epDir = 0; g_refSet = false; g_refBar = -1; g_fadeCnt = 0;
+   g_pendingExit = 0; g_sigBar = -1; g_sigPrice = 0;
+   g_trOpen = false; g_trDir = 0; g_trBE = false; g_trStartBar = -1;
+   g_barCount = 0; g_lastBarTime = 0; g_warmed = false;
+   g_btN = 0; g_btWin = 0; g_btLoss = 0; g_btBE = 0;
+   g_btSum = 0; g_btGrossW = 0; g_btGrossL = 0; g_btPeak = 0; g_btDdMax = 0;
+   g_cntBars = 0; g_cntVivid = 0; g_cntCycle = 0; g_cntRef = 0; g_cntBrk = 0;
+   g_trId = 0;
+   g_haRingPos = 0; g_haRingCnt = 0;
+   ArrayResize(g_haRing, MathMax(InpHaBars, 1));
+   g_haDrawEnabled = true;
+   g_orphanWarned = false;
+  }
+
 int OnInit()
   {
-   if(InpClearOnInit)
-      ObjectsDeleteAll(0, "HASIG_");
+   ResetState();
    // timer de secours : lance la simulation d'historique meme si aucun
    // tick n'arrive (marche ferme)
    EventSetTimer(2);
@@ -450,6 +547,9 @@ void StepBar(const datetime bt, const datetime btPrev,
    g_strengthening = g_val > 0 ? (g_val > g_valPrev) : (g_val < g_valPrev);
    g_momDnCnt = g_val < g_valPrev ? g_momDnCnt + 1 : 0;
    g_momUpCnt = g_val > g_valPrev ? g_momUpCnt + 1 : 0;
+
+   // bougie Heiken Ashi coloree (comme TradingView)
+   DrawHaBar(bt, haO, haH, haL, haC, g_normVal, g_strengthening);
 
    //--- 3) market structure (P1)
    MqlDateTime dtCur, dtPrev;
@@ -569,6 +669,7 @@ void StepBar(const datetime bt, const datetime btPrev,
    if(g_pendingExit == -1 && g_sigBar >= 0 && g_barCount > g_sigBar && g_momUpCnt >= InpCrossBars && c < g_sigPrice)
      { exitAfterBear = true; g_pendingExit = 0; }
 
+   bool orphanPos = false;   // position reelle non suivie (ex: reset des reglages)
    if(live)
      {
       //--- 6a) mode DIRECT : le stop reel est chez le broker
@@ -581,6 +682,14 @@ void StepBar(const datetime bt, const datetime btPrev,
          DrawClose(bt, g_trBE ? g_trEnt : g_trSl, g_trBE ? "BE 0 R" : "-1 R", g_trBE ? clrGray : clrRed, false);
          g_trOpen = false;
         }
+      orphanPos = havePos && !g_trOpen;
+      if(orphanPos && !g_orphanWarned)
+        {
+         Print("HA Sig EA : position existante non suivie detectee, aucune nouvelle entree tant qu'elle est ouverte");
+         g_orphanWarned = true;
+        }
+      if(!orphanPos)
+         g_orphanWarned = false;
       if(g_trOpen && havePos)
          DrawExtend(bt);
       if(g_trOpen && havePos && g_barCount > g_trStartBar)
@@ -655,7 +764,7 @@ void StepBar(const datetime bt, const datetime btPrev,
    bool sigBear = brkDn && !g_trOpen;
 
    int openDir = sigBull ? 1 : sigBear ? -1 : 0;
-   if(openDir != 0)
+   if(openDir != 0 && !orphanPos)
      {
       double ent = c; // reference logique ; execution au marche a l'ouverture suivante
       double sl  = openDir == 1 ? slLow : slHigh;
@@ -806,10 +915,13 @@ bool WarmUp()
      {
       if(endTime > 0 && rates[a].time > endTime)
          break;
+      // bougies HA colorees : seulement les 'InpHaBars' plus recentes
+      g_haDrawEnabled = (a >= got - InpHaBars);
       StepBar(rates[a].time, a > 0 ? rates[a - 1].time : rates[a].time - PeriodSeconds(),
               rates[a].open, rates[a].high, rates[a].low, rates[a].close,
               valArr[a], slLoArr[a], slHiArr[a], false);
      }
+   g_haDrawEnabled = true;
    // transition : un trade virtuel encore ouvert n'est pas repris en reel
    if(g_trOpen)
      {

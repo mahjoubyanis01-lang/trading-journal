@@ -407,7 +407,8 @@ void OnTimer()
      }
    if(Bars(_Symbol, _Period) < InpKcLength * 2 + 10)
       return;
-   WarmUp();
+   if(!WarmUp())
+      return;              // donnees pas pretes : nouvel essai au prochain timer
    g_warmed = true;
    g_lastBarTime = iTime(_Symbol, _Period, 0);
    ProcessBar(1, true);
@@ -415,14 +416,14 @@ void OnTimer()
   }
 
 //=================== COEUR : TRAITEMENT D'UNE BOUGIE CLOSE ==========
-// Traite une bougie close. live=false : passe d'historique au demarrage,
-// les trades sont SIMULES (aucun ordre envoye) mais dessines et comptes.
-void ProcessBar(const int sh, const bool live)
+// Logique par bougie close, donnees passees en parametres.
+// live=false : passe d'historique au demarrage, trades SIMULES
+// (aucun ordre envoye) mais dessines et comptes.
+void StepBar(const datetime bt, const datetime btPrev,
+             const double o, const double h, const double l, const double c,
+             const double valNow, const double slLow, const double slHigh,
+             const bool live)
   {
-   double o = iOpen(_Symbol, _Period, sh);
-   double h = iHigh(_Symbol, _Period, sh);
-   double l = iLow(_Symbol, _Period, sh);
-   double c = iClose(_Symbol, _Period, sh);
    g_barCount++;
 
    //--- 1) Heiken Ashi
@@ -436,7 +437,7 @@ void ProcessBar(const int sh, const bool live)
 
    //--- 2) momentum val, normalisation, renforcement, compteurs
    g_valPrev = g_val;
-   g_val = ComputeVal(sh);
+   g_val = valNow;
    int n = ArraySize(g_valHist);
    ArrayResize(g_valHist, n + 1);
    for(int i = n; i > 0; i--) g_valHist[i] = g_valHist[i - 1];
@@ -452,8 +453,8 @@ void ProcessBar(const int sh, const bool live)
 
    //--- 3) market structure (P1)
    MqlDateTime dtCur, dtPrev;
-   TimeToStruct(iTime(_Symbol, _Period, sh), dtCur);
-   TimeToStruct(iTime(_Symbol, _Period, sh + 1), dtPrev);
+   TimeToStruct(bt, dtCur);
+   TimeToStruct(btPrev, dtPrev);
    bool msNd = dtCur.hour == InpResetHour && dtCur.min == InpResetMin && (dtPrev.hour != InpResetHour || dtPrev.min != InpResetMin);
 
    if(!g_msInit)
@@ -568,8 +569,6 @@ void ProcessBar(const int sh, const bool live)
    if(g_pendingExit == -1 && g_sigBar >= 0 && g_barCount > g_sigBar && g_momUpCnt >= InpCrossBars && c < g_sigPrice)
      { exitAfterBear = true; g_pendingExit = 0; }
 
-   datetime bt = iTime(_Symbol, _Period, sh);
-
    if(live)
      {
       //--- 6a) mode DIRECT : le stop reel est chez le broker
@@ -659,7 +658,7 @@ void ProcessBar(const int sh, const bool live)
    if(openDir != 0)
      {
       double ent = c; // reference logique ; execution au marche a l'ouverture suivante
-      double sl  = openDir == 1 ? LowestLow(sh, InpSlLen) : HighestHigh(sh, InpSlLen);
+      double sl  = openDir == 1 ? slLow : slHigh;
       double risk = MathAbs(ent - sl);
       if(risk > 0)
         {
@@ -695,12 +694,23 @@ void ProcessBar(const int sh, const bool live)
       UpdateComment();
   }
 
-//=================== PASSE D'HISTORIQUE AU DEMARRAGE ================
-void WarmUp()
+// Traite la derniere bougie close en direct (lecture via l'API series)
+void ProcessBar(const int sh, const bool live)
   {
+   StepBar(iTime(_Symbol, _Period, sh), iTime(_Symbol, _Period, sh + 1),
+           iOpen(_Symbol, _Period, sh), iHigh(_Symbol, _Period, sh),
+           iLow(_Symbol, _Period, sh), iClose(_Symbol, _Period, sh),
+           ComputeVal(sh), LowestLow(sh, InpSlLen), HighestHigh(sh, InpSlLen), live);
+  }
+
+//=================== PASSE D'HISTORIQUE AU DEMARRAGE ================
+// Retourne true quand la simulation a pu se faire (false = donnees pas
+// encore pretes, on reessaiera au prochain tick/timer).
+bool WarmUp()
+  {
+   int len = InpKcLength;
    int total = Bars(_Symbol, _Period);
-   int minNeed = InpKcLength * 2 + 5;
-   int start = total - minNeed;
+   int start = total - (2 * len + 5);
    datetime endTime = 0;   // 0 = jusqu'a maintenant
 
    // periode demandee -> bougie de depart
@@ -725,21 +735,80 @@ void WarmUp()
       if(shF >= 0)
          start = MathMin(start, shF);
      }
-
-   // ne traite que des bougies reellement chargees : une bougie absente
-   // renverrait silencieusement des zeros et fausserait tous les calculs
-   while(start >= 2 && (iTime(_Symbol, _Period, start + minNeed) == 0 || iClose(_Symbol, _Period, start + minNeed) <= 0))
-      start--;
    if(start < 2)
      {
       Print("HA Sig EA : historique insuffisant pour la simulation");
-      return;
+      return false;
      }
-   for(int sh = start; sh >= 2; sh--)
+
+   // copie en bloc des bougies closes (index 0 = la plus ancienne)
+   int extra = 2 * len;
+   int want = (start - 1) + extra;
+   MqlRates rates[];
+   ArraySetAsSeries(rates, false);
+   int got = CopyRates(_Symbol, _Period, 2, want, rates);
+   if(got < 2 * len + 2)
      {
-      if(endTime > 0 && iTime(_Symbol, _Period, sh) > endTime)
+      Print("HA Sig EA : donnees pas encore chargees, nouvel essai...");
+      return false;
+     }
+
+   // pre-calculs vectorises : y -> val (regression), extremes du SL
+   double yArr[];    ArrayResize(yArr, got);
+   double valArr[];  ArrayResize(valArr, got);
+   double slLoArr[]; ArrayResize(slLoArr, got);
+   double slHiArr[]; ArrayResize(slHiArr, got);
+   for(int a = 0; a < got; a++)
+     {
+      if(a >= len - 1)
+        {
+         double hh = rates[a].high, ll = rates[a].low, sm = 0;
+         for(int k = 0; k < len; k++)
+           {
+            hh = MathMax(hh, rates[a - k].high);
+            ll = MathMin(ll, rates[a - k].low);
+            sm += rates[a - k].close;
+           }
+         yArr[a] = rates[a].close - ((hh + ll) / 2.0 + sm / len) / 2.0;
+        }
+      else
+         yArr[a] = 0;
+      if(a >= 2 * len - 2)
+        {
+         double sx = 0, sy = 0, sxy = 0, sxx = 0;
+         for(int k = 0; k < len; k++)
+           {
+            double x = (double)(len - 1 - k);
+            double yv = yArr[a - k];
+            sx += x; sy += yv; sxy += x * yv; sxx += x * x;
+           }
+         double nn = (double)len;
+         double denom = nn * sxx - sx * sx;
+         double b = denom != 0 ? (nn * sxy - sx * sy) / denom : 0;
+         valArr[a] = (sy - b * sx) / nn + b * (len - 1);
+        }
+      else
+         valArr[a] = 0;
+      double lo = rates[a].low, hi = rates[a].high;
+      for(int k = 1; k < InpSlLen && a - k >= 0; k++)
+        {
+         lo = MathMin(lo, rates[a - k].low);
+         hi = MathMax(hi, rates[a - k].high);
+        }
+      slLoArr[a] = lo;
+      slHiArr[a] = hi;
+     }
+
+   // simulation : de la bougie demandee la plus ancienne a la plus recente
+   int firstA = MathMax(2 * len - 2, got + 1 - start);
+   datetime fromDrawn = rates[firstA].time;
+   for(int a = firstA; a < got; a++)
+     {
+      if(endTime > 0 && rates[a].time > endTime)
          break;
-      ProcessBar(sh, false);
+      StepBar(rates[a].time, a > 0 ? rates[a - 1].time : rates[a].time - PeriodSeconds(),
+              rates[a].open, rates[a].high, rates[a].low, rates[a].close,
+              valArr[a], slLoArr[a], slHiArr[a], false);
      }
    // transition : un trade virtuel encore ouvert n'est pas repris en reel
    if(g_trOpen)
@@ -750,8 +819,9 @@ void WarmUp()
    UpdateComment();
    ChartRedraw(0);
    PrintFormat("HA Sig EA : simulation %s -> %s | bougies %I64d | vives %I64d | cycles %I64d | references %I64d | cassures %I64d | trades %d",
-               TimeToString(iTime(_Symbol, _Period, start)), TimeToString(iTime(_Symbol, _Period, 2)),
+               TimeToString(fromDrawn), TimeToString(rates[got - 1].time),
                g_cntBars, g_cntVivid, g_cntCycle, g_cntRef, g_cntBrk, g_btN);
+   return true;
   }
 
 //=================== TICK ===========================================
@@ -764,7 +834,8 @@ void OnTick()
      {
       // premiere activation : rejoue l'historique du graphique (trades
       // virtuels dessines + stats), puis traite la derniere bougie close
-      WarmUp();
+      if(!WarmUp())
+         return;           // donnees pas pretes : nouvel essai au prochain tick
       g_warmed = true;
       g_lastBarTime = t0;
       ProcessBar(1, true);

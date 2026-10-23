@@ -102,10 +102,18 @@ long   g_trStartBar = -1;
 // Compteur de bougies closes traitees
 long   g_barCount = 0;
 datetime g_lastBarTime = 0;
+bool   g_warmed = false;   // la simulation d'historique a-t-elle eu lieu ?
 
 // Statistiques en R
 int    g_btN = 0, g_btWin = 0, g_btLoss = 0, g_btBE = 0;
 double g_btSum = 0, g_btGrossW = 0, g_btGrossL = 0, g_btPeak = 0, g_btDdMax = 0;
+
+// Diagnostic : compteurs par etape de la chaine de signal
+long   g_cntBars = 0;    // bougies traitees
+long   g_cntVivid = 0;   // bougies vives (violet ou rouge)
+long   g_cntCycle = 0;   // cycles ouverts
+long   g_cntRef = 0;     // references posees (vive + P1)
+long   g_cntBrk = 0;     // cassures (signaux bruts)
 
 //=================== OUTILS SERIES ==================================
 double HighestHigh(int start, int count)
@@ -356,9 +364,12 @@ void UpdateComment()
    string esp = g_btN > 0 ? DoubleToString(g_btSum / g_btN, 2) + " R" : "-";
    string wr  = g_btN > 0 ? DoubleToString(100.0 * g_btWin / g_btN, 1) + " %" : "-";
    Comment(StringFormat(
-      "HA SIG EA - BACKTEST (R)\nTrades: %d (G %d / P %d / BE %d)\nTaux de reussite: %s\nProfit factor: %s\nEsperance/trade: %s\nPNL total: %.2f R\nDrawdown actuel: -%.2f R\nDrawdown max: -%.2f R\nEtat: %s",
+      "HA SIG EA - BACKTEST (R)\nTrades: %d (G %d / P %d / BE %d)\nTaux de reussite: %s\nProfit factor: %s\nEsperance/trade: %s\nPNL total: %.2f R\nDrawdown actuel: -%.2f R\nDrawdown max: -%.2f R\nEtat: %s\n--- diagnostic ---\nBougies: %I64d | Vives: %I64d | Cycles: %I64d\nReferences: %I64d | Cassures: %I64d\nnormVal: %.1f | momentum %s | cycle %s",
       g_btN, g_btWin, g_btLoss, g_btBE, wr, pf, esp, g_btSum, ddCur, g_btDdMax,
-      g_trOpen ? (g_trDir == 1 ? "LONG en cours" : "SHORT en cours") : "flat"));
+      g_trOpen ? (g_trDir == 1 ? "LONG en cours" : "SHORT en cours") : "flat",
+      g_cntBars, g_cntVivid, g_cntCycle, g_cntRef, g_cntBrk,
+      g_normVal, g_strengthening ? "renforce" : "faiblit",
+      g_epDir == 1 ? "VIOLET" : g_epDir == -1 ? "ROUGE" : "aucun"));
   }
 
 //=================== INIT ===========================================
@@ -366,10 +377,31 @@ int OnInit()
   {
    if(InpClearOnInit)
       ObjectsDeleteAll(0, "HASIG_");
+   // timer de secours : lance la simulation d'historique meme si aucun
+   // tick n'arrive (marche ferme)
+   EventSetTimer(2);
    return INIT_SUCCEEDED;
   }
 
-void OnDeinit(const int reason) { Comment(""); }
+void OnDeinit(const int reason) { EventKillTimer(); Comment(""); }
+
+// Lance la simulation d'historique des que les donnees sont disponibles,
+// meme sans tick entrant (marche ferme)
+void OnTimer()
+  {
+   if(g_warmed)
+     {
+      EventKillTimer();
+      return;
+     }
+   if(Bars(_Symbol, _Period) < InpKcLength * 2 + 10)
+      return;
+   WarmUp();
+   g_warmed = true;
+   g_lastBarTime = iTime(_Symbol, _Period, 0);
+   ProcessBar(1, true);
+   EventKillTimer();
+  }
 
 //=================== COEUR : TRAITEMENT D'UNE BOUGIE CLOSE ==========
 // Traite une bougie close. live=false : passe d'historique au demarrage,
@@ -495,14 +527,16 @@ void ProcessBar(const int sh, const bool live)
    //--- 4) cycle de couleur vive
    bool vividUp = g_normVal >=  InpVividZone && g_strengthening;
    bool vividDn = g_normVal <= -InpVividZone && g_strengthening;
+   g_cntBars++;
+   if(vividUp || vividDn) g_cntVivid++;
 
-   if(vividUp && g_epDir != 1)  { g_epDir = 1;  g_refSet = false; g_refBar = -1; }
-   if(vividDn && g_epDir != -1) { g_epDir = -1; g_refSet = false; g_refBar = -1; }
+   if(vividUp && g_epDir != 1)  { g_epDir = 1;  g_refSet = false; g_refBar = -1; g_cntCycle++; }
+   if(vividDn && g_epDir != -1) { g_epDir = -1; g_refSet = false; g_refBar = -1; g_cntCycle++; }
 
    if(g_epDir == 1 && vividUp && (!InpUseP1 || isP1up) && (!g_refSet || haH > g_refHi))
-     { g_refHi = haH; g_refLo = haL; g_refSet = true; g_refBar = g_barCount; }
+     { if(!g_refSet) g_cntRef++; g_refHi = haH; g_refLo = haL; g_refSet = true; g_refBar = g_barCount; }
    if(g_epDir == -1 && vividDn && (!InpUseP1 || isP1dn) && (!g_refSet || haL < g_refLo))
-     { g_refHi = haH; g_refLo = haL; g_refSet = true; g_refBar = g_barCount; }
+     { if(!g_refSet) g_cntRef++; g_refHi = haH; g_refLo = haL; g_refSet = true; g_refBar = g_barCount; }
 
    if(g_epDir != 0 && g_refSet && InpMaxWait > 0 && g_barCount - g_refBar > InpMaxWait)
      { g_epDir = 0; g_refSet = false; }
@@ -514,7 +548,7 @@ void ProcessBar(const int sh, const bool live)
    bool brkDn = g_epDir == 1  && g_refSet && g_barCount > g_refBar && (InpBreakOnClose ? haC < g_refLo : haL < g_refLo);
    bool brkUp = g_epDir == -1 && g_refSet && g_barCount > g_refBar && (InpBreakOnClose ? haC > g_refHi : haH > g_refHi);
    if(brkDn || brkUp)
-     { g_epDir = 0; g_refSet = false; }
+     { g_epDir = 0; g_refSet = false; g_cntBrk++; }
 
    //--- 5) croix de perte de momentum (valide uniquement en PnL positif)
    bool exitAfterBull = false, exitAfterBear = false;
@@ -658,8 +692,15 @@ void WarmUp()
    int start = total - minNeed;
    if(InpHistoryBars > 0)
       start = MathMin(start, InpHistoryBars);
+   // ne traite que des bougies reellement chargees : une bougie absente
+   // renverrait silencieusement des zeros et fausserait tous les calculs
+   while(start >= 2 && (iTime(_Symbol, _Period, start + minNeed) == 0 || iClose(_Symbol, _Period, start + minNeed) <= 0))
+      start--;
    if(start < 2)
+     {
+      Print("HA Sig EA : historique insuffisant pour la simulation");
       return;
+     }
    for(int sh = start; sh >= 2; sh--)
       ProcessBar(sh, false);
    // transition : un trade virtuel encore ouvert n'est pas repris en reel
@@ -670,12 +711,12 @@ void WarmUp()
      }
    UpdateComment();
    ChartRedraw(0);
-   PrintFormat("HA Sig EA : historique simule sur %d bougies, %d trades traces", start - 1, g_btN);
+   PrintFormat("HA Sig EA : simulation %s -> %s | bougies %I64d | vives %I64d | cycles %I64d | references %I64d | cassures %I64d | trades %d",
+               TimeToString(iTime(_Symbol, _Period, start)), TimeToString(iTime(_Symbol, _Period, 2)),
+               g_cntBars, g_cntVivid, g_cntCycle, g_cntRef, g_cntBrk, g_btN);
   }
 
 //=================== TICK ===========================================
-bool g_warmed = false;
-
 void OnTick()
   {
    if(Bars(_Symbol, _Period) < InpKcLength * 2 + 10)

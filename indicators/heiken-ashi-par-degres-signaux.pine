@@ -1,5 +1,24 @@
 //@version=6
-indicator("Heiken Ashi par degres + Signaux", shorttitle="HA Sig", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
+// =============================================================================
+//  HA SIG -- Heiken Ashi par degres + signaux de retournement
+//
+//  Indicateur pur (aucune gestion de position) :
+//   - Bougies Heiken Ashi colorees par le momentum Squeeze (LazyBear) :
+//     degrade gris -> violet (momentum positif), rouge -> gris (negatif),
+//     bougie assombrie quand le momentum ralentit.
+//     Les couleurs extremes sont les ZONES : violet vif = surachat,
+//     rouge vif = survente.
+//   - SIGNAL DE RETOURNEMENT (triangle) :
+//       1. une bougie VIVE (couleur pleine en zone extreme) ouvre un cycle ;
+//       2. la reference = la bougie vive faisant l'extreme du cycle
+//          (plus haut du cycle violet / plus bas du cycle rouge),
+//          meche et corps compris ;
+//       3. triangle BAISSIER a la cassure du bas de la reference violette,
+//          triangle HAUSSIER a la cassure du haut de la reference rouge ;
+//       4. le cycle est ANNULE des qu'une bougie affiche la famille de
+//          couleur opposee (le niveau est retire, aucun signal possible).
+// =============================================================================
+indicator("Heiken Ashi par degres + Signaux", shorttitle="HA Sig", overlay=true, max_lines_count=500)
 
 // =========================================================================
 // INPUTS
@@ -18,26 +37,13 @@ dampAlpha = input.int(55, "Transparence en phase de ralentissement", group = grp
 grpSqzShow  = "Affichage squeeze"
 showSqzDots = input.bool(true, "Afficher les points de squeeze sous les bougies", group = grpSqzShow)
 
-grpSig = "Signaux : cassure de la bougie extreme"
-showSignals  = input.bool(true, "Afficher les signaux (point vert / point rouge)", group = grpSig)
-vividZone    = input.int(75, "Seuil de couleur vive (0-100)", group = grpSig, minval = 40, maxval = 100, tooltip = "Momentum normalise a partir duquel une bougie est consideree violet vif (+) ou rouge vif (-). C'est l'entree en cycle : la premiere bougie vive ouvre la surveillance.")
-breakOnClose = input.bool(true, "Cassure a la cloture (sinon a la meche)", group = grpSig, tooltip = "Active : il faut une cloture au-dela du niveau de la bougie de reference. Desactive : une simple meche qui depasse suffit.")
+grpSig = "Signaux de retournement"
+showSignals  = input.bool(true, "Afficher les signaux (triangles)", group = grpSig)
+vividZone    = input.int(75, "Seuil de couleur vive (0-100)", group = grpSig, minval = 40, maxval = 100, tooltip = "Momentum normalise a partir duquel une bougie est consideree violet vif (+) ou rouge vif (-). C'est l'entree en zone de surachat / survente : la premiere bougie vive ouvre un cycle de surveillance.")
+breakOnClose = input.bool(true, "Cassure a la cloture (sinon a la meche)", group = grpSig, tooltip = "Active : il faut une cloture Heiken Ashi au-dela du niveau de la bougie de reference. Desactive : une simple meche qui depasse suffit.")
 showLevels   = input.bool(true, "Afficher le niveau surveille", group = grpSig, tooltip = "Ligne pointillee sur le niveau attendu : le plus bas de la bougie violette de reference, ou le plus haut de la bougie rouge de reference.")
-showExitCross = input.bool(true, "Croix noire de perte de momentum", group = grpSig, tooltip = "Apres chaque signal, marque d'une croix noire la bougie ou la perte de momentum est confirmee : le prix peut potentiellement se retourner dans le sens inverse. Au-dessus de la bougie apres un achat, en dessous apres une vente. Une seule croix par signal.")
-crossBars     = input.int(2, "Bougies de repli pour confirmer la croix", group = grpSig, minval = 1, maxval = 10, tooltip = "Nombre de bougies CONSECUTIVES de momentum a contre-sens du signal necessaires pour poser la croix. 1 = des le premier flechissement (bruyant). 2-3 = la perte d'elan est confirmee et le risque de retournement du prix est reel.")
 maxWait      = input.int(0, "Validite du niveau (barres, 0 = illimitee)", group = grpSig, minval = 0, maxval = 500, tooltip = "Nombre de barres au-dela duquel un niveau non casse est abandonne.")
 cancelTol    = input.int(0, "Tolerance avant annulation du cycle (0-50)", group = grpSig, minval = 0, maxval = 50, tooltip = "Un cycle est ANNULE des qu'une bougie affiche la famille de couleur opposee : momentum normalise au-dela de +tolerance pour un cycle rouge, en-deca de -tolerance pour un cycle violet. Aucun signal ne peut plus sortir d'un cycle annule. 0 = le moindre passage de l'autre cote de zero annule ; augmenter (ex. 15-20) pour tolerer les bougies grises.")
-
-grpTrade = "Trade : sortie sur couleur HA ou croix"
-showTrade  = input.bool(true, "Gerer un trade par signal (entree + resultat)", group = grpTrade, tooltip = "Un seul trade a la fois, sans aucun stop fixe ni break-even. La position se clot des que la bougie Heiken Ashi change de couleur contre le trade, ou a la croix de perte de momentum -- gain ou perte, peu importe. Resultat affiche en R a la cloture.")
-slLen      = input.int(5, "Bougies pour l'unite de risque (R)", minval = 1, maxval = 50, group = grpTrade, tooltip = "Sert UNIQUEMENT a mesurer les resultats en R : 1 R = distance entre l'entree et l'extreme des N dernieres bougies au moment du signal. Ce n'est PAS un stop, aucune position n'est coupee a ce niveau.")
-entCol     = input.color(color.new(color.gray, 0),  "Ligne d'entree", group = grpTrade)
-flipBars   = input.int(1, "Bougies de couleur opposee pour sortir", minval = 1, maxval = 10, group = grpTrade, tooltip = "La couleur testee est celle AFFICHEE a l'ecran : famille violette (momentum positif) ou famille rouge (momentum negatif). Achat clos des que la bougie passe en famille rouge, vente close des qu'elle passe en famille violette. 1 = des la premiere bougie de couleur opposee ; 2-3 = changement confirme. Seules les couleurs apparues APRES l'entree comptent.")
-
-grpDash = "Tableau de bord"
-showDash   = input.bool(true, "Afficher le tableau de bord", group = grpDash)
-dashPosIn  = input.string("Haut droite", "Position", options = ["Haut droite", "Haut gauche", "Bas droite", "Bas gauche"], group = grpDash)
-dashSizeIn = input.string("Petit", "Taille du texte", options = ["Minuscule", "Petit", "Normal"], group = grpDash)
 
 // =========================================================================
 // HEIKEN ASHI (OHLC)
@@ -70,14 +76,11 @@ noSqz  = not sqzOn and not sqzOff
 val = ta.linreg(source - math.avg(math.avg(ta.highest(high, kcLength), ta.lowest(low, kcLength)), ta.sma(close, kcLength)), kcLength, 0)
 
 // =========================================================================
-// GRADUATION DE COULEUR (remplace le vert/rouge classique de HA)
+// GRADUATION DE COULEUR
 // =========================================================================
-// Normalisation du momentum sur son amplitude recente -> echelle -100 / +100
 normVal = 100 * nz(val) / math.max(ta.highest(math.abs(val), normLen), 1e-10)
 normVal := math.max(math.min(normVal, 100), -100)
 
-// Le momentum se renforce dans son sens (equivalent du lime/red de l'original)
-// ou faiblit en revenant vers zero (equivalent du green/maroon, plus terne)
 strengthening = val > 0 ? (val > nz(val[1])) : (val < nz(val[1]))
 
 baseColor = normVal >= 0 ?
@@ -89,26 +92,10 @@ haColor = strengthening ? baseColor : color.new(baseColor, dampAlpha)
 // =========================================================================
 // SIGNAUX : CASSURE DE LA BOUGIE EXTREME
 // =========================================================================
-// Quand la couleur devient VIVE (violet vif = normVal >= seuil, rouge vif
-// = normVal <= -seuil), un cycle s'ouvre sur la premiere bougie vive.
-//  - Cycle VIOLET : parmi les bougies violet vif depuis la premiere du
-//    cycle, on retient celle qui a fait LE PLUS HAUT ; sa reference est
-//    son plus haut et son plus bas (meche et corps compris).
-//    SIGNAL BAISSIER = cassure de SON PLUS BAS.
-//  - Cycle ROUGE : la bougie rouge vif ayant fait LE PLUS BAS depuis la
-//    premiere rouge vive du cycle.
-//    SIGNAL HAUSSIER = cassure de SON PLUS HAUT.
-// Un signal clot le cycle ; un passage a la couleur vive opposee bascule
-// le cycle (l'ancien niveau est abandonne).
-
 // Une bougie est VIVE seulement si sa couleur est PLEINE, pas terne :
 // zone extreme atteinte ET momentum qui se renforce (strengthening).
-// Une bougie violette ou rouge mais assombrie/transparente (momentum qui
-// decelere, effet dampAlpha) n'est PAS vive : elle ne peut ni ouvrir un
-// cycle, ni devenir la bougie de reference, ni remettre a zero le
-// compteur de cycle perdu.
-bool vividUp = normVal >=  vividZone and strengthening    // violet vif (couleur pleine)
-bool vividDn = normVal <= -vividZone and strengthening    // rouge vif (couleur pleine)
+bool vividUp = normVal >=  vividZone and strengthening    // violet vif (surachat)
+bool vividDn = normVal <= -vividZone and strengthening    // rouge vif (survente)
 
 var int   epDir  = 0    // 1 = cycle violet (attend cassure du bas), -1 = cycle rouge (attend cassure du haut)
 var float refHi  = na   // extremes de la bougie de reference
@@ -195,142 +182,6 @@ if epDir == 1 and normVal < -cancelTol
     refLn := na
 
 // =========================================================================
-// CROIX DE PERTE DE MOMENTUM (une par signal)
-// =========================================================================
-// But : signaler quand le prix peut POTENTIELLEMENT se retourner dans le
-// sens inverse du signal. Pour eviter le bruit d'un simple flechissement
-// d'une bougie, la croix exige 'crossBars' bougies CONSECUTIVES de
-// momentum a contre-sens :
-//  - apres un ACHAT : 'crossBars' bougies de momentum en baisse
-//    -> croix noire AU-DESSUS de la bougie de confirmation ;
-//  - apres une VENTE : 'crossBars' bougies de momentum en hausse
-//    -> croix noire EN DESSOUS de la bougie de confirmation.
-var int momDnCnt = 0
-var int momUpCnt = 0
-momDnCnt := nz(val) < nz(val[1]) ? momDnCnt + 1 : 0
-momUpCnt := nz(val) > nz(val[1]) ? momUpCnt + 1 : 0
-
-// La croix se declenche quel que soit le PnL : elle clot la position,
-// gain ou perte, peu importe. La serie de bougies de repli doit avoir
-// commence APRES le signal : les bougies anterieures a l'entree ne
-// comptent pas (sinon la position sortait des la bougie suivante).
-var int pendingExit = 0    // 1 = achat en attente de croix, -1 = vente, 0 = rien
-var int sigBarIdx   = na
-bool exitAfterBull = false
-bool exitAfterBear = false
-if pendingExit == 1 and not na(sigBarIdx) and bar_index > sigBarIdx and momDnCnt >= crossBars and bar_index - momDnCnt >= sigBarIdx
-    exitAfterBull := true
-    pendingExit := 0
-if pendingExit == -1 and not na(sigBarIdx) and bar_index > sigBarIdx and momUpCnt >= crossBars and bar_index - momUpCnt >= sigBarIdx
-    exitAfterBear := true
-    pendingExit := 0
-// =========================================================================
-// TRADE UNIQUE : SORTIE SUR CHANGEMENT DE COULEUR HA OU CROIX
-// =========================================================================
-// Aucun stop fixe, aucun break-even, aucune couverture : la position se
-// clot au premier des deux evenements, gain ou perte peu importe :
-//  - la bougie Heiken Ashi change de couleur CONTRE le trade
-//    (bougie HA baissiere pendant un achat, haussiere pendant une vente)
-//  - la croix de perte de momentum s'affiche
-// Le R ne sert qu'a MESURER le resultat : 1 R = distance entre l'entree
-// et l'extreme des 'slLen' dernieres bougies au moment du signal.
-// Tant que le trade est ouvert, aucun nouveau signal n'est affiche.
-float slLow  = ta.lowest(low, slLen)
-float slHigh = ta.highest(high, slLen)
-
-var int   trDir      = 0      // 0 = pas de trade en cours
-var float trEnt      = na
-var float trRisk     = na     // unite de mesure du R (pas un stop)
-var int   trStartBar = na
-var line  trLine     = na
-
-// Resultat du trade clos sur cette bougie (na = aucun), pour les stats
-float tradeRes = na
-bool exitFlipLong  = false
-bool exitFlipShort = false
-
-// Compteurs de bougies consecutives par FAMILLE DE COULEUR AFFICHEE :
-// famille violette = momentum normalise positif (degrade gris -> violet),
-// famille rouge = momentum normalise negatif (degrade rouge -> gris).
-// C'est la couleur visible a l'ecran, celle dont parle la regle de sortie.
-var int colRedCnt    = 0
-var int colPurpleCnt = 0
-colRedCnt    := normVal < 0 ? colRedCnt + 1 : 0
-colPurpleCnt := normVal > 0 ? colPurpleCnt + 1 : 0
-
-// 1) suivi du trade actif : sortie sur changement de couleur ou croix.
-// Achat clos quand la bougie passe en famille ROUGE ; vente close quand
-// elle passe en famille VIOLETTE. Seule une serie de couleur commencee
-// APRES l'entree compte : la couleur deja presente au moment du signal
-// (ex. achat pris encore dans le rouge de l'extreme) ne sort pas le trade.
-if trDir != 0
-    line.set_x2(trLine, bar_index)
-    if bar_index > trStartBar
-        bool flipAgainst = trDir == 1 ? (colRedCnt >= flipBars and bar_index - colRedCnt >= trStartBar) : (colPurpleCnt >= flipBars and bar_index - colPurpleCnt >= trStartBar)
-        bool crossExit   = trDir == 1 ? exitAfterBull : exitAfterBear
-        if flipAgainst or crossExit
-            float res = trDir * (close - trEnt) / math.max(trRisk, syminfo.mintick)
-            string resTxt = (res >= 0 ? "+" : "") + str.tostring(res, "#.##") + " R"
-            color  resCol = res > 0.01 ? color.new(color.green, 0) : res < -0.01 ? color.new(color.red, 0) : color.new(color.gray, 0)
-            label.new(bar_index, close, resTxt, color = resCol, textcolor = color.white, style = label.style_label_left, size = size.small)
-            tradeRes := res
-            exitFlipLong  := flipAgainst and trDir == 1 and not crossExit
-            exitFlipShort := flipAgainst and trDir == -1 and not crossExit
-            trDir := 0
-            // economie d'objets : la ligne du trade clos est liberee
-            line.delete(trLine)
-            trLine := na
-
-// Statistiques de backtest en R (courbe d'equite ; le drawdown est
-// mesure pic-a-creux sur cette courbe)
-var int   btN      = 0
-var int   btWin    = 0
-var int   btLoss   = 0
-var int   btBE     = 0
-var float btSum    = 0.0
-var float btGrossW = 0.0
-var float btGrossL = 0.0
-var float btPeak   = 0.0
-var float btDdMax  = 0.0
-if not na(tradeRes)
-    btN   += 1
-    btSum += tradeRes
-    if tradeRes > 0.01
-        btWin += 1
-        btGrossW += tradeRes
-    else if tradeRes < -0.01
-        btLoss += 1
-        btGrossL += -tradeRes
-    else
-        btBE += 1
-    btPeak  := math.max(btPeak, btSum)
-    btDdMax := math.max(btDdMax, btPeak - btSum)
-float btDdCur = btPeak - btSum
-
-// 2) nouveaux signaux : uniquement s'il n'y a pas de trade en cours
-bool sigBull = bullSignal and (not showTrade or trDir == 0)
-bool sigBear = bearSignal and (not showTrade or trDir == 0)
-
-// 3) ouverture du trade sur le signal affiche
-int openDir = showTrade and sigBull ? 1 : showTrade and sigBear ? -1 : 0
-if openDir != 0
-    float ent = close
-    float riskRef = openDir == 1 ? ent - slLow : slHigh - ent
-    trDir      := openDir
-    trEnt      := ent
-    trRisk     := math.max(riskRef, syminfo.mintick)
-    trStartBar := bar_index
-    trLine  := line.new(bar_index, ent, bar_index + 1, ent, color = entCol, width = 2)
-
-// 4) armement de la croix sur le signal effectivement affiche
-if sigBull
-    pendingExit := 1
-    sigBarIdx := bar_index
-if sigBear
-    pendingExit := -1
-    sigBarIdx := bar_index
-
-// =========================================================================
 // AFFICHAGE
 // =========================================================================
 plotcandle(haOpen, haHigh, haLow, haClose, title = "Heiken Ashi", color = haColor, wickcolor = haColor, bordercolor = color.new(color.black, 40))
@@ -338,52 +189,13 @@ plotcandle(haOpen, haHigh, haLow, haClose, title = "Heiken Ashi", color = haColo
 sqzColor = noSqz ? color.blue : sqzOn ? color.black : color.gray
 plotshape(showSqzDots ? 0.0 : na, title = "Etat squeeze", style = shape.circle, location = location.belowbar, color = sqzColor, size = size.tiny)
 
-// Point vert sous la bougie = retournement haussier ; point rouge au-dessus = retournement baissier
-plotshape(sigBull, title = "Retournement haussier", style = shape.circle, location = location.belowbar, color = color.new(color.green, 0), size = size.small)
-plotshape(sigBear, title = "Retournement baissier", style = shape.circle, location = location.abovebar, color = color.new(color.red, 0),   size = size.small)
-
-// Croix blanche discrete = perte de momentum apres le dernier signal
-plotshape(showExitCross and exitAfterBull, title = "Perte de momentum (apres achat)", style = shape.xcross, location = location.abovebar, color = color.new(color.white, 0), size = size.tiny)
-plotshape(showExitCross and exitAfterBear, title = "Perte de momentum (apres vente)", style = shape.xcross, location = location.belowbar, color = color.new(color.white, 0), size = size.tiny)
-
-// =========================================================================
-// TABLEAU DE BORD (backtest en R)
-// =========================================================================
-f_dashPos(string s) => s == "Haut gauche" ? position.top_left : s == "Bas droite" ? position.bottom_right : s == "Bas gauche" ? position.bottom_left : position.top_right
-f_dashSize(string s) => s == "Minuscule" ? size.tiny : s == "Normal" ? size.normal : size.small
-
-var table dash = table.new(f_dashPos(dashPosIn), 2, 8, border_width = 1, border_color = color.new(color.gray, 70), bgcolor = color.new(color.black, 75))
-
-f_dcell(int c, int r, string t, color tc, bool hdr) =>
-    table.cell(dash, c, r, t, text_color = tc, text_size = f_dashSize(dashSizeIn), bgcolor = hdr ? color.new(color.navy, 30) : color.new(color.black, 80))
-
-if barstate.islast and showDash
-    color cOk = color.new(color.lime, 0)
-    color cKo = color.new(color.red, 0)
-    color cWh = color.new(color.white, 0)
-    f_dcell(0, 0, "HA SIG - BACKTEST (R)", cWh, true)
-    f_dcell(1, 0, syminfo.ticker, cWh, true)
-    f_dcell(0, 1, "Trades (G / P / BE)", cWh, false)
-    f_dcell(1, 1, str.tostring(btN) + "  (" + str.tostring(btWin) + " / " + str.tostring(btLoss) + " / " + str.tostring(btBE) + ")", cWh, false)
-    f_dcell(0, 2, "Taux de reussite", cWh, false)
-    f_dcell(1, 2, btN > 0 ? str.tostring(100.0 * btWin / btN, "#.#") + " %" : "-", cWh, false)
-    f_dcell(0, 3, "Profit factor", cWh, false)
-    f_dcell(1, 3, btGrossL > 0 ? str.tostring(btGrossW / btGrossL, "#.##") : btGrossW > 0 ? "inf" : "-", cWh, false)
-    f_dcell(0, 4, "Esperance / trade", cWh, false)
-    f_dcell(1, 4, btN > 0 ? (btSum / btN >= 0 ? "+" : "") + str.tostring(btSum / btN, "#.##") + " R" : "-", btN > 0 and btSum >= 0 ? cOk : btN > 0 ? cKo : cWh, false)
-    f_dcell(0, 5, "PNL total", cWh, false)
-    f_dcell(1, 5, (btSum >= 0 ? "+" : "") + str.tostring(btSum, "#.##") + " R", btSum >= 0 ? cOk : cKo, false)
-    f_dcell(0, 6, "Drawdown actuel", cWh, false)
-    f_dcell(1, 6, btDdCur > 0 ? "-" + str.tostring(btDdCur, "#.##") + " R" : "0 R", btDdCur > 0 ? cKo : cWh, false)
-    f_dcell(0, 7, "Drawdown max", cWh, false)
-    f_dcell(1, 7, btDdMax > 0 ? "-" + str.tostring(btDdMax, "#.##") + " R" : "0 R", btDdMax > 0 ? cKo : cWh, false)
+// Triangle vert sous la bougie = retournement haussier (sortie de survente)
+// Triangle rouge au-dessus = retournement baissier (sortie de surachat)
+plotshape(bullSignal, title = "Retournement haussier", style = shape.triangleup,   location = location.belowbar, color = color.new(color.green, 0), size = size.small)
+plotshape(bearSignal, title = "Retournement baissier", style = shape.triangledown, location = location.abovebar, color = color.new(color.red, 0),   size = size.small)
 
 // =========================================================================
 // ALERTES
 // =========================================================================
-alertcondition(sigBull, title = "Retournement haussier", message = "HA Sig : cassure du haut de la bougie rouge vive de reference (point vert) sur {{ticker}} {{interval}}")
-alertcondition(sigBear, title = "Retournement baissier", message = "HA Sig : cassure du bas de la bougie violette vive de reference (point rouge) sur {{ticker}} {{interval}}")
-alertcondition(exitAfterBull, title = "Perte de momentum apres achat", message = "HA Sig : sortie du LONG a la croix sur {{ticker}} {{interval}}")
-alertcondition(exitAfterBear, title = "Perte de momentum apres vente", message = "HA Sig : sortie du SHORT a la croix sur {{ticker}} {{interval}}")
-alertcondition(exitFlipLong,  title = "Sortie LONG (couleur HA)",  message = "HA Sig : sortie du LONG sur changement de couleur Heiken Ashi sur {{ticker}} {{interval}}")
-alertcondition(exitFlipShort, title = "Sortie SHORT (couleur HA)", message = "HA Sig : sortie du SHORT sur changement de couleur Heiken Ashi sur {{ticker}} {{interval}}")
+alertcondition(bullSignal, title = "Retournement haussier", message = "HA Sig : retournement haussier (cassure du haut de la bougie rouge vive de reference) sur {{ticker}} {{interval}}")
+alertcondition(bearSignal, title = "Retournement baissier", message = "HA Sig : retournement baissier (cassure du bas de la bougie violette vive de reference) sur {{ticker}} {{interval}}")

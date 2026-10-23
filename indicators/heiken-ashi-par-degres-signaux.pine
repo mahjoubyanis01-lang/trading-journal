@@ -88,8 +88,14 @@ haColor = strengthening ? baseColor : color.new(baseColor, dampAlpha)
 // Un signal clot le cycle ; un passage a la couleur vive opposee bascule
 // le cycle (l'ancien niveau est abandonne).
 
-bool vividUp = normVal >= vividZone     // violet vif
-bool vividDn = normVal <= -vividZone    // rouge vif
+// Une bougie est VIVE seulement si sa couleur est PLEINE, pas terne :
+// zone extreme atteinte ET momentum qui se renforce (strengthening).
+// Une bougie violette ou rouge mais assombrie/transparente (momentum qui
+// decelere, effet dampAlpha) n'est PAS vive : elle ne peut ni ouvrir un
+// cycle, ni devenir la bougie de reference, ni remettre a zero le
+// compteur de cycle perdu.
+bool vividUp = normVal >=  vividZone and strengthening    // violet vif (couleur pleine)
+bool vividDn = normVal <= -vividZone and strengthening    // rouge vif (couleur pleine)
 
 var int   epDir  = 0    // 1 = cycle violet (attend cassure du bas), -1 = cycle rouge (attend cassure du haut)
 var float refHi  = na   // extremes de la bougie de reference

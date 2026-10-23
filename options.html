@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f8f8f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<title>Options GEX — Heatmap</title>
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── Tokens dataviz (clair / sombre) ─────────────────────────────── */
+.viz-root{
+  color-scheme:light;
+  --viz-surface:#fcfcfb;
+  --viz-pos:#2a78d6;        /* GEX positif : bleu  */
+  --viz-neg:#e34948;        /* GEX négatif : rouge */
+  --viz-mid:#f0efec;        /* neutre (zéro)       */
+  --viz-ink:#0b0b0b;
+  --viz-ink2:#52514e;
+  --viz-muted:#898781;
+  --viz-grid:#e1e0d9;
+  --viz-ring:#fcfcfb;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])) .viz-root{
+    color-scheme:dark;
+    --viz-surface:#1a1a19;
+    --viz-pos:#3987e5;
+    --viz-neg:#e66767;
+    --viz-mid:#383835;
+    --viz-ink:#f0efec;
+    --viz-ink2:#c3c2b7;
+    --viz-muted:#898781;
+    --viz-grid:#2c2c2a;
+    --viz-ring:#1a1a19;
+  }
+}
+:root[data-theme="dark"] .viz-root{
+  color-scheme:dark;
+  --viz-surface:#1a1a19;
+  --viz-pos:#3987e5;
+  --viz-neg:#e66767;
+  --viz-mid:#383835;
+  --viz-ink:#f0efec;
+  --viz-ink2:#c3c2b7;
+  --viz-muted:#898781;
+  --viz-grid:#2c2c2a;
+  --viz-ring:#1a1a19;
+}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px}
+.controls .form-group{min-width:130px}
+.viz-wrap{position:relative;background:var(--viz-surface);border-radius:8px;padding:4px}
+.viz-canvas{display:block;width:100%;cursor:crosshair}
+.viz-tooltip{
+  position:fixed;z-index:50;pointer-events:none;display:none;
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;font-size:12px;color:var(--text);box-shadow:0 4px 14px rgba(0,0,0,.18);
+  min-width:170px;line-height:1.5;
+}
+.viz-tooltip b{font-family:ui-monospace,monospace}
+.legend-row{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;font-size:11px;color:var(--viz-ink2)}
+.legend-grad{height:10px;width:180px;border-radius:5px;border:1px solid var(--viz-grid)}
+.legend-key{display:inline-flex;align-items:center;gap:5px}
+.legend-swatch{width:14px;height:3px;border-radius:2px;display:inline-block}
+.status-note{font-size:12px;color:var(--text3);padding:14px;text-align:center}
+.src-note{font-size:11px;color:var(--text3);margin:10px 4px 60px;line-height:1.6}
+@media(min-width:768px){.src-note{margin-bottom:12px}}
+table.gex-table td,table.gex-table th{font-family:ui-monospace,monospace;font-size:11px;text-align:right;padding:4px 8px}
+table.gex-table th:first-child,table.gex-table td:first-child{text-align:left}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-dot"></div>
+    <div>
+      <div class="brand-name">Options GEX</div>
+      <div class="brand-sub">Gamma Exposure · CBOE</div>
+    </div>
+  </div>
+  <nav class="top-nav">
+    <a class="tnav-btn" href="index.html" style="text-decoration:none">← Journal</a>
+  </nav>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="pill" id="pill-updated">—</span>
+    <button class="btn btn-ghost btn-sm" onclick="exportDay()" title="Exporter la journée (backtest)">💾 Export</button>
+  </div>
+</div>
+
+<div class="main viz-root">
+
+  <div class="controls">
+    <div class="form-group">
+      <label class="form-label">Symbole</label>
+      <select id="c-symbol" class="form-input"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Journée (backtest)</label>
+      <select id="c-day" class="form-input"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Snapshot</label>
+      <select id="c-snap" class="form-input"></select>
+    </div>
+    <button class="btn btn-ghost" id="c-table-btn" onclick="toggleTable()">Vue tableau</button>
+  </div>
+
+  <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
+    <div class="kpi"><div class="kpi-label">Spot</div><div class="kpi-value" id="k-spot">—</div></div>
+    <div class="kpi"><div class="kpi-label">GEX net total</div><div class="kpi-value" id="k-gex">—</div></div>
+    <div class="kpi"><div class="kpi-label">Gamma flip</div><div class="kpi-value" id="k-flip">—</div></div>
+    <div class="kpi"><div class="kpi-label">Call wall</div><div class="kpi-value" id="k-cwall">—</div></div>
+    <div class="kpi"><div class="kpi-label">Put wall</div><div class="kpi-value" id="k-pwall">—</div></div>
+    <div class="kpi"><div class="kpi-label">IV 30j</div><div class="kpi-value" id="k-iv">—</div></div>
+  </div>
+
+  <div class="card" style="padding:16px">
+    <div class="card-title" style="margin-bottom:12px">Heatmap intrajournalière — GEX net par strike</div>
+    <div class="viz-wrap">
+      <canvas id="heatmap" class="viz-canvas" height="520"></canvas>
+    </div>
+    <div class="legend-row">
+      <span>GEX net&nbsp;:</span>
+      <span>négatif</span><div class="legend-grad" id="legend-grad"></div><span>positif</span>
+      <span class="legend-key"><span class="legend-swatch" style="background:var(--viz-ink)"></span> Spot</span>
+      <span class="legend-key"><span class="legend-swatch" style="background:var(--viz-ink);height:0;border-top:2px dashed var(--viz-ink)"></span> Gamma flip</span>
+    </div>
+    <div id="hm-status" class="status-note" style="display:none"></div>
+  </div>
+
+  <div class="card" style="padding:16px">
+    <div class="card-title" style="margin-bottom:12px">Profil GEX par strike — <span id="profile-time">—</span></div>
+    <div class="viz-wrap">
+      <canvas id="profile" class="viz-canvas" height="420"></canvas>
+    </div>
+    <div class="legend-row">
+      <span class="legend-key"><span class="legend-swatch" style="background:var(--viz-pos);height:8px"></span> GEX calls</span>
+      <span class="legend-key"><span class="legend-swatch" style="background:var(--viz-neg);height:8px"></span> GEX puts</span>
+      <span class="legend-key"><span class="legend-swatch" style="background:var(--viz-ink)"></span> Spot</span>
+    </div>
+  </div>
+
+  <div class="card" id="table-card" style="display:none">
+    <div class="card-header"><span class="card-title">Données du snapshot (vue tableau)</span></div>
+    <div class="table-wrap" style="max-height:420px;overflow:auto">
+      <table class="gex-table">
+        <thead><tr><th>Strike</th><th>GEX calls (M$)</th><th>GEX puts (M$)</th><th>GEX net (M$)</th><th>OI calls</th><th>OI puts</th><th>Vol calls</th><th>Vol puts</th></tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="src-note">
+    Données : chaînes d'options <b>CBOE</b> (cotations différées ~15 min, gratuites) ·
+    GEX = gamma × open&nbsp;interest × 100 × spot² × 1% (convention dealers&nbsp;: calls longs, puts courts), en millions de dollars ·
+    Snapshots pris toutes les 30 min pendant les heures de marché US par GitHub Actions, archivés par journée pour le backtest ·
+    Reset automatique chaque jour de bourse.
+  </p>
+
+</div>
+
+<div class="viz-tooltip" id="tooltip"></div>
+
+<script src="options.js"></script>
+</body>
+</html>

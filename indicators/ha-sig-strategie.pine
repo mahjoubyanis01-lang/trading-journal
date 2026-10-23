@@ -1,0 +1,467 @@
+//@version=6
+// =============================================================================
+//  HA SIG STRATEGY -- version strategie de l'indicateur HA Sig
+//
+//  Logique identique a l'indicateur :
+//   - Bougies Heiken Ashi colorees par le momentum Squeeze (LazyBear)
+//   - Cycle sur couleur VIVE (zone extreme + momentum en renforcement)
+//   - Bougie de reference = bougie vive ET P1 (extension structurelle),
+//     au plus haut du cycle violet / au plus bas du cycle rouge
+//   - Signal = cassure du plus bas (violet) / plus haut (rouge) de la
+//     reference ; cycle perdu apres N bougies non vives consecutives
+//   - SL = plus bas/plus haut des N dernieres bougies (-1 R)
+//   - Break-even a +1 R (cloture 0 R)
+//   - Sortie a la croix de perte de momentum, UNIQUEMENT en PnL positif
+//   - Un seul trade a la fois
+// =============================================================================
+strategy("HA Sig Strategy", "HA SigS", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500, process_orders_on_close=true, pyramiding=0, initial_capital=1000000, default_qty_type=strategy.fixed, default_qty_value=1, margin_long=0, margin_short=0)
+
+// =========================================================================
+// INPUTS
+// =========================================================================
+grpSqz = "Squeeze Momentum (LazyBear)"
+bbLength     = input.int(20, "BB Length", group = grpSqz)
+bbMult       = input.float(2.0, "BB MultFactor", group = grpSqz)
+kcLength     = input.int(20, "KC Length", group = grpSqz)
+kcMult       = input.float(1.5, "KC MultFactor", group = grpSqz)
+useTrueRange = input.bool(true, "Use TrueRange (KC)", group = grpSqz)
+
+grpColor = "Coloration / Graduation"
+normLen   = input.int(100, "Fenetre de normalisation du momentum", group = grpColor)
+dampAlpha = input.int(55, "Transparence en phase de ralentissement", group = grpColor, minval = 0, maxval = 100)
+
+grpSqzShow  = "Affichage squeeze"
+showSqzDots = input.bool(true, "Afficher les points de squeeze sous les bougies", group = grpSqzShow)
+
+grpSig = "Signaux : cassure de la bougie extreme"
+showSignals  = input.bool(true, "Activer les signaux", group = grpSig)
+vividZone    = input.int(75, "Seuil de couleur vive (0-100)", group = grpSig, minval = 40, maxval = 100)
+breakOnClose = input.bool(true, "Cassure a la cloture (sinon a la meche)", group = grpSig)
+showLevels   = input.bool(true, "Afficher le niveau surveille", group = grpSig)
+showExitCross = input.bool(true, "Croix de perte de momentum", group = grpSig)
+crossBars     = input.int(2, "Bougies de repli pour confirmer la croix", group = grpSig, minval = 1, maxval = 10)
+maxWait      = input.int(0, "Validite du niveau (barres, 0 = illimitee)", group = grpSig, minval = 0, maxval = 500)
+cancelBars   = input.int(3, "Bougies non vives consecutives = cycle perdu", group = grpSig, minval = 1, maxval = 20)
+
+grpMs = "Market structure (P1)"
+useP1 = input.bool(true, "Reference = bougie P1 (extension) obligatoire", group = grpMs)
+msRh  = input.int(0, "Reset structure : heure (Paris)", minval = 0, maxval = 23, group = grpMs)
+msRm  = input.int(0, "Reset structure : minute", minval = 0, maxval = 59, group = grpMs)
+
+grpTrade = "Risque / gestion"
+i_risk     = input.float(1000.0, "Risque par trade (argent)", minval = 0.0, step = 50, group = grpTrade, tooltip = "Taille de position = risque / (distance entree-SL x valeur du point). 0 = 1 contrat fixe.")
+slLen      = input.int(5, "Bougies pour le SL (plus bas / plus haut)", minval = 1, maxval = 50, group = grpTrade)
+useBE      = input.bool(true, "Break-even : SL ramene a l'entree des +1 R", group = grpTrade)
+beTrigger  = input.float(1.0, "Declenchement du break-even (en R)", minval = 0.1, step = 0.25, group = grpTrade)
+showTradeBox = input.bool(true, "Afficher entree + box SL", group = grpTrade)
+slCol      = input.color(color.new(color.red, 80),  "Box SL", group = grpTrade, inline = "tc")
+entCol     = input.color(color.new(color.gray, 0),  "Entree", group = grpTrade, inline = "tc")
+
+grpDash = "Tableau de bord"
+showDash   = input.bool(true, "Afficher le tableau de bord", group = grpDash)
+dashPosIn  = input.string("Haut droite", "Position", options = ["Haut droite", "Haut gauche", "Bas droite", "Bas gauche"], group = grpDash)
+dashSizeIn = input.string("Petit", "Taille du texte", options = ["Minuscule", "Petit", "Normal"], group = grpDash)
+
+// =========================================================================
+// HEIKEN ASHI (OHLC)
+// =========================================================================
+haTicker = ticker.heikinashi(syminfo.tickerid)
+haOpen   = request.security(haTicker, timeframe.period, open)
+haHigh   = request.security(haTicker, timeframe.period, high)
+haLow    = request.security(haTicker, timeframe.period, low)
+haClose  = request.security(haTicker, timeframe.period, close)
+
+// =========================================================================
+// SQUEEZE MOMENTUM (LazyBear) -- recalcul en v6, sur le prix reel
+// =========================================================================
+source = close
+basis  = ta.sma(source, bbLength)
+dev    = bbMult * ta.stdev(source, bbLength)
+upperBB = basis + dev
+lowerBB = basis - dev
+
+ma      = ta.sma(source, kcLength)
+rangeV  = useTrueRange ? ta.tr(true) : (high - low)
+rangema = ta.sma(rangeV, kcLength)
+upperKC = ma + rangema * kcMult
+lowerKC = ma - rangema * kcMult
+
+sqzOn  = (lowerBB > lowerKC) and (upperBB < upperKC)
+sqzOff = (lowerBB < lowerKC) and (upperBB > upperKC)
+noSqz  = not sqzOn and not sqzOff
+
+val = ta.linreg(source - math.avg(math.avg(ta.highest(high, kcLength), ta.lowest(low, kcLength)), ta.sma(close, kcLength)), kcLength, 0)
+
+// =========================================================================
+// GRADUATION DE COULEUR
+// =========================================================================
+normVal = 100 * nz(val) / math.max(ta.highest(math.abs(val), normLen), 1e-10)
+normVal := math.max(math.min(normVal, 100), -100)
+
+strengthening = val > 0 ? (val > nz(val[1])) : (val < nz(val[1]))
+
+baseColor = normVal >= 0 ?
+     color.from_gradient(normVal, 0, 100, color.new(color.gray, 45), color.new(#cd00db, 0)) :
+     color.from_gradient(normVal, -100, 0, color.new(color.red, 0), color.new(color.gray, 45))
+
+haColor = strengthening ? baseColor : color.new(baseColor, dampAlpha)
+
+// =========================================================================
+// MARKET STRUCTURE -- moteur P1-P4 reduit (detection P1 uniquement)
+// =========================================================================
+tzMs = "Europe/Paris"
+bool msNd = hour(time, tzMs) == msRh and minute(time, tzMs) == msRm and (hour(nz(time[1], time - 1), tzMs) != msRh or minute(nz(time[1], time - 1), tzMs) != msRm)
+
+var int   msTr  = 1
+var int   msSt  = 0
+var float msP1e = na
+var float msP1o = na
+var float msP2e = na
+var float msPp2 = na
+var float msPp1 = na
+var bool  msHp1 = false
+
+if na(msP1e)
+    msTr  := close >= open ? 1 : -1
+    msP1e := close >= open ? high : low
+    msP1o := close >= open ? low  : high
+    msPp2 := close >= open ? high : low
+
+if msNd
+    msTr  := close >= open ? 1 : -1
+    msSt  := 0
+    msP1e := close >= open ? high : low
+    msP1o := close >= open ? low  : high
+    msP2e := na
+    msPp2 := close >= open ? high : low
+    msPp1 := na
+    msHp1 := false
+
+bool isP1up = false
+bool isP1dn = false
+
+if msTr == 1
+    if msSt == 0 and high > msP1e
+        msP1e := high
+        msP1o := low
+        msHp1 := true
+        isP1up := true
+    if msSt == 0 and high <= msP1e and low < msP1o
+        msP2e := low
+        msSt  := 1
+    if msSt == 1 and low < msP2e
+        msP2e := low
+    if msSt == 1 and close > msP1e
+        msPp2 := msP2e
+        msPp1 := na
+        msHp1 := false
+        msP1e := high
+        msP1o := low
+        msP2e := na
+        msSt  := 0
+    bool msTdn = (not na(msPp2) and close < msPp2) or (msHp1 and not na(msPp1) and close < msPp1)
+    if msSt == 1 and msTdn and not (close > msP1e)
+        msPp2 := na
+        msPp1 := msP1e
+        msHp1 := true
+        msTr  := -1
+        msSt  := 0
+        msP1e := low
+        msP1o := high
+        msP2e := na
+
+if msTr == -1
+    if msSt == 0 and low < msP1e
+        msP1e := low
+        msP1o := high
+        msHp1 := true
+        isP1dn := true
+    if msSt == 0 and low >= msP1e and high > msP1o
+        msP2e := high
+        msSt  := 1
+    if msSt == 1 and high > msP2e
+        msP2e := high
+    if msSt == 1 and close < msP1e
+        msPp2 := msP2e
+        msPp1 := na
+        msHp1 := false
+        msP1e := low
+        msP1o := high
+        msP2e := na
+        msSt  := 0
+    bool msTup = (not na(msPp2) and close > msPp2) or (msHp1 and not na(msPp1) and close > msPp1)
+    if msSt == 1 and msTup and not (close < msP1e)
+        msPp2 := na
+        msPp1 := msP1e
+        msHp1 := true
+        msTr  := 1
+        msSt  := 0
+        msP1e := high
+        msP1o := low
+        msP2e := na
+
+// =========================================================================
+// SIGNAUX : CASSURE DE LA BOUGIE EXTREME
+// =========================================================================
+bool vividUp = normVal >=  vividZone and strengthening
+bool vividDn = normVal <= -vividZone and strengthening
+
+var int   epDir  = 0
+var float refHi  = na
+var float refLo  = na
+var int   refBar = na
+var line  refLn  = na
+
+if vividUp and epDir != 1
+    epDir  := 1
+    refHi  := na
+    refLo  := na
+    refBar := na
+    if not na(refLn)
+        line.delete(refLn)
+    refLn := na
+if vividDn and epDir != -1
+    epDir  := -1
+    refHi  := na
+    refLo  := na
+    refBar := na
+    if not na(refLn)
+        line.delete(refLn)
+    refLn := na
+
+if epDir == 1 and vividUp and (not useP1 or isP1up) and (na(refHi) or haHigh > refHi)
+    refHi  := haHigh
+    refLo  := haLow
+    refBar := bar_index
+    if na(refLn)
+        refLn := showLevels ? line.new(bar_index, refLo, bar_index + 1, refLo, color = color.new(#cd00db, 0), style = line.style_dashed, width = 2) : na
+    else
+        line.set_xy1(refLn, bar_index, refLo)
+        line.set_xy2(refLn, bar_index + 1, refLo)
+if epDir == -1 and vividDn and (not useP1 or isP1dn) and (na(refLo) or haLow < refLo)
+    refHi  := haHigh
+    refLo  := haLow
+    refBar := bar_index
+    if na(refLn)
+        refLn := showLevels ? line.new(bar_index, refHi, bar_index + 1, refHi, color = color.new(color.red, 0), style = line.style_dashed, width = 2) : na
+    else
+        line.set_xy1(refLn, bar_index, refHi)
+        line.set_xy2(refLn, bar_index + 1, refHi)
+
+if epDir != 0 and not na(refLn)
+    line.set_x2(refLn, bar_index)
+
+if epDir != 0 and not na(refBar) and maxWait > 0 and bar_index - refBar > maxWait
+    epDir := 0
+    refLn := na
+
+var int fadeCnt = 0
+fadeCnt := epDir == 1 ? (vividUp ? 0 : fadeCnt + 1) : epDir == -1 ? (vividDn ? 0 : fadeCnt + 1) : 0
+if epDir != 0 and fadeCnt >= cancelBars
+    epDir := 0
+    if not na(refLn)
+        line.delete(refLn)
+    refLn := na
+
+bool brkDn = epDir == 1  and not na(refLo) and bar_index > refBar and (breakOnClose ? haClose < refLo : haLow  < refLo)
+bool brkUp = epDir == -1 and not na(refHi) and bar_index > refBar and (breakOnClose ? haClose > refHi : haHigh > refHi)
+
+bearSignal = showSignals and brkDn
+bullSignal = showSignals and brkUp
+
+if brkDn or brkUp
+    epDir := 0
+    refLn := na
+
+// =========================================================================
+// CROIX DE PERTE DE MOMENTUM (valide uniquement en PNL positif)
+// =========================================================================
+var int momDnCnt = 0
+var int momUpCnt = 0
+momDnCnt := nz(val) < nz(val[1]) ? momDnCnt + 1 : 0
+momUpCnt := nz(val) > nz(val[1]) ? momUpCnt + 1 : 0
+
+var int   pendingExit = 0
+var int   sigBarIdx   = na
+var float sigPrice    = na
+bool exitAfterBull = false
+bool exitAfterBear = false
+if pendingExit == 1 and not na(sigBarIdx) and bar_index > sigBarIdx and momDnCnt >= crossBars and close > sigPrice
+    exitAfterBull := true
+    pendingExit := 0
+if pendingExit == -1 and not na(sigBarIdx) and bar_index > sigBarIdx and momUpCnt >= crossBars and close < sigPrice
+    exitAfterBear := true
+    pendingExit := 0
+
+// =========================================================================
+// EXECUTION STRATEGIE : UN SEUL TRADE, SL / BE / SORTIE CROIX
+// =========================================================================
+float slLow  = ta.lowest(low, slLen)
+float slHigh = ta.highest(high, slLen)
+
+var int   trDir      = 0
+var float trEnt      = na
+var float trSl       = na
+var float trRisk     = na
+var int   trStartBar = na
+var bool  trBE       = false
+var box   trBoxSl    = na
+var line  trLine     = na
+var line  trBeLine   = na
+
+// Resultat du trade clos (na = aucun), pour le label et les stats en R
+float tradeRes = na
+
+// 1) detection d'une cloture par le moteur (stop touche ou sortie croix)
+if strategy.closedtrades > nz(strategy.closedtrades[1]) and trDir != 0
+    int ci = strategy.closedtrades - 1
+    float ep = strategy.closedtrades.entry_price(ci)
+    float xp = strategy.closedtrades.exit_price(ci)
+    float dsign = math.sign(strategy.closedtrades.size(ci))
+    float res = trRisk > 0 ? dsign * (xp - ep) / trRisk : 0.0
+    bool  isBe = math.abs(res) <= 0.05 and trBE
+    string resTxt = isBe ? "BE 0 R" : (res >= 0 ? "+" : "") + str.tostring(res, "#.##") + " R"
+    color  resCol = isBe ? color.new(color.gray, 0) : res > 0.01 ? color.new(color.green, 0) : res < -0.01 ? color.new(color.red, 0) : color.new(color.gray, 0)
+    label.new(bar_index, xp, resTxt, color = resCol, textcolor = color.white, style = label.style_label_left, size = size.small)
+    tradeRes := isBe ? 0.0 : res
+    trDir := 0
+    if not na(trLine)
+        line.delete(trLine)
+        trLine := na
+    if not na(trBeLine)
+        line.delete(trBeLine)
+        trBeLine := na
+
+// 2) gestion du trade actif : extension des dessins, break-even, sortie croix
+if trDir != 0
+    if not na(trBoxSl)
+        box.set_right(trBoxSl, bar_index)
+    if not na(trLine)
+        line.set_x2(trLine, bar_index)
+    if not na(trBeLine)
+        line.set_x2(trBeLine, bar_index)
+    if bar_index > trStartBar
+        if useBE and not trBE
+            bool beNow = trDir == 1 ? high >= trEnt + beTrigger * trRisk : low <= trEnt - beTrigger * trRisk
+            if beNow
+                trBE := true
+                strategy.exit("x", from_entry = "T", stop = trEnt)
+                trBeLine := line.new(bar_index, trEnt, bar_index + 1, trEnt, color = color.new(color.orange, 0), width = 2, style = line.style_dashed)
+                label.new(bar_index, trEnt, "BE", color = color.new(color.orange, 0), textcolor = color.white, style = trDir == 1 ? label.style_label_down : label.style_label_up, size = size.tiny)
+        bool crossExit = trDir == 1 ? exitAfterBull : exitAfterBear
+        if crossExit
+            strategy.close("T", comment = "Croix")
+
+// 3) statistiques en R (BE = 0, SL = -1, croix = +R ; drawdown pic-a-creux)
+var int   btN      = 0
+var int   btWin    = 0
+var int   btLoss   = 0
+var int   btBE     = 0
+var float btSum    = 0.0
+var float btGrossW = 0.0
+var float btGrossL = 0.0
+var float btPeak   = 0.0
+var float btDdMax  = 0.0
+if not na(tradeRes)
+    btN   += 1
+    btSum += tradeRes
+    if tradeRes > 0.01
+        btWin += 1
+        btGrossW += tradeRes
+    else if tradeRes < -0.01
+        btLoss += 1
+        btGrossL += -tradeRes
+    else
+        btBE += 1
+    btPeak  := math.max(btPeak, btSum)
+    btDdMax := math.max(btDdMax, btPeak - btSum)
+float btDdCur = btPeak - btSum
+
+// 4) nouveaux signaux : uniquement sans trade en cours
+bool sigBull = bullSignal and trDir == 0
+bool sigBear = bearSignal and trDir == 0
+
+// 5) ouverture du trade (ordre au marche execute a la cloture de la bougie)
+int openDir = sigBull ? 1 : sigBear ? -1 : 0
+if openDir != 0
+    float ent = close
+    float sl  = openDir == 1 ? slLow : slHigh
+    float risk = math.abs(ent - sl)
+    if risk > 0
+        trDir      := openDir
+        trEnt      := ent
+        trSl       := sl
+        trRisk     := risk
+        trStartBar := bar_index
+        trBE       := false
+        trBeLine   := na
+        float qty = i_risk > 0 and syminfo.pointvalue > 0 ? i_risk / (risk * syminfo.pointvalue) : 1.0
+        strategy.entry("T", openDir == 1 ? strategy.long : strategy.short, qty = qty)
+        strategy.exit("x", from_entry = "T", stop = sl)
+        if showTradeBox
+            trBoxSl := box.new(bar_index, math.max(ent, sl), bar_index + 1, math.min(ent, sl), bgcolor = slCol, border_color = color.new(slCol, 0), text = "SL " + str.tostring(sl, format.mintick), text_color = color.new(slCol, 0), text_size = size.tiny, text_halign = text.align_center)
+            trLine  := line.new(bar_index, ent, bar_index + 1, ent, color = entCol, width = 2)
+
+// 6) armement de la croix sur le signal effectivement execute
+if sigBull
+    pendingExit := 1
+    sigBarIdx := bar_index
+    sigPrice := close
+if sigBear
+    pendingExit := -1
+    sigBarIdx := bar_index
+    sigPrice := close
+
+// =========================================================================
+// AFFICHAGE
+// =========================================================================
+plotcandle(haOpen, haHigh, haLow, haClose, title = "Heiken Ashi", color = haColor, wickcolor = haColor, bordercolor = color.new(color.black, 40))
+
+sqzColor = noSqz ? color.blue : sqzOn ? color.black : color.gray
+plotshape(showSqzDots ? 0.0 : na, title = "Etat squeeze", style = shape.circle, location = location.belowbar, color = sqzColor, size = size.tiny)
+
+plotshape(sigBull, title = "Retournement haussier", style = shape.circle, location = location.belowbar, color = color.new(color.green, 0), size = size.small)
+plotshape(sigBear, title = "Retournement baissier", style = shape.circle, location = location.abovebar, color = color.new(color.red, 0),   size = size.small)
+
+plotshape(showExitCross and exitAfterBull, title = "Perte de momentum (apres achat)", style = shape.xcross, location = location.abovebar, color = color.new(color.white, 0), size = size.tiny)
+plotshape(showExitCross and exitAfterBear, title = "Perte de momentum (apres vente)", style = shape.xcross, location = location.belowbar, color = color.new(color.white, 0), size = size.tiny)
+
+// =========================================================================
+// TABLEAU DE BORD (backtest en R)
+// =========================================================================
+f_dashPos(string s) => s == "Haut gauche" ? position.top_left : s == "Bas droite" ? position.bottom_right : s == "Bas gauche" ? position.bottom_left : position.top_right
+f_dashSize(string s) => s == "Minuscule" ? size.tiny : s == "Normal" ? size.normal : size.small
+
+var table dash = table.new(f_dashPos(dashPosIn), 2, 8, border_width = 1, border_color = color.new(color.gray, 70), bgcolor = color.new(color.black, 75))
+
+f_dcell(int c, int r, string t, color tc, bool hdr) =>
+    table.cell(dash, c, r, t, text_color = tc, text_size = f_dashSize(dashSizeIn), bgcolor = hdr ? color.new(color.navy, 30) : color.new(color.black, 80))
+
+if barstate.islast and showDash
+    color cOk = color.new(color.lime, 0)
+    color cKo = color.new(color.red, 0)
+    color cWh = color.new(color.white, 0)
+    f_dcell(0, 0, "HA SIG S - BACKTEST (R)", cWh, true)
+    f_dcell(1, 0, syminfo.ticker, cWh, true)
+    f_dcell(0, 1, "Trades (G / P / BE)", cWh, false)
+    f_dcell(1, 1, str.tostring(btN) + "  (" + str.tostring(btWin) + " / " + str.tostring(btLoss) + " / " + str.tostring(btBE) + ")", cWh, false)
+    f_dcell(0, 2, "Taux de reussite", cWh, false)
+    f_dcell(1, 2, btN > 0 ? str.tostring(100.0 * btWin / btN, "#.#") + " %" : "-", cWh, false)
+    f_dcell(0, 3, "Profit factor", cWh, false)
+    f_dcell(1, 3, btGrossL > 0 ? str.tostring(btGrossW / btGrossL, "#.##") : btGrossW > 0 ? "inf" : "-", cWh, false)
+    f_dcell(0, 4, "Esperance / trade", cWh, false)
+    f_dcell(1, 4, btN > 0 ? (btSum / btN >= 0 ? "+" : "") + str.tostring(btSum / btN, "#.##") + " R" : "-", btN > 0 and btSum >= 0 ? cOk : btN > 0 ? cKo : cWh, false)
+    f_dcell(0, 5, "PNL total", cWh, false)
+    f_dcell(1, 5, (btSum >= 0 ? "+" : "") + str.tostring(btSum, "#.##") + " R", btSum >= 0 ? cOk : cKo, false)
+    f_dcell(0, 6, "Drawdown actuel", cWh, false)
+    f_dcell(1, 6, btDdCur > 0 ? "-" + str.tostring(btDdCur, "#.##") + " R" : "0 R", btDdCur > 0 ? cKo : cWh, false)
+    f_dcell(0, 7, "Drawdown max", cWh, false)
+    f_dcell(1, 7, btDdMax > 0 ? "-" + str.tostring(btDdMax, "#.##") + " R" : "0 R", btDdMax > 0 ? cKo : cWh, false)
+
+// =========================================================================
+// ALERTES
+// =========================================================================
+alertcondition(sigBull, title = "Retournement haussier", message = "HA SigS : entree LONG (cassure du haut de la bougie rouge vive de reference) sur {{ticker}} {{interval}}")
+alertcondition(sigBear, title = "Retournement baissier", message = "HA SigS : entree SHORT (cassure du bas de la bougie violette vive de reference) sur {{ticker}} {{interval}}")
+alertcondition(exitAfterBull, title = "Perte de momentum apres achat", message = "HA SigS : sortie du LONG a la croix sur {{ticker}} {{interval}}")
+alertcondition(exitAfterBear, title = "Perte de momentum apres vente", message = "HA SigS : sortie du SHORT a la croix sur {{ticker}} {{interval}}")

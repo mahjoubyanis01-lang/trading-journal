@@ -88,6 +88,23 @@ Ouvrir ensuite http://localhost:5173. Le backend doit rester lancé
 
 Tests backend : `cd backend && python -m pytest`.
 
+## Notification quotidienne à l'heure limite
+
+Page Configuration → « Notification quotidienne » : une fois activée, chaque
+jour de semaine à 15 h 29 (heure de Paris, suit le réglage de l'heure
+limite), l'application calcule le verdict FIGÉ du jour avec le moteur
+complet puis notifie :
+
+- **Toast Windows** natif sur le PC (aucune installation) ;
+- **Telegram** (facultatif) : jeton de bot (@BotFather) à saisir dans la
+  liste des fournisseurs, chat_id dans les paramètres de notification —
+  pour recevoir le verdict sur téléphone.
+
+Le serveur backend doit être lancé à cette heure-là (raccourci Bureau).
+Un garde-fou sur disque évite les doublons, y compris après redémarrage ;
+bouton « Envoyer une notification de test » pour vérifier les canaux.
+Les changements d'heure été/hiver sont gérés automatiquement.
+
 ## Sources de données
 
 | Source | Clé | Rôle | Limites réelles |

@@ -48,11 +48,16 @@ DEFAULT_SETTINGS: dict = {
         "earnings": 10,
     },
     "es_provider": "yahoo",
+    "notifications": {
+        "enabled": False,
+        "telegram_chat_id": "",
+    },
 }
 
 ALLOWED_LOOKBACKS = {10, 30, 60, 90, 252}
 KEY_PROVIDERS = {"fred": "FRED_API_KEY", "finnhub": "FINNHUB_API_KEY",
-                 "databento": "DATABENTO_API_KEY", "newsapi": "NEWSAPI_API_KEY"}
+                 "databento": "DATABENTO_API_KEY", "newsapi": "NEWSAPI_API_KEY",
+                 "telegram": "TELEGRAM_BOT_TOKEN"}
 
 _lock = threading.Lock()
 
@@ -67,6 +72,10 @@ def load_settings() -> dict:
                     fw = dict(DEFAULT_SETTINGS["factor_weights"])
                     fw.update({kk: float(vv) for kk, vv in v.items() if kk in fw})
                     s["factor_weights"] = fw
+                elif k == "notifications" and isinstance(v, dict):
+                    nf = dict(DEFAULT_SETTINGS["notifications"])
+                    nf.update({kk: vv for kk, vv in v.items() if kk in nf})
+                    s["notifications"] = nf
                 elif k in DEFAULT_SETTINGS:
                     s[k] = v
         except (json.JSONDecodeError, OSError):
@@ -102,6 +111,13 @@ def save_settings(update: dict) -> dict:
                 if v not in ("yahoo", "databento"):
                     raise ValueError("es_provider doit être 'yahoo' ou 'databento'")
                 s[k] = v
+            elif k == "notifications" and isinstance(v, dict):
+                nf = dict(s["notifications"])
+                if "enabled" in v:
+                    nf["enabled"] = bool(v["enabled"])
+                if "telegram_chat_id" in v:
+                    nf["telegram_chat_id"] = str(v["telegram_chat_id"]).strip()
+                s["notifications"] = nf
         if not (s["strong_bearish_threshold"] < s["bearish_threshold"] < 0
                 < s["bullish_threshold"] < s["strong_bullish_threshold"]):
             raise ValueError(

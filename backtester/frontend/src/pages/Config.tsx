@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, BackendUnreachableError, EXPORT_CSV_URL, EXPORT_JSON_URL } from '../api'
-import type { AppConfig, ProviderStatus, ProviderTestResult } from '../api'
+import type { AppConfig, NotifyStatus, NotifyTestResult, ProviderStatus, ProviderTestResult } from '../api'
 import { useApi } from '../hooks'
 import { Card, EmptyState, ErrorBanner, Loading } from '../components/ui'
 import { FACTOR_LABELS, fmtDateTime, fmtInt } from '../format'
@@ -303,6 +303,127 @@ function ProviderRow({ provider, onChanged }: { provider: ProviderStatus; onChan
 
 // ---------------------------------------------------------------
 
+/** Notification quotidienne du verdict à l'heure limite (toast Windows +
+ *  Telegram optionnel). Le jeton du bot Telegram se saisit dans la liste des
+ *  fournisseurs ci-dessous ; le chat_id ici. */
+function NotificationsCard({ config, onSaved }: { config: AppConfig; onSaved: () => void }) {
+  const [enabled, setEnabled] = useState(config.notifications?.enabled ?? false)
+  const [chatId, setChatId] = useState(config.notifications?.telegram_chat_id ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
+  const [status, setStatus] = useState<NotifyStatus | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<NotifyTestResult | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    setEnabled(config.notifications?.enabled ?? false)
+    setChatId(config.notifications?.telegram_chat_id ?? '')
+  }, [config])
+
+  useEffect(() => {
+    api.notifyStatus().then(setStatus).catch(() => setStatus(null))
+  }, [config])
+
+  const save = async () => {
+    setSaving(true)
+    setErr(null)
+    setSaveMsg(null)
+    try {
+      await api.putConfig({ notifications: { enabled, telegram_chat_id: chatId } })
+      setSaveMsg('Enregistré.')
+      onSaved()
+      setStatus(await api.notifyStatus())
+    } catch (e) {
+      setErr(errMessage(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const test = async () => {
+    setTesting(true)
+    setErr(null)
+    setTestResult(null)
+    try {
+      setTestResult(await api.notifyTest())
+    } catch (e) {
+      setErr(errMessage(e))
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <Card title={`Notification quotidienne (${config.cutoff_paris} Paris)`}>
+      <p className="muted">
+        À l'heure limite, les jours de semaine, l'application calcule le verdict figé du jour
+        (moteur complet) et vous notifie : toast Windows sur le PC, et Telegram si un bot est
+        configuré (jeton dans la liste des fournisseurs, chat_id ci-dessous). Le serveur backend
+        doit être lancé à cette heure-là.
+      </p>
+      <div className="form-grid" style={{ marginBottom: 12 }}>
+        <div className="field">
+          <label htmlFor="n-enabled">Notification automatique</label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              id="n-enabled"
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
+            />
+            Activée
+          </label>
+        </div>
+        <div className="field">
+          <label htmlFor="n-chat">Telegram chat_id (facultatif)</label>
+          <input
+            id="n-chat"
+            type="text"
+            value={chatId}
+            placeholder="ex: 123456789"
+            onChange={(e) => setChatId(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="row-actions">
+        <button className="btn" onClick={() => void save()} disabled={saving}>
+          Enregistrer
+        </button>
+        <button className="btn btn-ghost" onClick={() => void test()} disabled={testing}>
+          {testing ? 'Envoi…' : 'Envoyer une notification de test'}
+        </button>
+        {saveMsg && <span className="pos">{saveMsg}</span>}
+      </div>
+      {err && <p className="neg">{err}</p>}
+      {status && (
+        <p className="muted" style={{ marginTop: 10 }}>
+          {status.enabled
+            ? `Prochain envoi : ${fmtDateTime(status.next_trigger)} (Paris)`
+            : 'Notification désactivée.'}
+          {status.last_sent_date ? ` · Dernier envoi : ${status.last_sent_date}` : ''}
+          {' · Toast Windows : '}
+          {status.windows_toast_available ? 'disponible' : 'indisponible sur ce système'}
+          {' · Telegram : '}
+          {status.telegram_configured ? 'configuré' : 'non configuré'}
+        </p>
+      )}
+      {testResult && (
+        <ul style={{ marginTop: 8 }}>
+          <li className={testResult.toast.ok ? 'pos' : 'muted'}>
+            Toast Windows : {testResult.toast.message}
+          </li>
+          {testResult.telegram && (
+            <li className={testResult.telegram.ok ? 'pos' : 'muted'}>
+              Telegram : {testResult.telegram.message}
+            </li>
+          )}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
 export default function ConfigPage() {
   const configState = useApi(api.getConfig)
   const providersState = useApi(api.providersStatus)
@@ -330,6 +451,10 @@ export default function ConfigPage() {
           <ConfigForm initial={configState.data} onSaved={() => configState.reload()} />
         )}
       </Card>
+
+      {configState.data && (
+        <NotificationsCard config={configState.data} onSaved={() => configState.reload()} />
+      )}
 
       <Card title="Fournisseurs de données">
         {providersState.loading && <Loading />}

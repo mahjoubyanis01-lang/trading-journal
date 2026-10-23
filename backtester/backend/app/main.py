@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
 from . import db, export, stats
+from . import notify as notify_mod
 from .backtest.runner import STATE, params_hash, start_backtest
 from .config import (ALLOWED_LOOKBACKS, get_api_key, load_settings, mask_key,
                      save_settings, set_api_key)
@@ -42,6 +43,10 @@ PROVIDERS = {
                 "categories": ["earnings"], "test": finnhub.test_connection},
     "databento": {"label": "Databento (ES contrat par contrat, payant)", "requires_key": True,
                   "categories": ["es_intraday"], "test": databento.test_connection},
+    "telegram": {"label": "Telegram (notification du verdict)", "requires_key": True,
+                 "categories": ["notifications"],
+                 "test": lambda: notify_mod.send_telegram(
+                     "S&P 500 Backtester : connexion Telegram OK.")},
 }
 _last_tests: dict[str, dict] = {}
 
@@ -152,74 +157,56 @@ def backtest_status():
 
 # ------------------------------------------------------------------ live
 
-_live_cache: dict = {}
-
-
 @app.get("/api/live/verdict")
 def live_verdict(refresh: bool = False):
-    """Verdict du JOUR calculé par le moteur complet (toutes sources
-    configurées), en temps réel :
-    - avant l'heure limite : verdict PROVISOIRE sur les données <= maintenant ;
-    - après : verdict FIGÉ sur les données <= heure limite (même méthode que
-      le backtest) ;
-    - la mesure 9h30 NY -> minuit Paris est renvoyée partielle tant que la
-      séance n'est pas terminée.
-    Cache 120 s (refresh=true force le recalcul)."""
-    import time as _t
-    from datetime import datetime as _dt, date as _date, timedelta as _td
-    from .backtest.runner import analyze_session
-    from .timeutil import PARIS, NEW_YORK, cutoff_paris, measure_end_paris
+    """Verdict du JOUR par le moteur complet (voir app.live) ; cache 120 s."""
+    from .live import compute_live_verdict
+    return compute_live_verdict(refresh)
 
+
+# ------------------------------------------------------------- notifications
+
+@app.get("/api/notify/status")
+def notify_status():
+    import platform as _platform
+    from .scheduler import MARKER_PATH, next_trigger
+    from .timeutil import PARIS
+    from datetime import datetime as _dt
     settings = load_settings()
-    now_paris = _dt.now(PARIS)
-    today = _dt.now(NEW_YORK).date()
-    if today.weekday() >= 5:
-        return {"available": False,
-                "message": "Marché fermé (week-end) : pas de verdict du jour."}
-
-    cutoff = cutoff_paris(today, settings["cutoff_paris"])
-    provisional = now_paris < cutoff
-    cache_key = (today.isoformat(), provisional)
-    cached = _live_cache.get("payload")
-    if (not refresh and cached is not None
-            and _live_cache.get("key") == cache_key
-            and _t.time() - _live_cache.get("at", 0) < 120):
-        return cached
-
-    live_settings = dict(settings)
-    if provisional:
-        live_settings["cutoff_paris"] = now_paris.strftime("%H:%M")
-
-    # Séance précédente (pour la fenêtre d'actualités).
+    notif = settings.get("notifications", {})
+    last = None
     try:
-        from .providers.yahoo import get_trading_sessions
-        prev = get_trading_sessions(1)[-1]
-    except Exception:  # noqa: BLE001
-        prev = None
+        last = MARKER_PATH.read_text().strip() or None
+    except OSError:
+        pass
+    return {
+        "enabled": notif.get("enabled", False),
+        "cutoff_paris": settings["cutoff_paris"],
+        "next_trigger": next_trigger(_dt.now(PARIS), settings["cutoff_paris"]).isoformat(),
+        "last_sent_date": last,
+        "windows_toast_available": _platform.system() == "Windows",
+        "telegram_configured": bool(get_api_key("telegram")
+                                    and notif.get("telegram_chat_id")),
+    }
 
-    try:
-        result = analyze_session(today, live_settings, prev)
-    except Exception as e:  # noqa: BLE001
-        return {"available": False,
-                "message": f"Analyse impossible (marché fermé ou données "
-                           f"indisponibles) : {e}"}
 
-    end = measure_end_paris(today)
-    in_progress = now_paris < end
-    result["live"] = True
-    result["provisional"] = provisional
-    result["as_of"] = now_paris.isoformat()
-    if in_progress:
-        result["measurement"]["in_progress"] = True
-        result["measurement"]["note"] = ("Séance en cours : mesure partielle "
-                                         "jusqu'au dernier prix disponible, "
-                                         "résultat définitif à minuit (Paris).")
-        # Pas de « correct/exact » définitifs sur une séance inachevée.
-        result["measurement"]["correct"] = None
-        result["measurement"]["exact"] = None
-    payload = {"available": True, "session": result}
-    _live_cache.update({"key": cache_key, "at": _t.time(), "payload": payload})
-    return payload
+@app.post("/api/notify/test")
+def notify_test():
+    """Envoie immédiatement une notification de test sur chaque canal."""
+    from .notify import send_telegram, send_windows_toast
+    title = "S&P 500 Backtester — test"
+    body = "La notification quotidienne fonctionnera à l'heure limite (jours de semaine)."
+    ok_t, msg_t = send_windows_toast(title, body)
+    out = {"toast": {"ok": ok_t, "message": msg_t}, "telegram": None}
+    ok_g, msg_g = send_telegram(f"{title}\n{body}")
+    out["telegram"] = {"ok": ok_g, "message": msg_g}
+    return out
+
+
+@app.on_event("startup")
+def _start_scheduler():
+    from . import scheduler
+    scheduler.start()
 
 
 # ------------------------------------------------------------------ results

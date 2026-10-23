@@ -15,7 +15,13 @@ export interface Health {
 }
 
 // ---------- /api/config ----------
+export interface NotificationsConfig {
+  enabled: boolean
+  telegram_chat_id: string
+}
+
 export interface AppConfig {
+  notifications: NotificationsConfig
   lookback_sessions: number
   bullish_threshold: number
   strong_bullish_threshold: number
@@ -266,6 +272,26 @@ export interface LiveVerdict {
   session?: LiveSession
 }
 
+// ---------- /api/notify ----------
+export interface NotifyChannelResult {
+  ok: boolean
+  message: string
+}
+
+export interface NotifyTestResult {
+  toast: NotifyChannelResult
+  telegram: NotifyChannelResult | null
+}
+
+export interface NotifyStatus {
+  enabled: boolean
+  cutoff_paris: string
+  next_trigger: string
+  last_sent_date: string | null
+  windows_toast_available: boolean
+  telegram_configured: boolean
+}
+
 // ---------- /api/results/stats ----------
 export interface CategoryStats {
   predicted: number
@@ -427,6 +453,8 @@ export const api = {
   errors: () => request<ErrorsResponse>('/api/errors'),
   liveVerdict: (refresh = false) =>
     request<LiveVerdict>(`/api/live/verdict${refresh ? '?refresh=true' : ''}`),
+  notifyStatus: () => request<NotifyStatus>('/api/notify/status'),
+  notifyTest: () => request<NotifyTestResult>('/api/notify/test', { method: 'POST' }),
 }
 
 export const EXPORT_CSV_URL = '/api/export/csv'

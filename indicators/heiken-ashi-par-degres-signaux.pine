@@ -26,6 +26,11 @@ showLevels   = input.bool(true, "Afficher le niveau surveille", group = grpSig, 
 maxWait      = input.int(0, "Validite du niveau (barres, 0 = illimitee)", group = grpSig, minval = 0, maxval = 500, tooltip = "Nombre de barres au-dela duquel un niveau non casse est abandonne.")
 cancelBars   = input.int(3, "Bougies non vives consecutives = cycle perdu", group = grpSig, minval = 1, maxval = 20, tooltip = "Si ce nombre de bougies consecutives perdent la couleur vive pendant un cycle, le cycle est annule : le niveau est abandonne et aucun signal ne peut plus en sortir. La cassure doit donc survenir pendant que la couleur vive est encore presente ou juste apres son extinction.")
 
+grpMs = "Market structure (P1)"
+useP1 = input.bool(true, "Reference = bougie P1 (extension) obligatoire", group = grpMs, tooltip = "La bougie de reference du cycle doit etre une bougie de phase 1 de la structure de marche : une bougie d'extension qui fait un nouveau plus haut structurel (cycle violet) ou un nouveau plus bas structurel (cycle rouge). Une bougie vive qui n'etend pas la structure ne peut pas servir de reference.")
+msRh  = input.int(0, "Reset structure : heure (Paris)", minval = 0, maxval = 23, group = grpMs)
+msRm  = input.int(0, "Reset structure : minute", minval = 0, maxval = 59, group = grpMs)
+
 // =========================================================================
 // HEIKEN ASHI (OHLC)
 // =========================================================================
@@ -74,6 +79,103 @@ baseColor = normVal >= 0 ?
 haColor = strengthening ? baseColor : color.new(baseColor, dampAlpha)
 
 // =========================================================================
+// MARKET STRUCTURE -- moteur P1-P4 reduit (detection P1 uniquement)
+// =========================================================================
+// Porte du script Market Structure : seule la detection des bougies de
+// PHASE 1 (extension : nouveau plus haut / plus bas structurel pendant
+// l'impulsion) est utilisee ici. Calcule sur les bougies reelles.
+tzMs = "Europe/Paris"
+bool msNd = hour(time, tzMs) == msRh and minute(time, tzMs) == msRm and (hour(nz(time[1], time - 1), tzMs) != msRh or minute(nz(time[1], time - 1), tzMs) != msRm)
+
+var int   msTr  = 1
+var int   msSt  = 0
+var float msP1e = na
+var float msP1o = na
+var float msP2e = na
+var float msPp2 = na
+var float msPp1 = na
+var bool  msHp1 = false
+
+if na(msP1e)
+    msTr  := close >= open ? 1 : -1
+    msP1e := close >= open ? high : low
+    msP1o := close >= open ? low  : high
+    msPp2 := close >= open ? high : low
+
+if msNd
+    msTr  := close >= open ? 1 : -1
+    msSt  := 0
+    msP1e := close >= open ? high : low
+    msP1o := close >= open ? low  : high
+    msP2e := na
+    msPp2 := close >= open ? high : low
+    msPp1 := na
+    msHp1 := false
+
+bool isP1up = false   // cette bougie est une extension haussiere (P1+)
+bool isP1dn = false   // cette bougie est une extension baissiere (P1-)
+
+if msTr == 1
+    if msSt == 0 and high > msP1e
+        msP1e := high
+        msP1o := low
+        msHp1 := true
+        isP1up := true
+    if msSt == 0 and high <= msP1e and low < msP1o
+        msP2e := low
+        msSt  := 1
+    if msSt == 1 and low < msP2e
+        msP2e := low
+    if msSt == 1 and close > msP1e
+        msPp2 := msP2e
+        msPp1 := na
+        msHp1 := false
+        msP1e := high
+        msP1o := low
+        msP2e := na
+        msSt  := 0
+    bool msTdn = (not na(msPp2) and close < msPp2) or (msHp1 and not na(msPp1) and close < msPp1)
+    if msSt == 1 and msTdn and not (close > msP1e)
+        msPp2 := na
+        msPp1 := msP1e
+        msHp1 := true
+        msTr  := -1
+        msSt  := 0
+        msP1e := low
+        msP1o := high
+        msP2e := na
+
+if msTr == -1
+    if msSt == 0 and low < msP1e
+        msP1e := low
+        msP1o := high
+        msHp1 := true
+        isP1dn := true
+    if msSt == 0 and low >= msP1e and high > msP1o
+        msP2e := high
+        msSt  := 1
+    if msSt == 1 and high > msP2e
+        msP2e := high
+    if msSt == 1 and close < msP1e
+        msPp2 := msP2e
+        msPp1 := na
+        msHp1 := false
+        msP1e := low
+        msP1o := high
+        msP2e := na
+        msSt  := 0
+    bool msTup = (not na(msPp2) and close > msPp2) or (msHp1 and not na(msPp1) and close > msPp1)
+    if msSt == 1 and msTup and not (close < msP1e)
+        msPp2 := na
+        msPp1 := msP1e
+        msHp1 := true
+        msTr  := 1
+        msSt  := 0
+        msP1e := high
+        msP1o := low
+        msP2e := na
+
+// =========================================================================
 // SIGNAUX : CASSURE DE LA BOUGIE EXTREME
 // =========================================================================
 // Quand la couleur devient VIVE (violet vif = normVal >= seuil, rouge vif
@@ -103,37 +205,45 @@ var float refLo  = na
 var int   refBar = na
 var line  refLn  = na
 
-// Ouverture / bascule de cycle sur la premiere bougie vive
+// Ouverture / bascule de cycle sur la premiere bougie vive.
+// La reference n'est pas forcement posee a l'ouverture : seule une bougie
+// vive qui est AUSSI une bougie P1 (extension structurelle) peut servir
+// de reference quand le filtre est actif.
 if vividUp and epDir != 1
     epDir  := 1
-    refHi  := haHigh
-    refLo  := haLow
-    refBar := bar_index
+    refHi  := na
+    refLo  := na
+    refBar := na
     if not na(refLn)
         line.delete(refLn)
-    refLn := showLevels ? line.new(bar_index, haLow, bar_index + 1, haLow, color = color.new(#cd00db, 0), style = line.style_dashed, width = 2) : na
+    refLn := na
 if vividDn and epDir != -1
     epDir  := -1
-    refHi  := haHigh
-    refLo  := haLow
-    refBar := bar_index
+    refHi  := na
+    refLo  := na
+    refBar := na
     if not na(refLn)
         line.delete(refLn)
-    refLn := showLevels ? line.new(bar_index, haHigh, bar_index + 1, haHigh, color = color.new(color.red, 0), style = line.style_dashed, width = 2) : na
+    refLn := na
 
-// Mise a jour de la bougie de reference (uniquement une bougie VIVE peut la remplacer)
-if epDir == 1 and vividUp and haHigh > refHi
+// Pose / mise a jour de la bougie de reference : bougie VIVE, bougie P1
+// (si le filtre est actif), et nouvel extreme du cycle.
+if epDir == 1 and vividUp and (not useP1 or isP1up) and (na(refHi) or haHigh > refHi)
     refHi  := haHigh
     refLo  := haLow
     refBar := bar_index
-    if not na(refLn)
+    if na(refLn)
+        refLn := showLevels ? line.new(bar_index, refLo, bar_index + 1, refLo, color = color.new(#cd00db, 0), style = line.style_dashed, width = 2) : na
+    else
         line.set_xy1(refLn, bar_index, refLo)
         line.set_xy2(refLn, bar_index + 1, refLo)
-if epDir == -1 and vividDn and haLow < refLo
+if epDir == -1 and vividDn and (not useP1 or isP1dn) and (na(refLo) or haLow < refLo)
     refHi  := haHigh
     refLo  := haLow
     refBar := bar_index
-    if not na(refLn)
+    if na(refLn)
+        refLn := showLevels ? line.new(bar_index, refHi, bar_index + 1, refHi, color = color.new(color.red, 0), style = line.style_dashed, width = 2) : na
+    else
         line.set_xy1(refLn, bar_index, refHi)
         line.set_xy2(refLn, bar_index + 1, refHi)
 
@@ -142,7 +252,7 @@ if epDir != 0 and not na(refLn)
     line.set_x2(refLn, bar_index)
 
 // Expiration optionnelle d'un niveau jamais casse
-if epDir != 0 and maxWait > 0 and bar_index - refBar > maxWait
+if epDir != 0 and not na(refBar) and maxWait > 0 and bar_index - refBar > maxWait
     epDir := 0
     refLn := na   // la ligne reste a l'ecran, figee
 
@@ -157,8 +267,8 @@ if epDir != 0 and fadeCnt >= cancelBars
     refLn := na
 
 // Cassure de la reference -> signal (et cloture du cycle)
-bool brkDn = epDir == 1  and bar_index > refBar and (breakOnClose ? haClose < refLo : haLow  < refLo)
-bool brkUp = epDir == -1 and bar_index > refBar and (breakOnClose ? haClose > refHi : haHigh > refHi)
+bool brkDn = epDir == 1  and not na(refLo) and bar_index > refBar and (breakOnClose ? haClose < refLo : haLow  < refLo)
+bool brkUp = epDir == -1 and not na(refHi) and bar_index > refBar and (breakOnClose ? haClose > refHi : haHigh > refHi)
 
 bearSignal = showSignals and brkDn
 bullSignal = showSignals and brkUp

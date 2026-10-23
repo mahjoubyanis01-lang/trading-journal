@@ -24,6 +24,7 @@ vividZone    = input.int(75, "Seuil de couleur vive (0-100)", group = grpSig, mi
 breakOnClose = input.bool(true, "Cassure a la cloture (sinon a la meche)", group = grpSig, tooltip = "Active : il faut une cloture au-dela du niveau de la bougie de reference. Desactive : une simple meche qui depasse suffit.")
 showLevels   = input.bool(true, "Afficher le niveau surveille", group = grpSig, tooltip = "Ligne pointillee sur le niveau attendu : le plus bas de la bougie violette de reference, ou le plus haut de la bougie rouge de reference.")
 maxWait      = input.int(0, "Validite du niveau (barres, 0 = illimitee)", group = grpSig, minval = 0, maxval = 500, tooltip = "Nombre de barres au-dela duquel un niveau non casse est abandonne.")
+cancelBars   = input.int(3, "Bougies non vives consecutives = cycle perdu", group = grpSig, minval = 1, maxval = 20, tooltip = "Si ce nombre de bougies consecutives perdent la couleur vive pendant un cycle, le cycle est annule : le niveau est abandonne et aucun signal ne peut plus en sortir. La cassure doit donc survenir pendant que la couleur vive est encore presente ou juste apres son extinction.")
 
 // =========================================================================
 // HEIKEN ASHI (OHLC)
@@ -138,6 +139,16 @@ if epDir != 0 and not na(refLn)
 if epDir != 0 and maxWait > 0 and bar_index - refBar > maxWait
     epDir := 0
     refLn := na   // la ligne reste a l'ecran, figee
+
+// CYCLE PERDU : N bougies consecutives sans couleur vive -> le cycle est
+// annule, son niveau est retire, aucun signal ne peut plus en sortir.
+var int fadeCnt = 0
+fadeCnt := epDir == 1 ? (vividUp ? 0 : fadeCnt + 1) : epDir == -1 ? (vividDn ? 0 : fadeCnt + 1) : 0
+if epDir != 0 and fadeCnt >= cancelBars
+    epDir := 0
+    if not na(refLn)
+        line.delete(refLn)
+    refLn := na
 
 // Cassure de la reference -> signal (et cloture du cycle)
 bool brkDn = epDir == 1  and bar_index > refBar and (breakOnClose ? haClose < refLo : haLow  < refLo)

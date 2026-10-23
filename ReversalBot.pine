@@ -1,0 +1,1643 @@
+// @version=6
+strategy("ReversalBot", overlay=true, max_labels_count=500, max_lines_count=500, default_qty_type=strategy.fixed, default_qty_value=1)
+
+// ══ INPUTS ═══════════════════════════════════════════════════════════
+i_risk   = input.float(100.0, "Montant risque",    group="Config")
+i_curr   = input.string("USD", "Devise du risque", options=["USD","EUR","GBP","CHF","JPY","CAD","AUD","NZD"], group="Config")
+i_rh     = input.int(0,  "Reset heure",       group="Config")
+i_rm     = input.int(0,  "Reset minute",       group="Config")
+i_trend_mode = input.string("Mode 1 — D1 uniquement", "Mode de tendance",
+     options=["Mode 1 — D1 uniquement", "Mode 2 — Confluence D1/W1/ST"],
+     group="Config")
+
+i_aas    = input.int(0,  "Asia debut",         group="Sessions")
+i_aae    = input.int(8,  "Asia fin",           group="Sessions")
+i_aos    = input.int(8,  "Asia op debut",      group="Sessions")
+i_aoe    = input.int(11, "Asia op fin",        group="Sessions")
+i_als    = input.int(8,  "London debut",       group="Sessions")
+i_ale    = input.int(14, "London fin",         group="Sessions")
+i_los    = input.int(14, "London op debut",    group="Sessions")
+i_loe    = input.int(17, "London op fin",      group="Sessions")
+i_axs_h  = input.int(8,  "Asia action debut h",   group="Sessions")
+i_axs_m  = input.int(0,  "Asia action debut m",   group="Sessions")
+i_axe_h  = input.int(11, "Asia action fin h",     group="Sessions")
+i_axe_m  = input.int(0,  "Asia action fin m",     group="Sessions")
+i_lxs_h  = input.int(14, "London action debut h", group="Sessions")
+i_lxs_m  = input.int(0,  "London action debut m", group="Sessions")
+i_lxe_h  = input.int(17, "London action fin h",   group="Sessions")
+i_lxe_m  = input.int(0,  "London action fin m",   group="Sessions")
+
+// Profil INDEX auto-détecté sur le ticker : mêmes fenêtres de sweep, mais
+// fenêtres d'action propres aux indices. Tout autre actif garde le profil
+// par défaut ci-dessus (forex majeures).
+i_idx_auto = input.bool(true,     "Profil index auto",     group="Sessions Index")
+i_idx1     = input.string("US100",  "Index 1",             group="Sessions Index")
+i_idx2     = input.string("US30",   "Index 2",             group="Sessions Index")
+i_idx3     = input.string("SPX500", "Index 3",             group="Sessions Index")
+i_idx4     = input.string("GER40",  "Index 4",             group="Sessions Index")
+i_iaxs_h   = input.int(9,  "Idx Asia action debut h",      group="Sessions Index")
+i_iaxs_m   = input.int(0,  "Idx Asia action debut m",      group="Sessions Index")
+i_iaxe_h   = input.int(11, "Idx Asia action fin h",        group="Sessions Index")
+i_iaxe_m   = input.int(0,  "Idx Asia action fin m",        group="Sessions Index")
+i_ilxs_h   = input.int(15, "Idx London action debut h",    group="Sessions Index")
+i_ilxs_m   = input.int(30, "Idx London action debut m",    group="Sessions Index")
+i_ilxe_h   = input.int(17, "Idx London action fin h",      group="Sessions Index")
+i_ilxe_m   = input.int(0,  "Idx London action fin m",      group="Sessions Index")
+i_abh    = input.int(11, "Arb Asia h",         group="Arbitrage")
+i_abm    = input.int(0,  "Arb Asia m",         group="Arbitrage")
+i_lbh    = input.int(17, "Arb London h",       group="Arbitrage")
+i_lbm    = input.int(30, "Arb London m",       group="Arbitrage")
+i_p1     = input.bool(true, "P1",              group="Affichage")
+i_p2     = input.bool(true, "P2",              group="Affichage")
+i_p3     = input.bool(true, "P3",              group="Affichage")
+i_p4     = input.bool(true, "P4",              group="Affichage")
+i_sig    = input.bool(true, "Signal",          group="Affichage")
+i_vwap   = input.bool(true, "VWAP",            group="Affichage")
+i_lvl    = input.bool(true, "Niveaux",         group="Affichage")
+i_diag   = input.bool(true, "Diagnostic (raisons de non-entrée)", group="Affichage")
+i_liq     = input.bool(true, "Niveaux de liquidité",               group="Affichage")
+i_liq_lbl = input.bool(true, "Labels de sweep",                    group="Affichage")
+i_boxes       = input.bool(true,                         "Zones SL/TP",         group="Zones")
+i_col_sl      = input.color(color.new(color.gray,   60), "Couleur zone SL",     group="Zones")
+i_col_tp      = input.color(color.new(#1848cc,      60), "Couleur zone TP",     group="Zones")
+i_col_l_entry = input.color(color.new(color.white,   0), "Couleur ligne Entry", group="Zones")
+i_col_l_sl    = input.color(color.new(color.red,     0), "Couleur ligne SL",    group="Zones")
+i_col_l_be    = input.color(color.new(color.orange, 20), "Couleur ligne BE",    group="Zones")
+i_col_l_tp    = input.color(color.new(color.yellow,  0), "Couleur ligne TP",    group="Zones")
+
+i_db_mode    = input.bool(true, "Mode",             group="Dashboard")
+i_db_trend   = input.bool(true, "Tendance du jour", group="Dashboard")
+i_db_ttrade  = input.bool(true, "Tendance du trade",group="Dashboard")
+i_db_d1      = input.bool(true, "D1 (live)",        group="Dashboard")
+i_db_w1      = input.bool(true, "W1 (live)",        group="Dashboard")
+i_db_st      = input.bool(true, "ST 1H×30 (live)",  group="Dashboard")
+i_db_state   = input.bool(true, "State",            group="Dashboard")
+i_db_vwap    = input.bool(true, "VWAP",             group="Dashboard")
+i_db_asia    = input.bool(true, "Asia",             group="Dashboard")
+i_db_london  = input.bool(true, "London",           group="Dashboard")
+i_db_pos     = input.bool(true, "Position",         group="Dashboard")
+i_db_be      = input.bool(true, "BE / P3",          group="Dashboard")
+i_db_pnl     = input.bool(true, "P&L",              group="Dashboard")
+
+i_wh     = input.bool(false, "Alertes webhook JSON",                     group="Webhook")
+i_wh_fmt = input.string("Neutre", "Format du pont", options=["Neutre", "TradersPost", "PickMyTrade"], group="Webhook")
+i_wh_sym = input.string("",  "Ticker webhook (vide = ticker graphique)", group="Webhook")
+i_wh_tok = input.string("",  "PickMyTrade token",                        group="Webhook")
+i_wh_acc = input.string("",  "PickMyTrade account_id",                   group="Webhook")
+
+// ══ HEURES ═══════════════════════════════════════════════════════════
+tz  = "Europe/Paris"
+ch  = hour(time, tz)
+cm  = minute(time, tz)
+ph  = hour(time[1], tz)
+pm  = minute(time[1], tz)
+// Reset journalier ROBUSTE : se déclenche sur la première barre du jour qui
+// atteint l'heure de reset, même si aucune barre n'est estampillée hh:mm pile.
+// Les CFD indices n'ont souvent AUCUNE barre à 00:00 (pause de cotation) :
+// l'ancien test exact ne firait jamais → ranges, verrous de session et
+// tendance s'accumulaient sur plusieurs jours.
+int t_rst = timestamp(tz, year(time, tz), month(time, tz), dayofmonth(time, tz), i_rh, i_rm, 0)
+nd  = time >= t_rst and (na(time[1]) or time[1] < t_rst)
+tmn  = ch * 60 + cm
+ptmn = ph * 60 + pm
+ia  = ch >= i_aas  and ch < i_aae
+iap = ch >= i_aos  and ch < i_aoe
+il  = ch >= i_als  and ch < i_ale
+ilp = ch >= i_los  and ch < i_loe
+// Plage post-Londres — ancrage du SL du trade London (celui qui balaie le
+// range londonien). Elle démarre exactement à la fin de la session londonienne
+// i_ale, c'est-à-dire à l'ouverture de la fenêtre de SWEEP, et court jusqu'au
+// reset : sur un indice l'action n'ouvre qu'à 15h30 alors que le sweep peut
+// tomber dès 14h, et sa mèche doit entrer dans la mesure. Aucun input neuf —
+// tout input ajouté décalerait les réglages déjà enregistrés sur le graphique.
+iu  = ch >= i_ale
+// Fenêtres d'ACTION (précision minute), découplées des fenêtres de sweep :
+// la prise de liquidité vit dans la fenêtre op (iap/ilp), mais le P4
+// déclencheur et le placement d'ordre ne sont autorisés que dans la fenêtre
+// d'action. Ex. index : sweep possible dès 14h, entrée seulement 15h30-17h.
+f_match_idx(string s) =>
+    s != "" and str.contains(str.upper(syminfo.ticker), str.upper(s))
+bool is_index = i_idx_auto and (f_match_idx(i_idx1) or f_match_idx(i_idx2) or f_match_idx(i_idx3) or f_match_idx(i_idx4))
+int a_act_start = (is_index ? i_iaxs_h : i_axs_h) * 60 + (is_index ? i_iaxs_m : i_axs_m)
+int a_act_end   = (is_index ? i_iaxe_h : i_axe_h) * 60 + (is_index ? i_iaxe_m : i_axe_m)
+int l_act_start = (is_index ? i_ilxs_h : i_lxs_h) * 60 + (is_index ? i_ilxs_m : i_lxs_m)
+int l_act_end   = (is_index ? i_ilxe_h : i_lxe_h) * 60 + (is_index ? i_ilxe_m : i_lxe_m)
+iax = tmn >= a_act_start and tmn < a_act_end
+ilx = tmn >= l_act_start and tmn < l_act_end
+
+// Payload webhook neutre : consommable par n'importe quel pont d'exécution
+// (TradersPost, PickMyTrade, relais custom). events : entry / sl_update /
+// cancel / exit.
+f_wh_json(string ev, string oid, string side, float qty, float e, float s, float t) =>
+    '{"bot":"ReversalBot","event":"' + ev + '","id":"' + oid + '","symbol":"' + (i_wh_sym != "" ? i_wh_sym : syminfo.ticker) + '","side":"' + side + '","qty":' + str.tostring(qty) + ',"entry":' + str.tostring(e) + ',"sl":' + str.tostring(s) + ',"tp":' + str.tostring(t) + '}'
+
+// Formats natifs des ponts d'exécution (vérifiés sur leurs docs officielles).
+// TradersPost ne supporte pas la modification du SL d'une position ouverte
+// par webhook : les sl_update n'émettent rien dans ce format.
+f_wh_payload(string ev, string oid, string side, float qty, float e, float s, float t) =>
+    string sym = i_wh_sym != "" ? i_wh_sym : syminfo.ticker
+    string msg = ""
+    if i_wh_fmt == "TradersPost"
+        if ev == "entry"
+            msg := '{"ticker":"' + sym + '","action":"' + side + '","orderType":"limit","limitPrice":' + str.tostring(e) + ',"quantity":' + str.tostring(qty) + ',"takeProfit":{"limitPrice":' + str.tostring(t) + '},"stopLoss":{"type":"stop","stopPrice":' + str.tostring(s) + '}}'
+        else if ev == "exit"
+            msg := '{"ticker":"' + sym + '","action":"exit"}'
+        else if ev == "cancel"
+            msg := '{"ticker":"' + sym + '","action":"cancel"}'
+    else if i_wh_fmt == "PickMyTrade"
+        string dt   = str.format_time(timenow, "yyyy-MM-dd'T'HH:mm:ss", "UTC") + "Z"
+        string auth = '"token":"' + i_wh_tok + '","account_id":"' + i_wh_acc + '"'
+        if ev == "entry"
+            msg := '{"symbol":"' + sym + '","date":"' + dt + '","data":"' + side + '","quantity":' + str.tostring(qty) + ',"price":' + str.tostring(e) + ',"tp":' + str.tostring(t) + ',"sl":' + str.tostring(s) + ',"update_tp":true,"update_sl":true,' + auth + '}'
+        else if ev == "sl_update"
+            msg := '{"symbol":"' + sym + '","date":"' + dt + '","data":"' + side + '","quantity":' + str.tostring(qty) + ',"tp":' + str.tostring(t) + ',"sl":' + str.tostring(s) + ',"update_tp":true,"update_sl":true,' + auth + '}'
+        else
+            msg := '{"symbol":"' + sym + '","date":"' + dt + '","data":"close",' + auth + '}'
+    else
+        msg := f_wh_json(ev, oid, side, qty, e, s, t)
+    msg
+
+f_wh_fire(string ev, string oid, string side, float qty, float e, float s, float t) =>
+    string msg = f_wh_payload(ev, oid, side, qty, e, s, t)
+    if msg != ""
+        alert(msg, alert.freq_once_per_bar)
+
+// ══ MOTEURS DE TENDANCE ═══════════════════════════════════════════════
+// Mode 1 — réplique exacte de InitD1Trend + ProcessOneD1Bar de l'EA MT5 :
+// recalcul complet à chaque bougie sur une fenêtre glissante des 50 dernières
+// bougies D1 HORS dimanche (TradingView peut imprimer une bougie dominicale
+// absente du flux MT5), seed = sens de la dernière bougie clôturée, replay de
+// la plus ancienne à la plus récente. Seules les bougies clôturées sont lues :
+// aucun repaint, valeur identique historique/temps réel.
+f_ext_mt5_d() =>
+    float[] a_o = array.new_float()
+    float[] a_h = array.new_float()
+    float[] a_l = array.new_float()
+    float[] a_c = array.new_float()
+    for look = 0 to 120
+        if array.size(a_c) < 50
+            if not na(close[look]) and dayofweek(time[look]) != dayofweek.sunday
+                array.push(a_o, open[look])
+                array.push(a_h, high[look])
+                array.push(a_l, low[look])
+                array.push(a_c, close[look])
+    int n = array.size(a_c)
+    int tr = n >= 2 ? (array.get(a_c, 1) >= array.get(a_o, 1) ? 1 : -1) : 1
+    float rh = 0.0
+    float rl = 0.0
+    if n >= 3
+        for k = n - 2 to 1
+            float h1 = array.get(a_h, k)
+            float l1 = array.get(a_l, k)
+            float c1 = array.get(a_c, k)
+            float o1 = array.get(a_o, k)
+            float h2 = array.get(a_h, k + 1)
+            float l2 = array.get(a_l, k + 1)
+            bool is_ext = h1 > h2 or l1 < l2
+            bool inside = rh > 0 and c1 >= rl and c1 <= rh
+            bool below  = rl > 0 and c1 <  rl
+            bool above  = rh > 0 and c1 >  rh
+            bool wka    = rh > 0 and h1 >  rh
+            bool wkb    = rl > 0 and l1 <  rl
+            bool bear   = (wka and inside and c1 < o1) or below
+            bool bull   = (wkb and inside and c1 > o1) or above
+            if bull and not bear
+                tr := 1
+            if bear and not bull
+                tr := -1
+            if is_ext and (rh == 0 or h1 > rh or l1 < rl)
+                rh := h1
+                rl := l1
+    tr
+
+int ext_m1   = nz(request.security(syminfo.tickerid, "D", f_ext_mt5_d(), lookahead=barmerge.lookahead_on), 0)
+
+// Mode 2 — Extension Trend multi-références (spec d'origine du Mode 2) :
+// D1 et W1 utilisent la MEME logique, seul le timeframe change. Réfs = min
+// des highs / max des lows des bougies d'extension, remises à zéro après
+// chaque bascule. Exécutée dans le contexte du TF cible (historique complet),
+// valeur de la bougie clôturée uniquement ([1] + lookahead_on).
+f_conf_tf() =>
+    var float ref_high_min = na
+    var float ref_low_max  = na
+    var int   tr_v         = 1
+    bool is_ext = high > high[1] or low < low[1]
+    bool bull   = not na(ref_high_min) and close > ref_high_min
+    bool bear   = not na(ref_low_max)  and close < ref_low_max
+    if bull and not bear
+        tr_v         := 1
+        ref_high_min := na
+        ref_low_max  := na
+    else if bear and not bull
+        tr_v         := -1
+        ref_high_min := na
+        ref_low_max  := na
+    if is_ext
+        ref_high_min := na(ref_high_min) ? high : math.min(ref_high_min, high)
+        ref_low_max  := na(ref_low_max)  ? low  : math.max(ref_low_max,  low)
+    int res = tr_v
+    res[1]
+
+int d1_conf  = nz(request.security(syminfo.tickerid, "D", f_conf_tf(), lookahead=barmerge.lookahead_on), 0)
+int w1_trend = nz(request.security(syminfo.tickerid, "W", f_conf_tf(), lookahead=barmerge.lookahead_on), 0)
+
+// SuperTrend 1H — bougie 1H clôturée (l'ancienne version repeignait en intra-heure)
+f_st_line_1h() =>
+    [_stl, _sd] = ta.supertrend(30.0, 10)
+    float _v = _stl
+    _v[1]
+
+float st_line_1h  = request.security(syminfo.tickerid, "60", f_st_line_1h(), lookahead=barmerge.lookahead_on)
+float st_close_1h = request.security(syminfo.tickerid, "60", close[1],       lookahead=barmerge.lookahead_on)
+int   st_trend    = (na(st_line_1h) or na(st_close_1h)) ? 0 : (st_close_1h > st_line_1h ? 1 : -1)
+
+bool d1_st    = d1_conf == st_trend
+bool d1_w1    = d1_conf == w1_trend
+int  conf_val = (d1_st or d1_w1) ? d1_conf : 0
+
+bool mode2    = i_trend_mode == "Mode 2 — Confluence D1/W1/ST"
+int  live_ext = mode2 ? conf_val : ext_m1
+
+// ══ VERROU JOURNALIER DE LA TENDANCE ══════════════════════════════════
+// La tendance est photographiée UNE FOIS au reset journalier et ne bouge plus
+// jusqu'au reset suivant : Asia (matin) et London (après-midi) utilisent
+// forcément la même valeur.
+var int  day_ext    = 1
+var bool day_locked = false
+if nd
+    day_locked := true
+if nd or not day_locked
+    day_ext := live_ext
+
+int active_ext = day_ext
+
+// ══ VWAP ══════════════════════════════════════════════════════════════
+var float cv = 0.0
+var float cp = 0.0
+var float cs = 0.0
+if ta.change(time("D")) != 0
+    cv := 0.0
+    cp := 0.0
+    cs := 0.0
+float tpb2 = (high + low + close) / 3.0
+cv += volume
+cp += tpb2 * volume
+cs += tpb2 * tpb2 * volume
+float vw  = cp / cv
+float vsd = math.sqrt(math.max(cs / cv - vw * vw, 0.0))
+float vu  = vw + vsd
+float vl  = vw - vsd
+float sp  = syminfo.mintick * 3.0
+
+// ══ VARIABLES MANAGEMENT ═════════════════════════════════════════════
+var float  stored_e          = na
+var float  stored_sl         = na
+var float  stored_tp         = na
+var float  stored_orig_sl    = na
+var float  stored_qty        = na
+var float  stored_entry_real = na
+var bool   be_done           = false
+var int    p3_count          = 0
+var float  p3_p2_1           = na
+var float  p3_p2_2           = na
+var bool   at                = false
+var bool   lt                = false
+var string stored_id         = ""
+var string stored_xid        = ""
+var string stored_sess       = ""
+var int    stored_trend      = 0
+var bool   order_pending     = false
+
+bool pos_open = strategy.position_size != 0
+
+// ══ MOTEUR P1-P4 ══════════════════════════════════════════════════════
+var int   tr   = 1
+var int   st   = 0
+var float p1e  = na
+var float p1o  = na
+var float p2e  = na
+var float pp2  = na
+var float pp1  = na
+var bool  hp1  = false
+var float p4lv = na
+var bool  p4b  = false
+var bool  p4be = false
+
+// Drapeaux d'événement de la barre courante (les alertes lisaient l'état APRES
+// mise à jour du moteur, donc leurs conditions étaient toujours fausses)
+bool sig_p1up = false
+bool sig_p1dn = false
+bool sig_p2   = false
+bool sig_p3up = false
+bool sig_p3dn = false
+
+if na(p1e)
+    tr  := close >= open ? 1 : -1
+    p1e := close >= open ? high : low
+    p1o := close >= open ? low  : high
+    pp2 := close >= open ? high : low
+
+if nd
+    tr   := close >= open ? 1 : -1
+    st   := 0
+    p1e  := close >= open ? high : low
+    p1o  := close >= open ? low  : high
+    p2e  := na
+    pp2  := close >= open ? high : low
+    pp1  := na
+    hp1  := false
+    p4lv := na
+
+p4b  := false
+p4be := false
+float a14 = ta.atr(14)
+
+if tr == 1
+    if st == 0 and high > p1e
+        p1e := high
+        p1o := low
+        hp1 := true
+        sig_p1up := true
+        if i_p1
+            label.new(bar_index, high, "P1+", color=color.orange, textcolor=color.white, style=label.style_label_down, size=size.tiny)
+    if st == 0 and high <= p1e and low < p1o
+        p2e := low
+        st  := 1
+        sig_p2 := true
+        if i_p2
+            label.new(bar_index, low, "P2", color=color.black, textcolor=color.white, style=label.style_circle, size=size.small)
+    if st == 1 and low < p2e
+        p2e := low
+    if st == 1 and close > p1e
+        sig_p3up := true
+        if i_p3
+            label.new(bar_index, high + a14 * 0.3, "P3+", color=color.red, textcolor=color.white, style=label.style_label_down, size=size.tiny)
+        // Trailing P3 haussier : réservé aux positions LONG.
+        // Sans ce garde, un P3+ survenant pendant un SHORT élargissait son stop.
+        if pos_open and strategy.position_size > 0 and not na(stored_sl) and not na(stored_e) and stored_id != ""
+            // Un P2 situé sous le SL courant vient d'une jambe adverse (P4
+            // contre le trade) : il n'entre pas dans la chaîne, sinon le
+            // trailing repartait de zéro. Le SL ne recule jamais.
+            if p2e > stored_sl
+                p3_count := p3_count + 1
+                if p3_count == 1
+                    p3_p2_1 := p2e
+                else
+                    p3_p2_2 := p3_p2_1
+                    p3_p2_1 := p2e
+                    float p3_sl   = math.min(p3_p2_2, p2e)
+                    float best_sl = be_done ? math.max(p3_sl, stored_e) : p3_sl
+                    if best_sl > stored_sl
+                        stored_sl := best_sl
+                        strategy.exit(stored_xid, from_entry=stored_id, stop=best_sl, limit=stored_tp)
+                        if i_wh
+                            f_wh_fire("sl_update", stored_id, "buy", stored_qty, stored_e, stored_sl, stored_tp)
+        pp2 := p2e
+        pp1 := na
+        hp1 := false
+        p1e := high
+        p1o := low
+        p2e := na
+        st  := 0
+    bool tdn = (not na(pp2) and close < pp2) or (hp1 and not na(pp1) and close < pp1)
+    if st == 1 and tdn and not (close > p1e)
+        p4be := true
+        p4lv := not na(pp2) and close < pp2 ? pp2 : pp1
+        pp2  := na
+        pp1  := p1e
+        hp1  := true
+        tr   := -1
+        st   := 0
+        p1e  := low
+        p1o  := high
+        p2e  := na
+        if i_p4
+            label.new(bar_index, low - a14 * 0.3, "P4v", color=color.lime, textcolor=color.black, style=label.style_label_up, size=size.small)
+
+if tr == -1
+    if st == 0 and low < p1e
+        p1e := low
+        p1o := high
+        hp1 := true
+        sig_p1dn := true
+        if i_p1
+            label.new(bar_index, low, "P1-", color=color.orange, textcolor=color.white, style=label.style_label_up, size=size.tiny)
+    if st == 0 and low >= p1e and high > p1o
+        p2e := high
+        st  := 1
+        sig_p2 := true
+        if i_p2
+            label.new(bar_index, high, "P2", color=color.black, textcolor=color.white, style=label.style_circle, size=size.small)
+    if st == 1 and high > p2e
+        p2e := high
+    if st == 1 and close < p1e
+        sig_p3dn := true
+        if i_p3
+            label.new(bar_index, low - a14 * 0.3, "P3-", color=color.red, textcolor=color.white, style=label.style_label_up, size=size.tiny)
+        // Trailing P3 baissier : réservé aux positions SHORT.
+        if pos_open and strategy.position_size < 0 and not na(stored_sl) and not na(stored_e) and stored_id != ""
+            // Un P2 situé au-dessus du SL courant vient d'une jambe adverse :
+            // exclu de la chaîne, le SL ne recule jamais.
+            if p2e < stored_sl
+                p3_count := p3_count + 1
+                if p3_count == 1
+                    p3_p2_1 := p2e
+                else
+                    p3_p2_2 := p3_p2_1
+                    p3_p2_1 := p2e
+                    float p3_sl   = math.max(p3_p2_2, p2e)
+                    float best_sl = be_done ? math.min(p3_sl, stored_e) : p3_sl
+                    if best_sl < stored_sl
+                        stored_sl := best_sl
+                        strategy.exit(stored_xid, from_entry=stored_id, stop=best_sl, limit=stored_tp)
+                        if i_wh
+                            f_wh_fire("sl_update", stored_id, "sell", stored_qty, stored_e, stored_sl, stored_tp)
+        pp2 := p2e
+        pp1 := na
+        hp1 := false
+        p1e := low
+        p1o := high
+        p2e := na
+        st  := 0
+    bool tup = (not na(pp2) and close > pp2) or (hp1 and not na(pp1) and close > pp1)
+    if st == 1 and tup and not (close < p1e)
+        p4b  := true
+        p4lv := not na(pp2) and close > pp2 ? pp2 : pp1
+        pp2  := na
+        pp1  := p1e
+        hp1  := true
+        tr   := 1
+        st   := 0
+        p1e  := high
+        p1o  := low
+        p2e  := na
+        if i_p4
+            label.new(bar_index, high + a14 * 0.3, "P4^", color=color.lime, textcolor=color.black, style=label.style_label_down, size=size.small)
+
+// ══ SESSIONS ══════════════════════════════════════════════════════════
+var float ah  = na
+var float al  = na
+var float aoh = na
+var float aol = na
+var float axh = na
+var float axl = na
+var bool  ahd = false
+var bool  ald = false
+var bool  a_buy_ctx       = false
+var bool  a_sell_ctx      = false
+var float a_sweep_sl_buy  = na
+var float a_sweep_sl_sell = na
+var float lhv = na
+var float llv = na
+var float loh = na
+var float lol = na
+var float lxh = na
+var float lxl = na
+var bool  lhd = false
+var bool  lld = false
+var bool  l_buy_ctx       = false
+var bool  l_sell_ctx      = false
+var float l_sweep_sl_buy  = na
+var float l_sweep_sl_sell = na
+// Extrêmes post-Londres — ancrage du SL du trade London. Mesurés depuis i_ale,
+// c'est-à-dire dès l'ouverture de la fenêtre de sweep londonienne.
+var float uhv = na
+var float ulv = na
+// Extrême de l'extension invalidée par le P4, capté au moment de l'armement du
+// signal. Capté là et non au placement de l'ordre : un P3 intermédiaire remet
+// pp1 à na, et le niveau serait perdu.
+var float a_ext_buy  = na
+var float a_ext_sell = na
+var float l_ext_buy  = na
+var float l_ext_sell = na
+var bool  abp = false
+var bool  asp = false
+var float abl = na
+var float asl = na
+var bool  lbp = false
+var bool  lsp = false
+var float lbl = na
+var float lsl = na
+var bool  sad = false
+var bool  sld = false
+
+if nd
+    ah  := na
+    al  := na
+    aoh := na
+    aol := na
+    axh := na
+    axl := na
+    ahd := false
+    ald := false
+    a_buy_ctx       := false
+    a_sell_ctx      := false
+    a_sweep_sl_buy  := na
+    a_sweep_sl_sell := na
+    lhv := na
+    llv := na
+    loh := na
+    lol := na
+    lxh := na
+    lxl := na
+    lhd := false
+    lld := false
+    l_buy_ctx       := false
+    l_sell_ctx      := false
+    l_sweep_sl_buy  := na
+    l_sweep_sl_sell := na
+    uhv := na
+    ulv := na
+    a_ext_buy  := na
+    a_ext_sell := na
+    l_ext_buy  := na
+    l_ext_sell := na
+    abp := false
+    asp := false
+    abl := na
+    asl := na
+    lbp := false
+    lsp := false
+    lbl := na
+    lsl := na
+    at  := false
+    lt  := false
+    sad := false
+    sld := false
+    stored_e          := na
+    stored_sl         := na
+    stored_tp         := na
+    stored_orig_sl    := na
+    stored_entry_real := na
+    be_done           := false
+    p3_count          := 0
+    p3_p2_1           := na
+    p3_p2_2           := na
+    stored_id         := ""
+    stored_xid        := ""
+    stored_sess       := ""
+    stored_trend      := 0
+    order_pending     := false
+
+if ia
+    ah := na(ah) ? high : math.max(ah, high)
+    al := na(al) ? low  : math.min(al, low)
+if iap
+    aoh := na(aoh) ? high : math.max(aoh, high)
+    aol := na(aol) ? low  : math.min(aol, low)
+// Range de la fenêtre d'ACTION : conservé pour l'affichage et le diagnostic.
+// Il ne sert PLUS d'ancrage au SL — voir f_slref et les blocs d'entrée.
+if iax
+    axh := na(axh) ? high : math.max(axh, high)
+    axl := na(axl) ? low  : math.min(axl, low)
+if il
+    lhv := na(lhv) ? high : math.max(lhv, high)
+    llv := na(llv) ? low  : math.min(llv, low)
+if ilp
+    loh := na(loh) ? high : math.max(loh, high)
+    lol := na(lol) ? low  : math.min(lol, low)
+if iu
+    uhv := na(uhv) ? high : math.max(uhv, high)
+    ulv := na(ulv) ? low  : math.min(ulv, low)
+if ilx
+    lxh := na(lxh) ? high : math.max(lxh, high)
+    lxl := na(lxl) ? low  : math.min(lxl, low)
+
+if iap and not at
+    // Comparaisons inclusives (>= / <=) : taper le niveau au tick près prend
+    // aussi la liquidité posée dessus — l'ancien test strict ratait les
+    // sweeps en double top/bottom exact.
+    if not na(al) and low <= al and not ald and not ahd
+        ald             := true
+        a_buy_ctx       := true
+        a_sell_ctx      := false
+        a_sweep_sl_buy  := low
+        asp := false
+        asl := na
+        if i_liq_lbl
+            label.new(bar_index, low, active_ext == 1 ? "Sweep LOW Asia → ctx BUY" : "Sweep LOW Asia : BUY bloqué (tendance)", color=color.new(color.blue, 40), textcolor=color.white, style=label.style_label_up, size=size.tiny)
+    if not na(ah) and high >= ah and not ahd and not ald
+        ahd              := true
+        a_sell_ctx       := true
+        a_buy_ctx        := false
+        a_sweep_sl_sell  := high
+        abp := false
+        abl := na
+        if i_liq_lbl
+            label.new(bar_index, high, active_ext == -1 ? "Sweep HIGH Asia → ctx SELL" : "Sweep HIGH Asia : SELL bloqué (tendance)", color=color.new(color.red, 40), textcolor=color.white, style=label.style_label_down, size=size.tiny)
+    if not na(ah) and high >= ah and not ahd
+        ahd := true
+        a_buy_ctx := false
+        abp       := false
+        if i_liq_lbl
+            label.new(bar_index, high, "2e sweep HIGH Asia : setups annulés", color=color.new(color.gray, 30), textcolor=color.white, style=label.style_label_down, size=size.tiny)
+    if not na(al) and low <= al and not ald
+        ald := true
+        a_sell_ctx := false
+        asp        := false
+        if i_liq_lbl
+            label.new(bar_index, low, "2e sweep LOW Asia : setups annulés", color=color.new(color.gray, 30), textcolor=color.white, style=label.style_label_up, size=size.tiny)
+
+if ilp and not lt
+    if not na(llv) and low <= llv and not lld and not lhd
+        lld             := true
+        l_buy_ctx       := true
+        l_sell_ctx      := false
+        l_sweep_sl_buy  := low
+        lsp := false
+        lsl := na
+        if i_liq_lbl
+            label.new(bar_index, low, active_ext == 1 ? "Sweep LOW London → ctx BUY" : "Sweep LOW London : BUY bloqué (tendance)", color=color.new(color.blue, 40), textcolor=color.white, style=label.style_label_up, size=size.tiny)
+    if not na(lhv) and high >= lhv and not lhd and not lld
+        lhd              := true
+        l_sell_ctx       := true
+        l_buy_ctx        := false
+        l_sweep_sl_sell  := high
+        lbp := false
+        lbl := na
+        if i_liq_lbl
+            label.new(bar_index, high, active_ext == -1 ? "Sweep HIGH London → ctx SELL" : "Sweep HIGH London : SELL bloqué (tendance)", color=color.new(color.red, 40), textcolor=color.white, style=label.style_label_down, size=size.tiny)
+    if not na(lhv) and high >= lhv and not lhd
+        lhd := true
+        l_buy_ctx := false
+        lbp       := false
+        if i_liq_lbl
+            label.new(bar_index, high, "2e sweep HIGH London : setups annulés", color=color.new(color.gray, 30), textcolor=color.white, style=label.style_label_down, size=size.tiny)
+    if not na(llv) and low <= llv and not lld
+        lld := true
+        l_sell_ctx := false
+        lsp        := false
+        if i_liq_lbl
+            label.new(bar_index, low, "2e sweep LOW London : setups annulés", color=color.new(color.gray, 30), textcolor=color.white, style=label.style_label_up, size=size.tiny)
+
+// Le SWEEP peut survenir n'importe quand dans la fenêtre de sweep (iap/ilp) et
+// pose le contexte. Le P4 déclencheur, lui, doit se former DANS la fenêtre
+// d'ACTION (iax/ilx) — c'est la règle de l'EA MT5 : « P4 valide SEULEMENT si
+// formé pendant la fenêtre d'action ». Sur un indice, un P4 tombé à 8h30
+// n'arme rien ; il en faut un NOUVEAU après 9h. Le contexte de sweep, lui,
+// survit et reste disponible pour ce nouveau P4.
+if p4b and active_ext == 1
+    if a_buy_ctx and iax and not at
+        abp := true
+        abl := p4lv
+        a_ext_buy := pp1
+        a_buy_ctx := false
+    if l_buy_ctx and ilx and not lt
+        lbp := true
+        lbl := p4lv
+        l_ext_buy := pp1
+        l_buy_ctx := false
+
+if p4be and active_ext == -1
+    if a_sell_ctx and iax and not at
+        asp := true
+        asl := p4lv
+        a_ext_sell := pp1
+        a_sell_ctx := false
+    if l_sell_ctx and ilx and not lt
+        lsp := true
+        lsl := p4lv
+        l_ext_sell := pp1
+        l_sell_ctx := false
+
+if tmn >= i_aoe * 60
+    a_buy_ctx  := false
+    a_sell_ctx := false
+if tmn >= a_act_end
+    abp := false
+    asp := false
+
+if tmn >= i_loe * 60
+    l_buy_ctx  := false
+    l_sell_ctx := false
+if tmn >= l_act_end
+    lbp := false
+    lsp := false
+
+// ══ ANNULATION D'UN ORDRE EN ATTENTE ══════════════════════════════════
+// Spec §4 : tant que l'ordre n'est PAS rempli, il meurt si la liquidité
+// opposée est prise, ou si la tendance du jour ne le valide plus.
+// (L'ancien code posait un limit qui survivait jusqu'à la fin de fenêtre :
+//  il pouvait se remplir des heures plus tard, à contre-tendance.)
+if order_pending and strategy.position_size == 0 and stored_id != ""
+    bool opp_sweep = false
+    if stored_id == "ABuy"  and not na(ah)  and high >= ah
+        opp_sweep := true
+    if stored_id == "ASell" and not na(al)  and low  <= al
+        opp_sweep := true
+    if stored_id == "LBuy"  and not na(lhv) and high >= lhv
+        opp_sweep := true
+    if stored_id == "LSell" and not na(llv) and low  <= llv
+        opp_sweep := true
+    bool is_buy_ord   = stored_id == "ABuy"  or stored_id == "LBuy"
+    bool is_sell_ord  = stored_id == "ASell" or stored_id == "LSell"
+    bool trend_gone   = (is_buy_ord and active_ext != 1) or (is_sell_ord and active_ext != -1)
+    if opp_sweep or trend_gone
+        strategy.cancel(stored_id)
+        if i_diag
+            label.new(bar_index, high, opp_sweep ? "🚫 annulé : liquidité opposée prise" : "🚫 annulé : tendance invalidée", color=color.new(color.gray, 30), textcolor=color.white, style=label.style_label_down, size=size.tiny)
+        if i_wh
+            f_wh_fire("cancel", stored_id, is_buy_ord ? "buy" : "sell", 0, stored_e, stored_sl, stored_tp)
+        order_pending     := false
+        stored_e          := na
+        stored_sl         := na
+        stored_tp         := na
+        stored_orig_sl    := na
+        stored_entry_real := na
+        be_done           := false
+        p3_count          := 0
+        p3_p2_1           := na
+        p3_p2_2           := na
+        stored_id         := ""
+        stored_xid        := ""
+        stored_sess       := ""
+        stored_trend      := 0
+
+bool asia_just_closed = tmn >= a_act_end and ptmn < a_act_end
+bool lon_just_closed  = tmn >= l_act_end and ptmn < l_act_end
+if asia_just_closed or lon_just_closed
+    strategy.cancel("ABuy")
+    strategy.cancel("ASell")
+    strategy.cancel("LBuy")
+    strategy.cancel("LSell")
+    if order_pending and strategy.position_size == 0
+        if i_diag
+            label.new(bar_index, high, "🚫 annulé : fin de fenêtre, limit jamais rempli", color=color.new(color.gray, 30), textcolor=color.white, style=label.style_label_down, size=size.tiny)
+        if i_wh
+            f_wh_fire("cancel", stored_id, str.contains(stored_id, "Buy") ? "buy" : "sell", 0, stored_e, stored_sl, stored_tp)
+        order_pending     := false
+        stored_e          := na
+        stored_sl         := na
+        stored_tp         := na
+        stored_orig_sl    := na
+        stored_entry_real := na
+        stored_id         := ""
+        stored_xid        := ""
+        stored_sess       := ""
+        stored_trend      := 0
+
+bool in_any_window = iap or iax or ilp or ilx
+if not in_any_window and strategy.opentrades == 0
+    strategy.cancel_all()
+    order_pending := false
+
+// ══ FONCTIONS ═════════════════════════════════════════════════════════
+// f_tp valide désormais le SENS du TP. L'ancienne version utilisait
+// math.abs() : un VWAP situé du MAUVAIS côté de l'entrée produisait un RR
+// positif et un TP placé derrière l'entrée (sortie immédiate en perte).
+f_tp(bool is_long, float e, float s, float t1, float t2) =>
+    float risk = math.abs(e - s)
+    bool  v1   = is_long ? t1 > e : t1 < e
+    bool  v2   = is_long ? t2 > e : t2 < e
+    float rr1  = (risk > 0 and v1) ? math.abs(t1 - e) / risk : 0.0
+    float rr2  = (risk > 0 and v2) ? math.abs(t2 - e) / risk : 0.0
+    float ctp  = na
+    float ae   = e
+    bool  ok   = risk > 0 and (is_long ? e > s : e < s)
+    if ok
+        if rr1 >= 2.0 and rr2 >= 2.0
+            ctp := math.abs(rr1 - 2.0) <= math.abs(rr2 - 2.0) ? t1 : t2
+        else if rr1 >= 2.0
+            ctp := t1
+        else if rr2 >= 2.0
+            ctp := t2
+        else if v2
+            ctp := t2
+            ae  := (t2 + 2.0 * s) / 3.0
+        else
+            ok := false
+    if ok
+        ok := not na(ctp) and not na(ae) and (is_long ? (ae > s and ctp > ae) : (ae < s and ctp < ae))
+    [ae, ctp, ok]
+
+// Référence du SL : extrême de l'extension invalidée par le P4 sur les indices,
+// sinon l'extrême de session passé en second argument. Repli automatique sur la
+// session si aucune extension n'a été captée. La portée suit is_index, donc
+// i_idx_auto sert d'interrupteur maître.
+f_slref(float ext_lvl, float base) =>
+    (is_index and not na(ext_lvl)) ? ext_lvl : base
+
+// Conversion de devise hoistée au scope global : un request.security doit être
+// évalué à chaque barre, pas depuis l'intérieur d'un bloc conditionnel.
+float quote_to_usd = request.security("FX:" + syminfo.currency + "USD",
+  timeframe.period, close, ignore_invalid_symbol=true)
+float fx_conv = not na(quote_to_usd) and quote_to_usd > 0 ? quote_to_usd : 1.0
+
+f_qty(float e, float s) =>
+    float d = math.abs(e - s)
+    if d <= 0
+        1.0
+    else
+        float risk_in_quote = i_risk / fx_conv
+        float risk_lot      = d * syminfo.pointvalue
+        float raw           = risk_lot > 0 ? risk_in_quote / risk_lot : 1.0
+        float stp           = syminfo.mintick < 0.01 ? 0.01 : 1.0
+        math.max(stp, math.round(raw / stp) * stp)
+
+// ══ ENTREES ═══════════════════════════════════════════════════════════
+// active_ext est revérifié ici, au moment du placement, et plus seulement à
+// la détection du P4.
+// Ancrage du SL : session LONDONIENNE pour le trade Asia, session US pour le
+// trade London — chacune démarre à l'ouverture de la fenêtre de sweep, donc la
+// mèche du sweep y est toujours contenue, même quand la fenêtre d'action ouvre
+// plus tard (indices). f_slref remplace cet ancrage par l'extension du P4 sur
+// les indices quand l'option est cochée.
+if abp and not at and iax and not na(vw) and strategy.position_size == 0 and active_ext == 1
+    float e = abl + sp
+    float s = f_slref(a_ext_buy, not na(llv) ? llv : a_sweep_sl_buy)
+    [ae, tp, ok] = f_tp(true, e, s, vw, vu)
+    if ok
+        float q = f_qty(ae, s)
+        stored_id      := "ABuy"
+        stored_xid     := "ABuyX"
+        stored_sess    := "Asia"
+        stored_trend   := active_ext
+        strategy.entry("ABuy", strategy.long, qty=q, limit=ae, comment="BUY Asia")
+        strategy.exit("ABuyX", from_entry="ABuy", stop=s, limit=tp)
+        at             := true
+        abp            := false
+        order_pending  := true
+        stored_e       := ae
+        stored_sl      := s
+        stored_orig_sl := s
+        stored_qty     := q
+        stored_tp      := tp
+        be_done        := false
+        p3_count       := 0
+        p3_p2_1        := na
+        p3_p2_2        := na
+        if i_sig and not sad
+            sad := true
+            label.new(bar_index, ae, "BUY Asia", color=color.blue, textcolor=color.white, style=label.style_label_up, size=size.small)
+        if i_wh
+            f_wh_fire("entry", "ABuy", "buy", q, ae, s, tp)
+    if not ok and i_diag and not (abp[1] and iax[1])
+        label.new(bar_index, low, "✖ BUY Asia rejeté : TP/RR invalide", color=color.new(color.gray, 30), textcolor=color.white, style=label.style_label_up, size=size.tiny)
+
+if asp and not at and iax and not na(vw) and strategy.position_size == 0 and active_ext == -1
+    float e = asl
+    float s = f_slref(a_ext_sell, not na(lhv) ? lhv : a_sweep_sl_sell) + sp
+    [ae, tp, ok] = f_tp(false, e, s, vw, vl)
+    if ok
+        float q = f_qty(ae, s)
+        stored_id      := "ASell"
+        stored_xid     := "ASellX"
+        stored_sess    := "Asia"
+        stored_trend   := active_ext
+        strategy.entry("ASell", strategy.short, qty=q, limit=ae, comment="SELL Asia")
+        strategy.exit("ASellX", from_entry="ASell", stop=s, limit=tp)
+        at             := true
+        asp            := false
+        order_pending  := true
+        stored_e       := ae
+        stored_sl      := s
+        stored_orig_sl := s
+        stored_qty     := q
+        stored_tp      := tp
+        be_done        := false
+        p3_count       := 0
+        p3_p2_1        := na
+        p3_p2_2        := na
+        if i_sig and not sad
+            sad := true
+            label.new(bar_index, ae, "SELL Asia", color=color.red, textcolor=color.white, style=label.style_label_down, size=size.small)
+        if i_wh
+            f_wh_fire("entry", "ASell", "sell", q, ae, s, tp)
+    if not ok and i_diag and not (asp[1] and iax[1])
+        label.new(bar_index, high, "✖ SELL Asia rejeté : TP/RR invalide", color=color.new(color.gray, 30), textcolor=color.white, style=label.style_label_down, size=size.tiny)
+
+if lbp and not lt and ilx and not na(vw) and strategy.position_size == 0 and active_ext == 1
+    float e = lbl + sp
+    float s = f_slref(l_ext_buy, not na(ulv) ? ulv : l_sweep_sl_buy)
+    [ae, tp, ok] = f_tp(true, e, s, vw, vu)
+    if ok
+        float q = f_qty(ae, s)
+        stored_id      := "LBuy"
+        stored_xid     := "LBuyX"
+        stored_sess    := "London"
+        stored_trend   := active_ext
+        strategy.entry("LBuy", strategy.long, qty=q, limit=ae, comment="BUY London")
+        strategy.exit("LBuyX", from_entry="LBuy", stop=s, limit=tp)
+        lt             := true
+        lbp            := false
+        order_pending  := true
+        stored_e       := ae
+        stored_sl      := s
+        stored_orig_sl := s
+        stored_qty     := q
+        stored_tp      := tp
+        be_done        := false
+        p3_count       := 0
+        p3_p2_1        := na
+        p3_p2_2        := na
+        if i_sig and not sld
+            sld := true
+            label.new(bar_index, ae, "BUY London", color=color.new(#1848cc, 0), textcolor=color.white, style=label.style_label_up, size=size.small)
+        if i_wh
+            f_wh_fire("entry", "LBuy", "buy", q, ae, s, tp)
+    if not ok and i_diag and not (lbp[1] and ilx[1])
+        label.new(bar_index, low, "✖ BUY London rejeté : TP/RR invalide", color=color.new(color.gray, 30), textcolor=color.white, style=label.style_label_up, size=size.tiny)
+
+if lsp and not lt and ilx and not na(vw) and strategy.position_size == 0 and active_ext == -1
+    float e = lsl
+    float s = f_slref(l_ext_sell, not na(uhv) ? uhv : l_sweep_sl_sell) + sp
+    [ae, tp, ok] = f_tp(false, e, s, vw, vl)
+    if ok
+        float q = f_qty(ae, s)
+        stored_id      := "LSell"
+        stored_xid     := "LSellX"
+        stored_sess    := "London"
+        stored_trend   := active_ext
+        strategy.entry("LSell", strategy.short, qty=q, limit=ae, comment="SELL London")
+        strategy.exit("LSellX", from_entry="LSell", stop=s, limit=tp)
+        lt             := true
+        lsp            := false
+        order_pending  := true
+        stored_e       := ae
+        stored_sl      := s
+        stored_orig_sl := s
+        stored_qty     := q
+        stored_tp      := tp
+        be_done        := false
+        p3_count       := 0
+        p3_p2_1        := na
+        p3_p2_2        := na
+        if i_sig and not sld
+            sld := true
+            label.new(bar_index, ae, "SELL London", color=color.new(#ff9800, 0), textcolor=color.white, style=label.style_label_down, size=size.small)
+        if i_wh
+            f_wh_fire("entry", "LSell", "sell", q, ae, s, tp)
+    if not ok and i_diag and not (lsp[1] and ilx[1])
+        label.new(bar_index, high, "✖ SELL London rejeté : TP/RR invalide", color=color.new(color.gray, 30), textcolor=color.white, style=label.style_label_down, size=size.tiny)
+
+// ══ MANAGEMENT ════════════════════════════════════════════════════════
+if strategy.position_size != 0
+    order_pending := false
+
+if pos_open and not be_done and not na(stored_e) and not na(stored_tp) and stored_id != ""
+    float ep     = strategy.opentrades > 0 ? strategy.opentrades.entry_price(0) : stored_e
+    float be_lvl = ep + (stored_tp - ep) * 0.5
+    bool  is_buy = strategy.position_size > 0
+    bool  be_hit = is_buy ? high >= be_lvl : low <= be_lvl
+    if be_hit
+        be_done      := true
+        float new_sl  = is_buy ? math.max(ep, stored_sl) : math.min(ep, stored_sl)
+        stored_sl    := new_sl
+        strategy.exit(stored_xid, from_entry=stored_id, stop=stored_sl, limit=stored_tp)
+        if i_wh
+            f_wh_fire("sl_update", stored_id, is_buy ? "buy" : "sell", stored_qty, ep, stored_sl, stored_tp)
+// Franchissement robuste de l'heure d'arbitrage (pas de dépendance à une
+// barre estampillée hh:mm pile)
+bool arb_asia = tmn >= i_abh * 60 + i_abm and ptmn < i_abh * 60 + i_abm
+bool arb_lon  = tmn >= i_lbh * 60 + i_lbm and ptmn < i_lbh * 60 + i_lbm
+bool arb_now  = (arb_asia or arb_lon) and pos_open and not na(stored_orig_sl) and stored_id != ""
+
+if arb_now
+    float ep      = strategy.opentrades > 0 ? strategy.opentrades.entry_price(0) : stored_e
+    float risk    = math.abs(ep - stored_orig_sl)
+    bool  is_buy  = strategy.position_size > 0
+    float rr1lv   = is_buy ? ep + risk       : ep - risk
+    float rr2tp   = is_buy ? ep + 2.0 * risk : ep - 2.0 * risk
+    float arb_cp  = close
+    bool in_loss  = is_buy ? arb_cp < ep    : arb_cp > ep
+    bool bey_rr2  = is_buy ? arb_cp > rr2tp : arb_cp < rr2tp
+    if risk > 0
+        if in_loss
+            stored_tp := ep
+            strategy.exit(stored_xid, from_entry=stored_id, stop=stored_sl, limit=ep)
+        else if bey_rr2
+            float new_sl = is_buy ? math.max(stored_sl, rr1lv) : math.min(stored_sl, rr1lv)
+            if new_sl != stored_sl
+                stored_sl := new_sl
+                be_done   := true
+                strategy.exit(stored_xid, from_entry=stored_id, stop=new_sl, limit=stored_tp)
+        else
+            if (is_buy and stored_tp > rr2tp) or (not is_buy and stored_tp < rr2tp)
+                stored_tp := rr2tp
+            if not be_done
+                float new_sl = is_buy ? math.max(stored_sl, ep) : math.min(stored_sl, ep)
+                if new_sl != stored_sl
+                    stored_sl := new_sl
+                    be_done   := true
+            strategy.exit(stored_xid, from_entry=stored_id, stop=stored_sl, limit=stored_tp)
+        if i_wh
+            f_wh_fire("sl_update", stored_id, is_buy ? "buy" : "sell", stored_qty, ep, stored_sl, stored_tp)
+var bool was_open = false
+if pos_open
+    was_open := true
+    if strategy.opentrades > 0 and na(stored_entry_real)
+        stored_entry_real := strategy.opentrades.entry_price(0)
+
+if was_open and not pos_open and strategy.opentrades == 0
+    if not na(stored_entry_real) and not na(stored_orig_sl) and math.abs(stored_entry_real - stored_orig_sl) > 0
+        float exit_price = strategy.closedtrades > 0 ? strategy.closedtrades.exit_price(strategy.closedtrades - 1) : close
+        bool  was_buy    = strategy.closedtrades > 0 ? strategy.closedtrades.size(strategy.closedtrades - 1) > 0 : false
+        float risk_pts   = math.abs(stored_entry_real - stored_orig_sl)
+        float reward_pts = math.abs(exit_price - stored_entry_real)
+        float rr_done    = reward_pts / risk_pts
+        bool  is_win     = was_buy ? exit_price > stored_entry_real : exit_price < stored_entry_real
+        string rr_txt    = (is_win ? "✓ +" : "✗ -") + str.tostring(math.round(rr_done, 2)) + "R"
+        color  rr_col    = is_win ? color.new(color.lime, 0) : color.new(color.red, 0)
+        float  lbl_y     = was_buy ? low - a14 * 0.5 : high + a14 * 0.5
+        if was_buy
+            label.new(bar_index, lbl_y, rr_txt, color=color.new(color.black, 30), textcolor=rr_col, style=label.style_label_up,   size=size.small)
+        else
+            label.new(bar_index, lbl_y, rr_txt, color=color.new(color.black, 30), textcolor=rr_col, style=label.style_label_down, size=size.small)
+        if i_wh
+            f_wh_fire("exit", stored_id, was_buy ? "buy" : "sell", 0, exit_price, stored_orig_sl, stored_tp)
+    was_open          := false
+    be_done           := false
+    order_pending     := false
+    stored_e          := na
+    stored_sl         := na
+    stored_tp         := na
+    stored_orig_sl    := na
+    stored_entry_real := na
+    p3_count          := 0
+    p3_p2_1           := na
+    p3_p2_2           := na
+    stored_id         := ""
+    stored_xid        := ""
+    stored_sess      := ""
+
+// ══ COULEURS VWAP + INFOS TP/SL (inputs) ══════════════════════════════
+// Déclarés ICI et non avec les autres inputs d'affichage : TradingView
+// associe les réglages enregistrés par POSITION dans la liste des inputs, et
+// tout ajout décale ce qui suit. Placés juste avant les plots qui les
+// consomment, ils laissent intactes les positions des 73 premiers inputs —
+// risque, sessions, index, couleurs, webhook — et ne décalent que i_db_slref
+// (bool, défaut true) et les groupes LuxAlgo / Alertes, restés à leurs
+// valeurs d'usine. Le champ group= les range quand même au bon endroit.
+i_col_vwap    = input.color(color.new(color.teal, 30), "Couleur VWAP",     group="Affichage")
+i_col_vwap_up = input.color(color.new(color.aqua, 55), "Couleur VWAP +1σ", group="Affichage")
+i_col_vwap_dn = input.color(color.new(color.aqua, 55), "Couleur VWAP -1σ", group="Affichage")
+// Pine ne capte pas les CLICS sur une box : l'équivalent le plus proche est
+// un label ancré sur les lignes TP / SL de la position, dont le TOOLTIP
+// (survol ou clic du label) donne le détail — RR et valeur en devise.
+i_info        = input.bool(true, "Infos RR / PnL sur TP & SL", group="Affichage")
+
+// ══ PLOTS VWAP + NIVEAUX ══════════════════════════════════════════════
+// Les 3 niveaux du VWAP journalier : central + bandes ±1σ (cibles TP de f_tp)
+plot(i_vwap ? vw : na, "VWAP",     color=i_col_vwap,    linewidth=1)
+plot(i_vwap ? vu : na, "VWAP +1σ", color=i_col_vwap_up, linewidth=1)
+plot(i_vwap ? vl : na, "VWAP -1σ", color=i_col_vwap_dn, linewidth=1)
+plot(i_lvl and st == 1 ? p1e : na, "P1",  color=color.new(color.orange,20), linewidth=1, style=plot.style_linebr)
+plot(i_lvl and not na(pp2) ? pp2 : na, "PP2", color=color.new(color.purple,20), linewidth=1, style=plot.style_linebr)
+// Lignes de liquidité INTERNES du bot : le range que les sweeps doivent
+// percer, affiché pendant la fenêtre de sweep correspondante. Ce sont ces
+// lignes-là qui comptent, pas les boxes du module Sessions visuel.
+plot(i_liq and iap ? ah  : na, "Liquidité Asia High",   color=color.new(#64b5f6, 10), linewidth=2, style=plot.style_linebr)
+plot(i_liq and iap ? al  : na, "Liquidité Asia Low",    color=color.new(#64b5f6, 10), linewidth=2, style=plot.style_linebr)
+plot(i_liq and ilp ? lhv : na, "Liquidité London High", color=color.new(#ff8a65, 10), linewidth=2, style=plot.style_linebr)
+plot(i_liq and ilp ? llv : na, "Liquidité London Low",  color=color.new(#ff8a65, 10), linewidth=2, style=plot.style_linebr)
+
+// ══ PROJECTION SL/TP ══════════════════════════════════════════════════
+bool has_signal = strategy.opentrades > 0 and not na(stored_e) and not na(stored_sl) and not na(stored_tp)
+bool sl_in_loss = has_signal and ((strategy.position_size > 0 and stored_sl < stored_e) or (strategy.position_size < 0 and stored_sl > stored_e))
+
+float v_entry      = sl_in_loss ? stored_e : na
+float v_sl         = has_signal ? stored_sl : na
+float v_tp         = has_signal ? stored_tp : na
+float v_be         = has_signal and not be_done ? stored_e + (stored_tp - stored_e) * 0.5 : na
+float v_blue_inner = has_signal ? (sl_in_loss ? stored_e : stored_sl) : na
+
+p_entry      = plot(i_boxes ? v_entry      : na, "Entry",     color=i_col_l_entry, linewidth=1, style=plot.style_linebr)
+p_sl         = plot(i_boxes ? v_sl         : na, "SL",        color=i_col_l_sl,    linewidth=2, style=plot.style_linebr)
+p_tp         = plot(i_boxes ? v_tp         : na, "TP",        color=i_col_l_tp,    linewidth=2, style=plot.style_linebr)
+p_be         = plot(i_boxes ? v_be         : na, "BE",        color=i_col_l_be,    linewidth=1, style=plot.style_linebr)
+p_blue_inner = plot(i_boxes ? v_blue_inner : na, "BlueInner", display=display.none)
+
+fill(p_entry,      p_sl, color=i_boxes and sl_in_loss ? i_col_sl : na, title="Zone SL")
+fill(p_blue_inner, p_tp, color=i_boxes and has_signal ? i_col_tp : na, title="Zone TP")
+
+// ══ INFOS TP / SL — RR & VALEUR EN DEVISE ═════════════════════════════
+// La valeur monétaire dérive du modèle de risque du bot : 1R = i_risk i_curr,
+// puisque le sizing f_qty calibre la distance entry → SL initial à i_risk.
+// Les labels suivent le SL ÉVOLUTIF (BE, trailing P3, arbitrage) en direct.
+string cur_sym = i_curr == "EUR" ? "€" : i_curr == "USD" ? "$" : i_curr == "GBP" ? "£" : i_curr == "JPY" ? "¥" : " " + i_curr
+
+f_money(float rr) =>
+    (rr >= 0 ? "+" : "") + str.tostring(math.round(rr * i_risk, 2)) + cur_sym
+
+f_rr_txt(float rr) =>
+    (rr >= 0 ? "+" : "") + str.tostring(math.round(rr, 2)) + "R"
+
+float info_ep   = not na(stored_entry_real) ? stored_entry_real : stored_e
+bool  info_buy  = strategy.position_size > 0
+float info_risk = not na(info_ep) and not na(stored_orig_sl) ? math.abs(info_ep - stored_orig_sl) : na
+bool  show_info = i_info and has_signal and not na(info_risk) and info_risk > 0
+
+float info_dir  = info_buy ? 1.0 : -1.0
+float rr_tp_v   = show_info ? (stored_tp      - info_ep) / info_risk * info_dir : na
+float rr_sl_v   = show_info ? (stored_sl      - info_ep) / info_risk * info_dir : na
+float rr_osl_v  = show_info ? (stored_orig_sl - info_ep) / info_risk * info_dir : na
+float rr_live_v = show_info ? (close          - info_ep) / info_risk * info_dir : na
+
+// Récap complet : sert de tooltip aux labels ET aux lignes Position / P&L du
+// dashboard (survoler la cellule affiche le détail).
+string info_tt = ""
+if show_info
+    info_tt := "Entrée : " + str.tostring(info_ep, format.mintick) +
+         "\nTP : " + str.tostring(stored_tp, format.mintick) + "  (" + f_rr_txt(rr_tp_v) + " = " + f_money(rr_tp_v) + ")" +
+         "\nSL actuel : " + str.tostring(stored_sl, format.mintick) + "  (" + f_rr_txt(rr_sl_v) + " = " + f_money(rr_sl_v) + ")" +
+         "\nSL initial : " + str.tostring(stored_orig_sl, format.mintick) + "  (" + f_rr_txt(rr_osl_v) + " = " + f_money(rr_osl_v) + ")" +
+         "\nPnL latent : " + f_rr_txt(rr_live_v) + " = " + f_money(rr_live_v) +
+         (be_done ? "\nBreakeven ✓" : "")
+
+var label lbl_tp_info = na
+var label lbl_sl_info = na
+if barstate.islast and show_info
+    string tp_txt = "TP  " + f_rr_txt(rr_tp_v) + " · " + f_money(rr_tp_v)
+    string sl_txt = (stored_sl != stored_orig_sl ? "SL évolutif  " : "SL  ") + f_rr_txt(rr_sl_v) + " · " + f_money(rr_sl_v)
+    string tp_tt  = "TAKE PROFIT\nPrix : " + str.tostring(stored_tp, format.mintick) +
+         "\nRR : " + f_rr_txt(rr_tp_v) +
+         "\nGain : " + f_money(rr_tp_v) +
+         "\n————————————\n" + info_tt
+    string sl_tt  = "STOP LOSS" + (be_done ? " (BE ✓)" : "") +
+         "\nActuel : " + str.tostring(stored_sl, format.mintick) + "  (" + f_rr_txt(rr_sl_v) + " = " + f_money(rr_sl_v) + ")" +
+         "\nInitial : " + str.tostring(stored_orig_sl, format.mintick) + "  (" + f_rr_txt(rr_osl_v) + " = " + f_money(rr_osl_v) + ")" +
+         "\n————————————\n" + info_tt
+    if na(lbl_tp_info)
+        lbl_tp_info := label.new(bar_index + 3, stored_tp, "", style=label.style_label_left, color=color.new(color.black, 20), size=size.small)
+    if na(lbl_sl_info)
+        lbl_sl_info := label.new(bar_index + 3, stored_sl, "", style=label.style_label_left, color=color.new(color.black, 20), size=size.small)
+    label.set_xy(lbl_tp_info, bar_index + 3, stored_tp)
+    label.set_text(lbl_tp_info, tp_txt)
+    label.set_tooltip(lbl_tp_info, tp_tt)
+    label.set_textcolor(lbl_tp_info, i_col_l_tp)
+    label.set_xy(lbl_sl_info, bar_index + 3, stored_sl)
+    label.set_text(lbl_sl_info, sl_txt)
+    label.set_tooltip(lbl_sl_info, sl_tt)
+    label.set_textcolor(lbl_sl_info, rr_sl_v >= 0 ? color.new(color.lime, 0) : i_col_l_sl)
+if barstate.islast and not show_info
+    if not na(lbl_tp_info)
+        label.delete(lbl_tp_info)
+        lbl_tp_info := na
+    if not na(lbl_sl_info)
+        label.delete(lbl_sl_info)
+        lbl_sl_info := na
+
+// ══ DASHBOARD ═════════════════════════════════════════════════════════
+// Déclaré ICI et non avec les autres i_db_* : TradingView associe les réglages
+// enregistrés par POSITION dans la liste des inputs, et tout ajout décale ce
+// qui suit. Placé juste avant le dashboard, il laisse intactes les positions
+// des 73 premiers inputs — risque, sessions, index, couleurs, webhook — et ne
+// décale que les groupes LuxAlgo et Alertes, restés à leurs valeurs d'usine.
+// Le champ group= le range quand même au bon endroit dans l'interface.
+i_db_slref = input.bool(true, "Ref. SL", group="Dashboard")
+
+f_trend_color(int t) =>
+    t == 1 ? color.green : t == -1 ? color.red : color.gray
+
+f_trend_label(int t) =>
+    t == 1 ? "▲ BULL" : t == -1 ? "▼ BEAR" : "— NEUTRE"
+
+var table tb = table.new(position.top_right, 2, 16, border_width=1, border_color=color.new(color.gray,70), bgcolor=color.new(color.black,70))
+
+if barstate.islast
+    table.clear(tb, 0, 0, 1, 15)
+    int r = 0
+
+    table.cell(tb, 0, r, "REVERSAL BOT v3.5", text_color=color.white, text_size=size.small, bgcolor=color.new(color.navy, 30))
+    table.cell(tb, 1, r, syminfo.ticker,  text_color=color.white, text_size=size.small, bgcolor=color.new(color.navy, 30))
+    r := r + 1
+
+    if i_db_mode
+        table.cell(tb, 0, r, "Mode", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, mode2 ? "Confluence" : "D1 seul", text_color=color.yellow, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+        string prof_txt = (is_index ? "INDEX " : "DEFAUT ") +
+             str.format("{0}h{1,number,00}-{2}h{3,number,00} / {4}h{5,number,00}-{6}h{7,number,00}",
+             math.floor(a_act_start / 60), a_act_start % 60, math.floor(a_act_end / 60), a_act_end % 60,
+             math.floor(l_act_start / 60), l_act_start % 60, math.floor(l_act_end / 60), l_act_end % 60)
+        table.cell(tb, 0, r, "Profil", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, prof_txt, text_color=is_index ? color.aqua : color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    // Quelle référence de SL est réellement active sur ce graphique.
+    // MT5 ne journalise pas la valeur de ses paramètres : ici, elle se lit.
+    if i_db_slref
+        bool   slref_ext = is_index
+        string slref_txt = slref_ext ? "Extension P4" : "Session"
+        table.cell(tb, 0, r, "Ref. SL", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, slref_txt, text_color=slref_ext ? color.aqua : color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    // Tendance FIGEE du jour = celle réellement utilisée par les entrées
+    if i_db_trend
+        table.cell(tb, 0, r, "Tendance jour", text_color=color.white, text_size=size.small, bgcolor=color.new(color.navy, 50))
+        table.cell(tb, 1, r, f_trend_label(active_ext) + " 🔒", text_color=f_trend_color(active_ext), text_size=size.small, bgcolor=color.new(color.navy, 50))
+        r := r + 1
+
+    // Tendance qui a servi à placer l'ordre / la position en cours
+    if i_db_ttrade
+        string tt = stored_id != "" ? f_trend_label(stored_trend) : "—"
+        table.cell(tb, 0, r, "Tendance trade", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, tt, text_color=stored_id != "" ? f_trend_color(stored_trend) : color.gray, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    if i_db_d1
+        int d1_display = mode2 ? d1_conf : ext_m1
+        table.cell(tb, 0, r, "D1 live", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, f_trend_label(d1_display), text_color=f_trend_color(d1_display), text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    if i_db_w1
+        table.cell(tb, 0, r, "W1 live", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, mode2 ? f_trend_label(w1_trend) : "—", text_color=mode2 ? f_trend_color(w1_trend) : color.gray, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    if i_db_st
+        table.cell(tb, 0, r, "ST 1H×30 live", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, mode2 ? f_trend_label(st_trend) : "—", text_color=mode2 ? f_trend_color(st_trend) : color.gray, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    if i_db_state
+        table.cell(tb, 0, r, "State", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, str.tostring(st), text_color=color.white, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    if i_db_vwap
+        table.cell(tb, 0, r, "VWAP", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, str.tostring(math.round(vw, 5)), text_color=color.white, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    if i_db_asia
+        string asia_st = at ? "consommee" : (abp ? "BUY pend" : asp ? "SELL pend" : (a_buy_ctx ? "sweep BUY ↑" : a_sell_ctx ? "sweep SELL ↓" : "libre"))
+        table.cell(tb, 0, r, "Asia", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, asia_st, text_color=color.white, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    if i_db_london
+        string lon_st = lt ? "consommee" : (lbp ? "BUY pend" : lsp ? "SELL pend" : (l_buy_ctx ? "sweep BUY ↑" : l_sell_ctx ? "sweep SELL ↓" : "libre"))
+        table.cell(tb, 0, r, "London", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, lon_st, text_color=color.white, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    if i_db_pos
+        string pos_txt = pos_open ? (strategy.position_size > 0 ? "LONG" : "SHORT") : (order_pending ? "ordre en attente" : "Aucune")
+        table.cell(tb, 0, r, "Position", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, pos_txt, text_color=color.white, text_size=size.small, bgcolor=color.new(color.black, 80), tooltip=info_tt)
+        r := r + 1
+
+    if i_db_be
+        table.cell(tb, 0, r, "BE / P3", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, be_done ? "BE ✓" : p3_count > 0 ? "P3 x" + str.tostring(p3_count) : "NON", text_color=color.white, text_size=size.small, bgcolor=color.new(color.black, 80))
+        r := r + 1
+
+    if i_db_pnl
+        // P&L broker + RR courant + contre-valeur en devise de risque.
+        // Le tooltip (survol de la cellule) reprend le récap complet TP/SL.
+        string pnl_txt = str.tostring(math.round(strategy.openprofit, 2))
+        if show_info
+            pnl_txt := pnl_txt + " · " + f_rr_txt(rr_live_v) + " ≈ " + f_money(rr_live_v)
+        color pnl_col = not pos_open ? color.white : strategy.openprofit >= 0 ? color.new(color.lime, 0) : color.new(color.red, 0)
+        table.cell(tb, 0, r, "P&L", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
+        table.cell(tb, 1, r, pnl_txt, text_color=pnl_col, text_size=size.small, bgcolor=color.new(color.black, 80), tooltip=info_tt)
+
+// ══ SESSIONS LUXALGO ══════════════════════════════════════════════════
+show_sesa   = input(true,                '',     inline='sesa',         group='Session A')
+sesa_txt    = input('New York',          '',     inline='sesa',         group='Session A')
+sesa_ses    = input.session('1300-2200', '',     inline='sesa',         group='Session A')
+sesa_css    = input.color(#ff5d00,       '',     inline='sesa',         group='Session A')
+sesa_range  = input(true,  'Range',      inline='sesa_overlays',        group='Session A')
+sesa_tl     = input(false, 'Trendline',  inline='sesa_overlays',        group='Session A')
+sesa_avg    = input(false, 'Mean',       inline='sesa_overlays',        group='Session A')
+sesa_vwap   = input(false, 'VWAP',      inline='sesa_overlays',        group='Session A')
+sesa_maxmin = input(false, 'Max/Min',    inline='sesa_overlays',        group='Session A')
+
+show_sesb   = input(true,                '',     inline='sesb',         group='Session B')
+sesb_txt    = input('London',            '',     inline='sesb',         group='Session B')
+sesb_ses    = input.session('0700-1600', '',     inline='sesb',         group='Session B')
+sesb_css    = input.color(#2157f3,       '',     inline='sesb',         group='Session B')
+sesb_range  = input(true,  'Range',      inline='sesb_overlays',        group='Session B')
+sesb_tl     = input(false, 'Trendline',  inline='sesb_overlays',        group='Session B')
+sesb_avg    = input(false, 'Mean',       inline='sesb_overlays',        group='Session B')
+sesb_vwap   = input(false, 'VWAP',      inline='sesb_overlays',        group='Session B')
+sesb_maxmin = input(false, 'Max/Min',    inline='sesb_overlays',        group='Session B')
+
+show_sesc   = input(true,                '',     inline='sesc',         group='Session C')
+sesc_txt    = input('Tokyo',             '',     inline='sesc',         group='Session C')
+sesc_ses    = input.session('0000-0900', '',     inline='sesc',         group='Session C')
+sesc_css    = input.color(#e91e63,       '',     inline='sesc',         group='Session C')
+sesc_range  = input(true,  'Range',      inline='sesc_overlays',        group='Session C')
+sesc_tl     = input(false, 'Trendline',  inline='sesc_overlays',        group='Session C')
+sesc_avg    = input(false, 'Mean',       inline='sesc_overlays',        group='Session C')
+sesc_vwap   = input(false, 'VWAP',      inline='sesc_overlays',        group='Session C')
+sesc_maxmin = input(false, 'Max/Min',    inline='sesc_overlays',        group='Session C')
+
+show_sesd   = input(true,                '',     inline='sesd',         group='Session D')
+sesd_txt    = input('Sydney',            '',     inline='sesd',         group='Session D')
+sesd_ses    = input.session('2100-0600', '',     inline='sesd',         group='Session D')
+sesd_css    = input.color(#ffeb3b,       '',     inline='sesd',         group='Session D')
+sesd_range  = input(true,  'Range',      inline='sesd_overlays',        group='Session D')
+sesd_tl     = input(false, 'Trendline',  inline='sesd_overlays',        group='Session D')
+sesd_avg    = input(false, 'Mean',       inline='sesd_overlays',        group='Session D')
+sesd_vwap   = input(false, 'VWAP',      inline='sesd_overlays',        group='Session D')
+sesd_maxmin = input(false, 'Max/Min',    inline='sesd_overlays',        group='Session D')
+
+tz_incr      = input.int(0,    'UTC (+/-)',               group='Sessions Timezone')
+use_exchange = input(false,    'Use Exchange Timezone',   group='Sessions Timezone')
+bg_transp    = input.float(90, 'Range Area Transparency', group='Sessions Ranges')
+show_outline = input(true,     'Range Outline',           group='Sessions Ranges')
+show_txt     = input(true,     'Range Label',             group='Sessions Ranges')
+show_ses_div = input(false,    'Show Sessions Divider',   group='Sessions Dividers')
+show_day_div = input(true,     'Show Daily Divider',      group='Sessions Dividers')
+
+ses_get_avg(session) =>
+    var int   _len  = 1
+    var float _csma = na
+    var float _sma  = na
+    if session and not session[1]
+        _len  := 1
+        _csma := close
+    if session and session[1]
+        _len  += 1
+        _csma += close
+        _sma  := _csma / _len
+    _sma
+
+ses_get_linreg(session) =>
+    var int   _len   = 1
+    var float _cwma  = na
+    var float _csma  = na
+    var float _csma2 = na
+    var float _y1    = na
+    var float _y2    = na
+    var float _stdev = na
+    var float _r2    = na
+    if session and not session[1]
+        _len   := 1
+        _cwma  := close
+        _csma  := close
+        _csma2 := close * close
+    if session and session[1]
+        _len   += 1
+        _csma  += close
+        _csma2 += close * close
+        _cwma  += close * _len
+        float _sma2 = _csma / _len
+        float _wma2 = _cwma / (_len * (_len + 1) / 2)
+        float _cov  = (_wma2 - _sma2) * (_len + 1) / 2
+        _stdev := math.sqrt(_csma2 / _len - _sma2 * _sma2)
+        _r2    := _cov / (_stdev * (math.sqrt(_len * _len - 1) / (2 * math.sqrt(3))))
+        _y1    := 4 * _sma2 - 3 * _wma2
+        _y2    := 3 * _wma2 - 2 * _sma2
+    [_y1, _y2, _stdev, _r2]
+
+ses_get_vwap(session) =>
+    var float _num = na
+    var float _den = na
+    if session and not session[1]
+        _num := close * volume
+        _den := volume
+    else if session and session[1]
+        _num += close * volume
+        _den += volume
+    else
+        _num := na
+    [_num, _den]
+
+ses_set_line(session, y1, y2, session_css) =>
+    var line _tl = na
+    if session and not session[1]
+        _tl := line.new(bar_index, close, bar_index, close, color=session_css)
+    if session and session[1]
+        line.set_y1(_tl, y1)
+        line.set_xy2(_tl, bar_index, y2)
+
+ses_get_range(session, session_name, session_css) =>
+    var int   _t   = 0
+    var float _max = high
+    var float _min = low
+    var box   _bx  = na
+    var label _lbl = na
+    if session and not session[1]
+        _t   := time
+        _max := high
+        _min := low
+        _bx  := box.new(bar_index, _max, bar_index, _min
+          , bgcolor      = color.new(session_css, bg_transp)
+          , border_color = show_outline ? session_css : na
+          , border_style = line.style_dotted)
+        if show_txt
+            _lbl := label.new(_t, _max, session_name
+              , xloc      = xloc.bar_time
+              , textcolor = session_css
+              , style     = label.style_label_down
+              , color     = color.new(color.white, 100)
+              , size      = size.tiny)
+    if session and session[1]
+        _max := math.max(high, _max)
+        _min := math.min(low,  _min)
+        box.set_top(_bx, _max)
+        box.set_rightbottom(_bx, bar_index, _min)
+        if show_txt
+            label.set_xy(_lbl, int(math.avg(_t, time)), _max)
+    [session ? na : _max, session ? na : _min]
+
+var string _ses_tz = use_exchange ? syminfo.timezone :
+  str.format('UTC{0}{1}', tz_incr >= 0 ? '+' : '-', math.abs(tz_incr))
+
+is_sesa = math.sign(nz(time(timeframe.period, sesa_ses, _ses_tz))) != 0
+is_sesb = math.sign(nz(time(timeframe.period, sesb_ses, _ses_tz))) != 0
+is_sesc = math.sign(nz(time(timeframe.period, sesc_ses, _ses_tz))) != 0
+is_sesd = math.sign(nz(time(timeframe.period, sesd_ses, _ses_tz))) != 0
+
+var float max_sesa = na
+var float min_sesa = na
+var float max_sesb = na
+var float min_sesb = na
+var float max_sesc = na
+var float min_sesc = na
+var float max_sesd = na
+var float min_sesd = na
+
+if show_sesa and sesa_range
+    [_mx, _mn] = ses_get_range(is_sesa, sesa_txt, sesa_css)
+    max_sesa := _mx
+    min_sesa := _mn
+if show_sesb and sesb_range
+    [_mx, _mn] = ses_get_range(is_sesb, sesb_txt, sesb_css)
+    max_sesb := _mx
+    min_sesb := _mn
+if show_sesc and sesc_range
+    [_mx, _mn] = ses_get_range(is_sesc, sesc_txt, sesc_css)
+    max_sesc := _mx
+    min_sesc := _mn
+if show_sesd and sesd_range
+    [_mx, _mn] = ses_get_range(is_sesd, sesd_txt, sesd_css)
+    max_sesd := _mx
+    min_sesd := _mn
+
+if show_sesa and sesa_tl
+    [_y1, _y2, _s, _r] = ses_get_linreg(is_sesa)
+    ses_set_line(is_sesa, _y1, _y2, sesa_css)
+if show_sesb and sesb_tl
+    [_y1, _y2, _s, _r] = ses_get_linreg(is_sesb)
+    ses_set_line(is_sesb, _y1, _y2, sesb_css)
+if show_sesc and sesc_tl
+    [_y1, _y2, _s, _r] = ses_get_linreg(is_sesc)
+    ses_set_line(is_sesc, _y1, _y2, sesc_css)
+if show_sesd and sesd_tl
+    [_y1, _y2, _s, _r] = ses_get_linreg(is_sesd)
+    ses_set_line(is_sesd, _y1, _y2, sesd_css)
+
+if show_sesa and sesa_avg
+    ses_set_line(is_sesa, ses_get_avg(is_sesa), ses_get_avg(is_sesa), sesa_css)
+if show_sesb and sesb_avg
+    ses_set_line(is_sesb, ses_get_avg(is_sesb), ses_get_avg(is_sesb), sesb_css)
+if show_sesc and sesc_avg
+    ses_set_line(is_sesc, ses_get_avg(is_sesc), ses_get_avg(is_sesc), sesc_css)
+if show_sesd and sesd_avg
+    ses_set_line(is_sesd, ses_get_avg(is_sesd), ses_get_avg(is_sesd), sesd_css)
+
+var float vwap_a = na
+var float vwap_b = na
+var float vwap_c = na
+var float vwap_d = na
+
+if show_sesa and sesa_vwap
+    [_n, _d] = ses_get_vwap(is_sesa)
+    vwap_a   := _n / _d
+if show_sesb and sesb_vwap
+    [_n, _d] = ses_get_vwap(is_sesb)
+    vwap_b   := _n / _d
+if show_sesc and sesc_vwap
+    [_n, _d] = ses_get_vwap(is_sesc)
+    vwap_c   := _n / _d
+if show_sesd and sesd_vwap
+    [_n, _d] = ses_get_vwap(is_sesd)
+    vwap_d   := _n / _d
+
+// Les lignes Max/Min des sessions visuelles sont aussi des niveaux de
+// liquidité : elles obéissent au même interrupteur global i_liq.
+if i_liq and sesa_maxmin and not na(max_sesa)
+    line.new(bar_index, max_sesa, bar_index - 1, max_sesa, color=sesa_css, extend=extend.left, style=line.style_dotted)
+    line.new(bar_index, min_sesa, bar_index - 1, min_sesa, color=sesa_css, extend=extend.left, style=line.style_dotted)
+if i_liq and sesb_maxmin and not na(max_sesb)
+    line.new(bar_index, max_sesb, bar_index - 1, max_sesb, color=sesb_css, extend=extend.left, style=line.style_dotted)
+    line.new(bar_index, min_sesb, bar_index - 1, min_sesb, color=sesb_css, extend=extend.left, style=line.style_dotted)
+if i_liq and sesc_maxmin and not na(max_sesc)
+    line.new(bar_index, max_sesc, bar_index - 1, max_sesc, color=sesc_css, extend=extend.left, style=line.style_dotted)
+    line.new(bar_index, min_sesc, bar_index - 1, min_sesc, color=sesc_css, extend=extend.left, style=line.style_dotted)
+if i_liq and sesd_maxmin and not na(max_sesd)
+    line.new(bar_index, max_sesd, bar_index - 1, max_sesd, color=sesd_css, extend=extend.left, style=line.style_dotted)
+    line.new(bar_index, min_sesd, bar_index - 1, min_sesd, color=sesd_css, extend=extend.left, style=line.style_dotted)
+
+plot(vwap_a, 'Session A VWAP', sesa_css, 1, plot.style_linebr)
+plot(vwap_b, 'Session B VWAP', sesb_css, 1, plot.style_linebr)
+plot(vwap_c, 'Session C VWAP', sesc_css, 1, plot.style_linebr)
+plot(vwap_d, 'Session D VWAP', sesd_css, 1, plot.style_linebr)
+
+if show_ses_div
+    if show_sesa and is_sesa and not is_sesa[1]
+        label.new(bar_index, low, sesa_txt, xloc=xloc.bar_index, yloc=yloc.belowbar, color=color.new(color.white,100), textcolor=sesa_css, style=label.style_label_up, size=size.tiny)
+    if show_sesb and is_sesb and not is_sesb[1]
+        label.new(bar_index, low, sesb_txt, xloc=xloc.bar_index, yloc=yloc.belowbar, color=color.new(color.white,100), textcolor=sesb_css, style=label.style_label_up, size=size.tiny)
+    if show_sesc and is_sesc and not is_sesc[1]
+        label.new(bar_index, low, sesc_txt, xloc=xloc.bar_index, yloc=yloc.belowbar, color=color.new(color.white,100), textcolor=sesc_css, style=label.style_label_up, size=size.tiny)
+    if show_sesd and is_sesd and not is_sesd[1]
+        label.new(bar_index, low, sesd_txt, xloc=xloc.bar_index, yloc=yloc.belowbar, color=color.new(color.white,100), textcolor=sesd_css, style=label.style_label_up, size=size.tiny)
+
+_day = dayofweek
+if _day != _day[1] and show_day_div
+    line.new(bar_index, close + syminfo.mintick, bar_index, close - syminfo.mintick, color=color.gray, extend=extend.both, style=line.style_dashed)
+    string _dname = _day == 1 ? "Sunday" : _day == 2 ? "Monday" : _day == 3 ? "Tuesday" : _day == 4 ? "Wednesday" : _day == 5 ? "Thursday" : _day == 6 ? "Friday" : "Saturday"
+    label.new(bar_index, high, _dname, color=color.new(color.white,100), textcolor=color.gray, style=label.style_label_down, size=size.tiny)
+
+// ══ ALERTES ═══════════════════════════════════════════════════════════
+al_sweep_ab  = input.bool(true, "Sweep BUY Asia",                group="Alertes Sessions")
+al_sweep_as  = input.bool(true, "Sweep SELL Asia",               group="Alertes Sessions")
+al_sweep_lb  = input.bool(true, "Sweep BUY London",              group="Alertes Sessions")
+al_sweep_ls  = input.bool(true, "Sweep SELL London",             group="Alertes Sessions")
+al_pend_ab   = input.bool(true, "Pending BUY Asia",              group="Alertes Sessions")
+al_pend_as   = input.bool(true, "Pending SELL Asia",             group="Alertes Sessions")
+al_pend_lb   = input.bool(true, "Pending BUY London",            group="Alertes Sessions")
+al_pend_ls   = input.bool(true, "Pending SELL London",           group="Alertes Sessions")
+al_p1up      = input.bool(true, "P1+ (nouveau high)",            group="Alertes Structure")
+al_p1dn      = input.bool(true, "P1- (nouveau low)",             group="Alertes Structure")
+al_p2        = input.bool(true, "P2 (retracement)",              group="Alertes Structure")
+al_p3up      = input.bool(true, "P3+ (continuation H)",          group="Alertes Structure")
+al_p3dn      = input.bool(true, "P3- (continuation B)",          group="Alertes Structure")
+al_p4up      = input.bool(true, "P4^ (renversement H)",          group="Alertes Structure")
+al_p4dn      = input.bool(true, "P4v (renversement B)",          group="Alertes Structure")
+al_entry_any = input.bool(true, "Entrée en position (toutes)",   group="Alertes Management")
+al_close_any = input.bool(true, "Clôture position (toutes)",     group="Alertes Management")
+al_entry_ab  = input.bool(true, "Entrée BUY Asia",               group="Alertes Management")
+al_entry_as  = input.bool(true, "Entrée SELL Asia",              group="Alertes Management")
+al_entry_lb  = input.bool(true, "Entrée BUY London",             group="Alertes Management")
+al_entry_ls  = input.bool(true, "Entrée SELL London",            group="Alertes Management")
+al_be        = input.bool(true, "Breakeven atteint",             group="Alertes Management")
+al_p3trail   = input.bool(true, "P3 Trailing activé",            group="Alertes Management")
+al_arb_a     = input.bool(true, "Arbitrage Asia",                group="Alertes Management")
+al_arb_l     = input.bool(true, "Arbitrage London",              group="Alertes Management")
+al_sl        = input.bool(true, "Stop Loss touché",              group="Alertes Management")
+al_tp        = input.bool(true, "Take Profit touché",            group="Alertes Management")
+al_cancel    = input.bool(true, "Ordre annulé (liquidité/tendance)", group="Alertes Management")
+
+// Les alertes de sweep sont filtrées par la tendance FIGEE du jour (active_ext,
+// qui dépend du mode choisi) : une notification ne part que si le sweep va dans
+// le sens où le bot peut réellement prendre position. En Mode 2 avec tendance
+// NEUTRE (0), aucun sweep n'est notifié puisque aucun trade n'est possible.
+bool ev_sweep_ab = iap and not at and ald  and not ald[1]  and not ahd and active_ext == 1
+bool ev_sweep_as = iap and not at and ahd  and not ahd[1]  and not ald and active_ext == -1
+bool ev_sweep_lb = ilp and not lt and lld  and not lld[1]  and not lhd and active_ext == 1
+bool ev_sweep_ls = ilp and not lt and lhd  and not lhd[1]  and not lld and active_ext == -1
+bool ev_pend_ab  = abp and not abp[1]
+bool ev_pend_as  = asp and not asp[1]
+bool ev_pend_lb  = lbp and not lbp[1]
+bool ev_pend_ls  = lsp and not lsp[1]
+bool ev_p1up = sig_p1up
+bool ev_p1dn = sig_p1dn
+bool ev_p2   = sig_p2
+bool ev_p3up = sig_p3up
+bool ev_p3dn = sig_p3dn
+bool ev_p4up = p4b  and not p4b[1]
+bool ev_p4dn = p4be and not p4be[1]
+bool ev_entry_any = pos_open and not pos_open[1]
+bool ev_closed    = was_open[1] and not pos_open and strategy.opentrades == 0
+bool ev_close_any = ev_closed
+bool ev_entry_ab = stored_id == "ABuy"  and stored_id[1] != "ABuy"  and at and not at[1]
+bool ev_entry_as = stored_id == "ASell" and stored_id[1] != "ASell" and at and not at[1]
+bool ev_entry_lb = stored_id == "LBuy"  and stored_id[1] != "LBuy"  and lt and not lt[1]
+bool ev_entry_ls = stored_id == "LSell" and stored_id[1] != "LSell" and lt and not lt[1]
+bool ev_be      = be_done and not be_done[1]
+bool ev_p3trail = p3_count > p3_count[1] and p3_count > 1
+bool ev_arb_a   = arb_asia and pos_open and stored_sess == "Asia"
+bool ev_arb_l   = arb_lon  and pos_open and stored_sess == "London"
+bool ev_cancel  = order_pending[1] and not order_pending and strategy.position_size == 0 and not ev_entry_any
+// SL / TP séparés proprement : l'ancienne condition sur exit_comment == ""
+// était vraie sur presque toutes les sorties, donc un TP déclenchait aussi
+// l'alerte Stop Loss.
+bool ev_sl = ev_closed and strategy.closedtrades > 0 and strategy.closedtrades.profit(strategy.closedtrades - 1) <  0
+bool ev_tp = ev_closed and strategy.closedtrades > 0 and strategy.closedtrades.profit(strategy.closedtrades - 1) >  0
+
+alertcondition(al_sweep_ab  and ev_sweep_ab,  "Sweep BUY Asia",              "🔵 Sweep BUY détecté — Session Asia")
+alertcondition(al_sweep_as  and ev_sweep_as,  "Sweep SELL Asia",             "🔴 Sweep SELL détecté — Session Asia")
+alertcondition(al_sweep_lb  and ev_sweep_lb,  "Sweep BUY London",            "🔵 Sweep BUY détecté — Session London")
+alertcondition(al_sweep_ls  and ev_sweep_ls,  "Sweep SELL London",           "🔴 Sweep SELL détecté — Session London")
+alertcondition(al_pend_ab   and ev_pend_ab,   "Pending BUY Asia",            "⏳ Ordre limit BUY placé — Session Asia")
+alertcondition(al_pend_as   and ev_pend_as,   "Pending SELL Asia",           "⏳ Ordre limit SELL placé — Session Asia")
+alertcondition(al_pend_lb   and ev_pend_lb,   "Pending BUY London",          "⏳ Ordre limit BUY placé — Session London")
+alertcondition(al_pend_ls   and ev_pend_ls,   "Pending SELL London",         "⏳ Ordre limit SELL placé — Session London")
+alertcondition(al_p1up      and ev_p1up,      "P1+ nouveau high",            "📈 P1+ — Nouveau high de structure")
+alertcondition(al_p1dn      and ev_p1dn,      "P1- nouveau low",             "📉 P1- — Nouveau low de structure")
+alertcondition(al_p2        and ev_p2,        "P2 retracement",              "↩️ P2 — Retracement en cours")
+alertcondition(al_p3up      and ev_p3up,      "P3+ continuation H",          "🟢 P3+ — Continuation haussière")
+alertcondition(al_p3dn      and ev_p3dn,      "P3- continuation B",          "🔴 P3- — Continuation baissière")
+alertcondition(al_p4up      and ev_p4up,      "P4^ renversement H",          "🔄 P4^ — Renversement haussier")
+alertcondition(al_p4dn      and ev_p4dn,      "P4v renversement B",          "🔄 P4v — Renversement baissier")
+alertcondition(al_entry_any and ev_entry_any, "Entrée en position",          "🟢 Entrée en position — ReversalBot")
+alertcondition(al_close_any and ev_close_any, "Clôture position",            "🏁 Position clôturée")
+alertcondition(al_entry_ab  and ev_entry_ab,  "Entrée BUY Asia",             "✅ Entrée BUY — Session Asia")
+alertcondition(al_entry_as  and ev_entry_as,  "Entrée SELL Asia",            "✅ Entrée SELL — Session Asia")
+alertcondition(al_entry_lb  and ev_entry_lb,  "Entrée BUY London",           "✅ Entrée BUY — Session London")
+alertcondition(al_entry_ls  and ev_entry_ls,  "Entrée SELL London",          "✅ Entrée SELL — Session London")
+alertcondition(al_be        and ev_be,        "Breakeven atteint",           "⚖️ Breakeven — SL ramené à l'entry")
+alertcondition(al_p3trail   and ev_p3trail,   "P3 Trailing activé",          "🔁 P3 Trailing — SL mis à jour")
+alertcondition(al_arb_a     and ev_arb_a,     "Arbitrage Asia",              "⏱️ Arbitrage Asia — Ajustement SL/TP")
+alertcondition(al_arb_l     and ev_arb_l,     "Arbitrage London",            "⏱️ Arbitrage London — Ajustement SL/TP")
+alertcondition(al_sl        and ev_sl,        "Stop Loss touché",            "❌ Stop Loss touché")
+alertcondition(al_tp        and ev_tp,        "Take Profit touché",          "🎯 Take Profit atteint")
+alertcondition(al_cancel    and ev_cancel,    "Ordre annulé",                "🚫 Ordre en attente annulé — liquidité opposée ou tendance invalidée")

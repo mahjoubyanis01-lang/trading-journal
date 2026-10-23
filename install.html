@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f8f8f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<title>Installer — Trading Journal + Options GEX</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+<style>
+.install-wrap{max-width:680px;margin:0 auto;padding:28px 16px 60px}
+.install-hero{text-align:center;margin:26px 0 30px}
+.install-hero h1{font-size:26px;margin:0 0 8px}
+.install-hero p{color:var(--text2);font-size:14px;margin:0}
+.big-btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+  padding:16px;border:none;border-radius:12px;cursor:pointer;
+  background:var(--text);color:var(--bg);font-size:16px;font-weight:700;
+  text-decoration:none;box-sizing:border-box;
+}
+.big-btn.secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.step{display:flex;gap:12px;align-items:flex-start;margin:12px 0;font-size:13px;color:var(--text2)}
+.step-num{
+  flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--surface2);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:var(--text);
+}
+.muted{font-size:12px;color:var(--text3);line-height:1.6}
+</style>
+</head>
+<body>
+<div class="install-wrap">
+
+  <div class="install-hero">
+    <div style="font-size:40px">📊</div>
+    <h1>Trading Journal + Options GEX</h1>
+    <p>Journal de trading institutionnel · Heatmap gamma exposure S&amp;P 500 &amp; Nasdaq (données CBOE)</p>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="card-title" style="margin-bottom:6px">🖥️ Installer sur le Bureau (recommandé)</div>
+    <p class="muted" style="margin:0 0 14px">
+      Installation 100&nbsp;% automatique&nbsp;: installe Python si besoin, place l'application
+      sur votre Bureau avec un raccourci, et la lance. En mode local, votre PC prend
+      lui-même les snapshots d'options toutes les 30&nbsp;minutes.
+    </p>
+    <a class="big-btn" href="Installer-Trading-Journal.bat" download>⬇️ Installer l'application</a>
+    <div style="margin-top:16px">
+      <div class="step"><div class="step-num">1</div><div>Cliquez sur le bouton — le fichier <b>Installer-Trading-Journal.bat</b> se télécharge. Si le navigateur demande, choisissez <b>«&nbsp;Conserver&nbsp;»</b>.</div></div>
+      <div class="step"><div class="step-num">2</div><div>Ouvrez le fichier téléchargé. Si Windows affiche «&nbsp;Windows a protégé votre PC&nbsp;», cliquez <b>Informations complémentaires → Exécuter quand même</b> (fenêtre normale pour un fichier non signé).</div></div>
+      <div class="step"><div class="step-num">3</div><div>C'est tout&nbsp;: l'installateur fait le reste et l'application s'ouvre toute seule.</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="card-title" style="margin-bottom:6px">🌐 Ou installer la version web (sans téléchargement)</div>
+    <p class="muted" style="margin:0 0 14px">
+      La même application, dans sa propre fenêtre avec une icône sur le Bureau et le menu
+      Démarrer. Les données sont mises à jour automatiquement dans le cloud, même PC éteint.
+    </p>
+    <button class="big-btn secondary" id="pwa-btn">➕ Installer la version web</button>
+    <p class="muted" id="pwa-hint" style="margin:10px 0 0;display:none">
+      Si rien ne se passe&nbsp;: dans Chrome ou Edge, cliquez sur l'icône
+      <b>«&nbsp;Installer l'application&nbsp;»</b> à droite de la barre d'adresse
+      (ou menu ⋮ → «&nbsp;Caster, enregistrer et partager&nbsp;» → «&nbsp;Installer la page&nbsp;»).
+    </p>
+  </div>
+
+  <p class="muted" style="text-align:center">
+    <a href="index.html" style="color:var(--text2)">Ouvrir l'application dans le navigateur →</a>
+  </p>
+
+</div>
+
+<script>
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; });
+document.getElementById('pwa-btn').addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+  } else {
+    document.getElementById('pwa-hint').style.display = 'block';
+  }
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>

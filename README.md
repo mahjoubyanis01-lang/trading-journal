@@ -135,15 +135,15 @@ Les snapshots locaux sont enregistrés dans `data/options/` au même format que 
 
 ---
 
-## 📈 Indicateur TradingView — GEX ES/NQ
+## 📈 Indicateur TradingView — niveaux clés FIXES du jour (ES/NQ)
 
-Page : **https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html** → bouton « Copier l'indicateur ».
+Page : **https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html** → « Copier l'indicateur avec les niveaux du jour ».
 
-- **Détection automatique du marché** : ES, MES → niveaux SPX · NQ, MNQ → niveaux NDX (aussi SPX, SPY, NDX, QQQ, CFD US500/NAS100).
-- **Conversion temps réel** des niveaux indice → prix futures dans TradingView (ratio futures/indice recalculé à chaque barre, base live).
-- Niveaux tracés : **call wall, put wall, gamma flip, murs 0DTE** (échéance la plus proche) et **strikes GEX majeurs** (épaisseur ∝ GEX).
-- Tableau : marché détecté, heure des données, **fraîcheur (vert / orange / rouge si périmé)**, régime gamma +/−, base live.
-- Alertes : croisement du gamma flip, test du call wall, test du put wall.
-- **Régénéré automatiquement** (`tradingview/GEX_Levels_ES_NQ.pine`) après chaque snapshot CBOE — workflow GitHub Actions ou application locale.
+- **Niveaux figés pour la journée** : le premier snapshot CBOE du jour (pré-marché, dès 8h30 New York, open interest OCC du jour) verrouille les niveaux dans `data/levels/<SYM>/<jour>.json`. Ils ne sont plus jamais modifiés ensuite — et restent archivés jour par jour pour le backtest.
+- Niveaux : **call wall, put wall, gamma flip, murs 0DTE, expected move du jour** (straddle ATM 0DTE, repli IV 30 j) et **strikes GEX majeurs**.
+- **Détection automatique du marché** : ES, MES → SPX · NQ, MNQ → NDX (aussi SPX, SPY, NDX, QQQ, CFD US500/NAS100).
+- **Conversion futures figée** : base futures/indice de la clôture de la veille, gelée pour toute la séance → les lignes ne bougent pas de la journée.
+- Tableau : niveaux du jour (✓ vert) ou de la séance précédente (orange), régime gamma, expected move, base utilisée.
+- Alertes : croisement du gamma flip, test du call wall / put wall, sortie de l'expected move.
 
-TradingView interdit tout accès internet depuis Pine Script (et Pine Seeds n'accepte plus de nouveaux dépôts) : pour actualiser, recopiez la dernière version dans le Pine Editor (Ctrl+A, Ctrl+V, Enregistrer). L'open interest n'étant publié qu'une fois par jour, une copie vers 9h00 New York suffit pour les murs.
+**Routine** : une copie par jour après 8h30 New York (14h30 Paris) — Pine Editor, Ctrl+A, Ctrl+V, Enregistrer. TradingView interdit tout accès internet depuis Pine Script (et Pine Seeds n'accepte plus de nouveaux dépôts), d'où cette copie.

@@ -132,3 +132,18 @@ Ouvre https://mahjoubyanis01-lang.github.io/trading-journal/ dans Chrome ou Edge
 3. L'app s'ouvre dans le navigateur sur `http://127.0.0.1:8765` et, tant qu'elle tourne, **prend elle-même un snapshot CBOE toutes les 30 minutes** pendant les heures de marché US — directement depuis ton PC, sans dépendre de GitHub.
 
 Les snapshots locaux sont enregistrés dans `data/options/` au même format que ceux du workflow GitHub Actions : ton historique de backtest reste unifié. Prérequis : [Python 3.9+](https://www.python.org/downloads/) (cocher « Add Python to PATH » à l'installation).
+
+---
+
+## 📈 Indicateur TradingView — GEX ES/NQ
+
+Page : **https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html** → bouton « Copier l'indicateur ».
+
+- **Détection automatique du marché** : ES, MES → niveaux SPX · NQ, MNQ → niveaux NDX (aussi SPX, SPY, NDX, QQQ, CFD US500/NAS100).
+- **Conversion temps réel** des niveaux indice → prix futures dans TradingView (ratio futures/indice recalculé à chaque barre, base live).
+- Niveaux tracés : **call wall, put wall, gamma flip, murs 0DTE** (échéance la plus proche) et **strikes GEX majeurs** (épaisseur ∝ GEX).
+- Tableau : marché détecté, heure des données, **fraîcheur (vert / orange / rouge si périmé)**, régime gamma +/−, base live.
+- Alertes : croisement du gamma flip, test du call wall, test du put wall.
+- **Régénéré automatiquement** (`tradingview/GEX_Levels_ES_NQ.pine`) après chaque snapshot CBOE — workflow GitHub Actions ou application locale.
+
+TradingView interdit tout accès internet depuis Pine Script (et Pine Seeds n'accepte plus de nouveaux dépôts) : pour actualiser, recopiez la dernière version dans le Pine Editor (Ctrl+A, Ctrl+V, Enregistrer). L'open interest n'étant publié qu'une fois par jour, une copie vers 9h00 New York suffit pour les murs.

@@ -30,7 +30,7 @@ PORTS = range(8765, 8786)
 class Handler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         # les données changent toutes les 30 min : jamais de cache navigateur
-        if self.path.startswith("/data/"):
+        if self.path.startswith(("/data/", "/tradingview/")):
             self.send_header("Cache-Control", "no-store")
         super().end_headers()
 

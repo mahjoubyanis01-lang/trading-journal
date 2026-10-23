@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f8f8f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<title>Indicateur TradingView — GEX ES/NQ</title>
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+<style>
+.tv-wrap{max-width:900px;margin:0 auto}
+.big-btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+  padding:16px;border:none;border-radius:12px;cursor:pointer;box-sizing:border-box;
+  background:var(--text);color:var(--bg);font-size:16px;font-weight:700;text-decoration:none;
+}
+.big-btn.secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);font-size:14px;padding:12px}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.fresh{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+.fresh-dot{width:8px;height:8px;border-radius:50%}
+.step{display:flex;gap:12px;align-items:flex-start;margin:12px 0;font-size:13px;color:var(--text2);line-height:1.5}
+.step-num{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text)}
+.lv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.lv-card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--surface)}
+.lv-title{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.lv-row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--surface2)}
+.lv-row:last-child{border-bottom:none}
+.lv-row b{font-family:ui-monospace,monospace}
+.muted{font-size:12px;color:var(--text3);line-height:1.6}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;display:none;z-index:60}
+pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2);border-radius:8px;padding:10px;margin:0;white-space:pre}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-dot"></div>
+    <div>
+      <div class="brand-name">Indicateur TradingView</div>
+      <div class="brand-sub">GEX ES / NQ · CBOE</div>
+    </div>
+  </div>
+  <nav class="top-nav">
+    <a class="tnav-btn" href="index.html" style="text-decoration:none">Journal</a>
+    <a class="tnav-btn" href="options.html" style="text-decoration:none">Heatmap GEX</a>
+  </nav>
+  <div><span class="fresh" id="fresh"><span class="fresh-dot" id="fresh-dot" style="background:var(--text3)"></span><span id="fresh-txt">chargement…</span></span></div>
+</div>
+
+<div class="main tv-wrap">
+
+  <div class="card" style="padding:20px">
+    <div class="card-title" style="margin-bottom:6px">📈 GEX Levels ES/NQ — pour vos futures mini &amp; micro</div>
+    <p class="muted" style="margin:0 0 14px">
+      L'indicateur <b>reconnaît tout seul le marché</b> du graphique (ES, MES → S&amp;P 500 · NQ, MNQ → Nasdaq 100)
+      et trace les niveaux GEX calculés sur les options SPX/NDX&nbsp;: call wall, put wall, gamma flip,
+      murs 0DTE et strikes majeurs — <b>convertis en prix futures en temps réel</b> par TradingView.
+      Les niveaux sont recalculés automatiquement toutes les 30&nbsp;min en séance.
+    </p>
+    <button class="big-btn" id="copy-btn" disabled>📋 Copier l'indicateur (dernière version)</button>
+    <div class="btn-row">
+      <a class="big-btn secondary" href="https://www.tradingview.com/chart/?symbol=CME_MINI%3AES1%21" target="_blank" rel="noopener">Ouvrir TradingView (ES)</a>
+      <a class="big-btn secondary" href="https://www.tradingview.com/chart/?symbol=CME_MINI%3ANQ1%21" target="_blank" rel="noopener">Ouvrir TradingView (NQ)</a>
+    </div>
+    <p class="muted" id="version-line" style="margin:10px 0 0">—</p>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="card-title" style="margin-bottom:6px">⚙️ Installation (une seule fois)</div>
+    <div class="step"><div class="step-num">1</div><div>Cliquez <b>« Copier l'indicateur »</b> ci-dessus.</div></div>
+    <div class="step"><div class="step-num">2</div><div>Dans TradingView, ouvrez le <b>Pine Editor</b> (onglet en bas de l'écran) → menu du script → <b>Créer un nouveau → Indicateur</b>.</div></div>
+    <div class="step"><div class="step-num">3</div><div>Sélectionnez tout le code existant (<b>Ctrl+A</b>), collez (<b>Ctrl+V</b>), puis <b>Enregistrer</b> (nommez-le « GEX ES/NQ ») et <b>Ajouter au graphique</b>.</div></div>
+    <div class="step"><div class="step-num">4</div><div>C'est prêt sur ES, MES, NQ et MNQ — changez de symbole, l'indicateur s'adapte tout seul.</div></div>
+
+    <div class="card-title" style="margin:18px 0 6px">🔄 Mise à jour des niveaux</div>
+    <p class="muted" style="margin:0">
+      TradingView interdit aux indicateurs d'accéder à internet&nbsp;: aucun script ne peut télécharger des données
+      d'options lui-même. Pour actualiser, revenez ici, <b>Copier</b>, puis dans le Pine Editor du script
+      <b>Ctrl+A → Ctrl+V → Enregistrer</b> — le graphique se met à jour instantanément.
+      L'open interest n'étant publié qu'une fois par jour (OCC, avant l'ouverture), <b>une mise à jour vers 9h00 New York
+      (15h00 Paris) suffit pour les murs</b>&nbsp;; recopiez en cours de séance pour suivre le déplacement du gamma flip.
+      Le tableau de l'indicateur affiche l'âge des données et <b>passe au rouge</b> quand elles sont périmées.
+    </p>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="card-title" style="margin-bottom:12px">🎯 Niveaux embarqués dans la version actuelle</div>
+    <div class="lv-grid" id="levels"></div>
+    <p class="muted" style="margin:10px 0 0">Niveaux exprimés en points de l'indice. Dans TradingView, ils sont convertis en prix ES/NQ via la base live (ratio futures / indice).</p>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="card-title" style="margin-bottom:10px">🔔 Alertes incluses</div>
+    <p class="muted" style="margin:0">Dans TradingView&nbsp;: <b>Alerte → Condition&nbsp;: GEX ES/NQ</b> → « Croisement du gamma flip », « Test du call wall » ou « Test du put wall ».</p>
+  </div>
+
+  <details class="card" style="padding:16px 20px">
+    <summary class="card-title" style="cursor:pointer">Voir le code Pine Script</summary>
+    <pre class="code" id="code" style="margin-top:12px">—</pre>
+  </details>
+
+  <p class="muted" style="margin:0 4px 70px">
+    Données&nbsp;: chaînes d'options CBOE (cotations différées ~15&nbsp;min). GEX = gamma × open interest × 100 × spot² × 1&nbsp;% (convention
+    dealers&nbsp;: calls longs, puts courts). Les niveaux GEX sont un outil d'analyse, pas un signal de trading.
+  </p>
+</div>
+
+<div class="toast" id="toast">Indicateur copié ✓ — collez-le dans le Pine Editor</div>
+
+<script>
+'use strict';
+const FALLBACK_REPO = 'mahjoubyanis01-lang/trading-journal';
+function bases() {
+  const h = location.hostname;
+  let repo = FALLBACK_REPO;
+  const raw = r => `https://raw.githubusercontent.com/${r}/main/`;
+  if (h.endsWith('.github.io')) {
+    const owner = h.slice(0, -'.github.io'.length);
+    const seg = location.pathname.split('/').filter(Boolean)[0];
+    if (owner && seg) repo = `${owner}/${seg}`;
+    return [raw(repo), ''];
+  }
+  return ['', raw(repo)];   // local : fichiers régénérés par local_app.py d'abord
+}
+async function get(path, asText) {
+  let err;
+  for (const b of bases()) {
+    try {
+      const r = await fetch(b + path + '?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return asText ? await r.text() : await r.json();
+    } catch (e) { err = e; }
+  }
+  throw err;
+}
+
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 2) => v == null ? '—' : Number(v).toLocaleString('fr-FR', { maximumFractionDigits: d });
+const fmtG = v => v == null ? '—' : (Math.abs(v) >= 1000 ? (v >= 0 ? '+' : '') + (v / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' Md$' : (v >= 0 ? '+' : '') + fmt(v, 0) + ' M$');
+let pine = null, generated = null, copiedVersion = null;
+try { copiedVersion = localStorage.getItem('tv-copied-version'); } catch (e) {}
+
+function freshness() {
+  if (!generated) return;
+  const ageMin = (Date.now() - new Date(generated).getTime()) / 60000;
+  let col = '#0ca30c', txt;
+  if (ageMin < 60) txt = `données à jour (${Math.round(ageMin)} min)`;
+  else if (ageMin < 20 * 60) { col = '#eda100'; txt = `données d'il y a ${(ageMin / 60).toFixed(1)} h`; }
+  else { col = '#e34948'; txt = `marché fermé — dernières données il y a ${(ageMin / 60).toFixed(0)} h`; }
+  $('fresh-dot').style.background = col;
+  $('fresh-txt').textContent = txt;
+  const isNew = copiedVersion && copiedVersion !== generated;
+  $('version-line').innerHTML =
+    `Version : données du <b>${generated.slice(0, 16).replace('T', ' ')}</b> (New York)` +
+    (isNew ? ' — <b style="color:#e34948">nouvelle version disponible, recopiez-la</b>' :
+     copiedVersion === generated ? ' — ✓ vous avez copié cette version' : '');
+}
+
+function renderLevels(lv) {
+  const order = ['SPX', 'NDX', 'SPY', 'QQQ'];
+  const label = { SPX: 'S&P 500 · SPX → ES / MES', NDX: 'Nasdaq 100 · NDX → NQ / MNQ', SPY: 'S&P 500 · SPY (option ETF)', QQQ: 'Nasdaq 100 · QQQ (option ETF)' };
+  $('levels').innerHTML = order.map(sym => {
+    const d = lv.datasets.find(x => x.symbol === sym);
+    if (!d || !d.available) return '';
+    const n0 = d.nearest_expiry || {};
+    return `<div class="lv-card"><div class="lv-title">${label[sym]}</div>
+      <div class="lv-row"><span>Spot au snapshot</span><b>${fmt(d.spot)}</b></div>
+      <div class="lv-row"><span>Call wall</span><b style="color:#2a78d6">${fmt(d.call_wall, 0)}</b></div>
+      <div class="lv-row"><span>Put wall</span><b style="color:#e34948">${fmt(d.put_wall, 0)}</b></div>
+      <div class="lv-row"><span>Gamma flip</span><b>${fmt(d.flip, 0)}</b></div>
+      <div class="lv-row"><span>0DTE call / put wall</span><b>${fmt(n0.call_wall, 0)} / ${fmt(n0.put_wall, 0)}</b></div>
+      <div class="lv-row"><span>GEX net</span><b style="color:${d.net_gex >= 0 ? '#2a78d6' : '#e34948'}">${fmtG(d.net_gex)}</b></div>
+    </div>`;
+  }).join('');
+}
+
+async function load() {
+  try {
+    const [lv, code] = await Promise.all([get('tradingview/levels.json'), get('tradingview/GEX_Levels_ES_NQ.pine', true)]);
+    pine = code; generated = lv.generated;
+    $('code').textContent = code;
+    $('copy-btn').disabled = false;
+    renderLevels(lv);
+    freshness();
+  } catch (e) {
+    $('fresh-txt').textContent = 'données indisponibles (' + e.message + ')';
+  }
+}
+
+$('copy-btn').addEventListener('click', async () => {
+  if (!pine) return;
+  try { await navigator.clipboard.writeText(pine); }
+  catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = pine; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  copiedVersion = generated;
+  try { localStorage.setItem('tv-copied-version', generated); } catch (e) {}
+  freshness();
+  const t = $('toast'); t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 2500);
+});
+
+load();
+setInterval(load, 5 * 60 * 1000);      // vérifie les nouvelles versions toutes les 5 min
+setInterval(freshness, 60 * 1000);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>

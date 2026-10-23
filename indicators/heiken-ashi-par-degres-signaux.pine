@@ -23,7 +23,8 @@ showSignals  = input.bool(true, "Afficher les signaux (point vert / point rouge)
 vividZone    = input.int(75, "Seuil de couleur vive (0-100)", group = grpSig, minval = 40, maxval = 100, tooltip = "Momentum normalise a partir duquel une bougie est consideree violet vif (+) ou rouge vif (-). C'est l'entree en cycle : la premiere bougie vive ouvre la surveillance.")
 breakOnClose = input.bool(true, "Cassure a la cloture (sinon a la meche)", group = grpSig, tooltip = "Active : il faut une cloture au-dela du niveau de la bougie de reference. Desactive : une simple meche qui depasse suffit.")
 showLevels   = input.bool(true, "Afficher le niveau surveille", group = grpSig, tooltip = "Ligne pointillee sur le niveau attendu : le plus bas de la bougie violette de reference, ou le plus haut de la bougie rouge de reference.")
-showExitCross = input.bool(true, "Croix noire de perte de momentum", group = grpSig, tooltip = "Apres chaque signal, marque d'une croix noire la premiere bougie ou le momentum se retourne contre le sens du signal : au-dessus de la bougie apres un achat, en dessous apres une vente. Une seule croix par signal.")
+showExitCross = input.bool(true, "Croix noire de perte de momentum", group = grpSig, tooltip = "Apres chaque signal, marque d'une croix noire la bougie ou la perte de momentum est confirmee : le prix peut potentiellement se retourner dans le sens inverse. Au-dessus de la bougie apres un achat, en dessous apres une vente. Une seule croix par signal.")
+crossBars     = input.int(2, "Bougies de repli pour confirmer la croix", group = grpSig, minval = 1, maxval = 10, tooltip = "Nombre de bougies CONSECUTIVES de momentum a contre-sens du signal necessaires pour poser la croix. 1 = des le premier flechissement (bruyant). 2-3 = la perte d'elan est confirmee et le risque de retournement du prix est reel.")
 maxWait      = input.int(0, "Validite du niveau (barres, 0 = illimitee)", group = grpSig, minval = 0, maxval = 500, tooltip = "Nombre de barres au-dela duquel un niveau non casse est abandonne.")
 cancelBars   = input.int(3, "Bougies non vives consecutives = cycle perdu", group = grpSig, minval = 1, maxval = 20, tooltip = "Si ce nombre de bougies consecutives perdent la couleur vive pendant un cycle, le cycle est annule : le niveau est abandonne et aucun signal ne peut plus en sortir. La cassure doit donc survenir pendant que la couleur vive est encore presente ou juste apres son extinction.")
 
@@ -281,18 +282,27 @@ if brkDn or brkUp
 // =========================================================================
 // CROIX DE PERTE DE MOMENTUM (une par signal)
 // =========================================================================
-// Apres un signal d'achat : premiere bougie ou le momentum repart a la
-// baisse (val < val precedente) -> croix noire AU-DESSUS de la bougie.
-// Apres un signal de vente : premiere bougie ou le momentum repart a la
-// hausse (val > val precedente) -> croix noire EN DESSOUS de la bougie.
+// But : signaler quand le prix peut POTENTIELLEMENT se retourner dans le
+// sens inverse du signal. Pour eviter le bruit d'un simple flechissement
+// d'une bougie, la croix exige 'crossBars' bougies CONSECUTIVES de
+// momentum a contre-sens :
+//  - apres un ACHAT : 'crossBars' bougies de momentum en baisse
+//    -> croix noire AU-DESSUS de la bougie de confirmation ;
+//  - apres une VENTE : 'crossBars' bougies de momentum en hausse
+//    -> croix noire EN DESSOUS de la bougie de confirmation.
+var int momDnCnt = 0
+var int momUpCnt = 0
+momDnCnt := nz(val) < nz(val[1]) ? momDnCnt + 1 : 0
+momUpCnt := nz(val) > nz(val[1]) ? momUpCnt + 1 : 0
+
 var int pendingExit = 0    // 1 = achat en attente de croix, -1 = vente, 0 = rien
 var int sigBarIdx   = na
 bool exitAfterBull = false
 bool exitAfterBear = false
-if pendingExit == 1 and not na(sigBarIdx) and bar_index > sigBarIdx and nz(val) < nz(val[1])
+if pendingExit == 1 and not na(sigBarIdx) and bar_index > sigBarIdx and momDnCnt >= crossBars
     exitAfterBull := true
     pendingExit := 0
-if pendingExit == -1 and not na(sigBarIdx) and bar_index > sigBarIdx and nz(val) > nz(val[1])
+if pendingExit == -1 and not na(sigBarIdx) and bar_index > sigBarIdx and momUpCnt >= crossBars
     exitAfterBear := true
     pendingExit := 0
 if bullSignal

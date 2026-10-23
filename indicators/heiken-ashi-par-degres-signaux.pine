@@ -107,8 +107,24 @@ incCnt := nz(val) > nz(val[1]) ? incCnt + 1 : 0
 bool pulledFromPurple = pullbackPts == 0 or normVal <= hiNorm - pullbackPts
 bool pulledFromRed    = pullbackPts == 0 or normVal >= loNorm + pullbackPts
 
-bullSignal = showSignals and bullFlip and fromRedExtreme    and incCnt >= fadeBars and pulledFromRed
-bearSignal = showSignals and bearFlip and fromPurpleExtreme and decCnt >= fadeBars and pulledFromPurple
+// 4. ARMEMENT : un extreme = UN SEUL signal.
+//    L'extreme arme le signal ; le signal le consomme. Il faut que le
+//    momentum retourne en zone extreme pour re-armer. Supprime les
+//    signaux en grappe et les re-tentatives sur un extreme deja joue.
+var bool bullArmed = false
+var bool bearArmed = false
+if normVal <= -extremeZone
+    bullArmed := true
+if normVal >= extremeZone
+    bearArmed := true
+
+bullSignal = showSignals and bullFlip and bullArmed and fromRedExtreme    and incCnt >= fadeBars and pulledFromRed
+bearSignal = showSignals and bearFlip and bearArmed and fromPurpleExtreme and decCnt >= fadeBars and pulledFromPurple
+
+if bullSignal
+    bullArmed := false
+if bearSignal
+    bearArmed := false
 
 // =========================================================================
 // AFFICHAGE

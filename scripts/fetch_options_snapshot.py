@@ -84,6 +84,7 @@ def build_snapshot(sym: str, cfg: dict, raw: dict, now_ny: datetime) -> dict:
     per_strike: dict[float, list[float]] = {}  # strike -> [cGex,pGex,cOI,pOI,cVol,pVol,cDex,pDex]
     per_exp: dict[str, float] = {}             # expiration -> net GEX
     per_exp_strike: dict[str, dict[float, list[float]]] = {}  # exp -> strike -> [cGex,pGex]
+    mids: dict[tuple[str, float, str], float] = {}  # (exp, strike, C/P) -> prix milieu
 
     for o in data["options"]:
         parsed = parse_option(o["option"])
@@ -105,6 +106,9 @@ def build_snapshot(sym: str, cfg: dict, raw: dict, now_ny: datetime) -> dict:
         dex = delta * oi * 100 * spot * 0.01 / 1e6  # delta des puts déjà négatif
         row = per_strike.setdefault(strike, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         erow = per_exp_strike.setdefault(exp, {}).setdefault(strike, [0.0, 0.0])
+        bid, ask = float(o.get("bid") or 0), float(o.get("ask") or 0)
+        if bid > 0 and ask >= bid:
+            mids[(exp, strike, cp)] = (bid + ask) / 2
         erow[0 if cp == "C" else 1] += gex if cp == "C" else -gex
         if cp == "C":
             row[0] += gex
@@ -154,6 +158,17 @@ def build_snapshot(sym: str, cfg: dict, raw: dict, now_ny: datetime) -> dict:
             "put_wall": min(k0, key=lambda k: rows0[k][1]),
             "net_gex": round(sum(r[0] + r[1] for r in rows0.values()), 3),
         }
+        # Expected move : straddle ATM de l'échéance la plus proche (prix milieu)
+        atm = [k for k in k0 if (exp0, k, "C") in mids and (exp0, k, "P") in mids]
+        if atm:
+            k_atm = min(atm, key=lambda k: abs(k - spot))
+            straddle = mids[(exp0, k_atm, "C")] + mids[(exp0, k_atm, "P")]
+            nearest.update({
+                "atm_strike": k_atm,
+                "straddle": round(straddle, 2),
+                "em_up": round(spot + straddle, 2),
+                "em_down": round(spot - straddle, 2),
+            })
 
     return {
         "symbol": sym,
@@ -235,6 +250,49 @@ def save(sym: str, snap: dict, force: bool) -> bool:
     return True
 
 
+LEVELS = ROOT / "data" / "levels"
+TOP_KEY_STRIKES = 10
+
+
+def lock_daily_levels(sym: str, snap: dict) -> bool:
+    """Fige les niveaux clés du jour à partir du PREMIER snapshot de la journée.
+    Le fichier data/levels/<SYM>/<jour>.json n'est jamais réécrit ensuite : les
+    niveaux restent identiques toute la séance (et archivés pour le backtest)."""
+    day_file = LEVELS / sym / f"{snap['day']}.json"
+    if day_file.exists():
+        return False
+    s = snap["summary"]
+    nets = [(k, c + p) for k, c, p in zip(snap["strikes"], snap["call_gex"], snap["put_gex"])]
+    top = sorted(nets, key=lambda kv: abs(kv[1]), reverse=True)[:TOP_KEY_STRIKES]
+    iv30 = snap.get("iv30")
+    levels = {
+        "symbol": sym,
+        "day": snap["day"],
+        "locked_at": snap["captured"],
+        "source_snapshot": f"data/options/{sym}/{snap['day']}/{snap['time']}.json",
+        "spot": snap["spot"],
+        "iv30": iv30,
+        "call_wall": s.get("call_wall"),
+        "put_wall": s.get("put_wall"),
+        "flip": s.get("flip"),
+        "net_gex": s.get("net_gex"),
+        "nearest_expiry": snap.get("nearest_expiry"),
+        # repli si le straddle est indisponible : move 1 sigma journalier via IV30
+        "em_iv": round(snap["spot"] * iv30 / 100 / 252 ** 0.5, 2) if iv30 else None,
+        "key_strikes": [{"strike": k, "net_gex": round(g, 1)} for k, g in top],
+    }
+    day_file.parent.mkdir(parents=True, exist_ok=True)
+    day_file.write_text(json.dumps(levels, indent=1), encoding="utf-8")
+    days_file = LEVELS / sym / "days.json"
+    days = json.loads(days_file.read_text()) if days_file.exists() else {"symbol": sym, "days": []}
+    if snap["day"] not in days["days"]:
+        days["days"].append(snap["day"])
+        days["days"].sort()
+    days_file.write_text(json.dumps(days, indent=1), encoding="utf-8")
+    print(f"[{sym}] niveaux clés du {snap['day']} verrouillés (snapshot {snap['time']} NY)")
+    return True
+
+
 def run(syms=None, force: bool = False) -> int:
     """Prend un snapshot pour chaque symbole. Appelable depuis un autre script."""
     syms = syms or list(SYMBOLS)
@@ -245,6 +303,7 @@ def run(syms=None, force: bool = False) -> int:
         return 0
 
     wrote = False
+    locked = False
     latest = {}
     for sym in syms:
         cfg = SYMBOLS.get(sym)
@@ -259,6 +318,8 @@ def run(syms=None, force: bool = False) -> int:
         snap = build_snapshot(sym, cfg, raw, now)
         if save(sym, snap, force):
             wrote = True
+        if lock_daily_levels(sym, snap):
+            locked = True
         latest[sym] = snap["day"]
 
     manifest_file = OUT / "manifest.json"
@@ -270,7 +331,7 @@ def run(syms=None, force: bool = False) -> int:
     if wrote or not manifest_file.exists():
         OUT.mkdir(parents=True, exist_ok=True)
         manifest_file.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
-    if wrote:
+    if locked:
         import build_pine
         build_pine.build()
     return 0

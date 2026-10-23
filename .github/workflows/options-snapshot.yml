@@ -39,7 +39,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/options tradingview
+          git add data/options data/levels tradingview
           if git diff --cached --quiet; then
             echo "Aucun nouveau snapshot."
             exit 0

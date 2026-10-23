@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f8f8f6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
-<title>Indicateur TradingView — GEX ES/NQ</title>
+<title>Niveaux clés du jour — GEX ES/NQ</title>
 <link rel="icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
@@ -53,14 +53,15 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
 <div class="main tv-wrap">
 
   <div class="card" style="padding:20px">
-    <div class="card-title" style="margin-bottom:6px">📈 GEX Levels ES/NQ — pour vos futures mini &amp; micro</div>
+    <div class="card-title" style="margin-bottom:6px">📈 GEX Key Levels ES/NQ — niveaux clés fixes de la journée</div>
     <p class="muted" style="margin:0 0 14px">
-      L'indicateur <b>reconnaît tout seul le marché</b> du graphique (ES, MES → S&amp;P 500 · NQ, MNQ → Nasdaq 100)
-      et trace les niveaux GEX calculés sur les options SPX/NDX&nbsp;: call wall, put wall, gamma flip,
-      murs 0DTE et strikes majeurs — <b>convertis en prix futures en temps réel</b> par TradingView.
-      Les niveaux sont recalculés automatiquement toutes les 30&nbsp;min en séance.
+      Chaque matin, les niveaux du jour sont calculés <b>une seule fois</b> sur les options SPX/NDX (open interest
+      OCC du jour) puis <b>figés jusqu'à la clôture</b>&nbsp;: call wall, put wall, gamma flip, murs 0DTE,
+      expected move du jour et strikes GEX majeurs. L'indicateur <b>reconnaît tout seul le marché</b>
+      (ES, MES → S&amp;P 500 · NQ, MNQ → Nasdaq 100) et convertit les niveaux en prix futures avec la base de
+      clôture de la veille, elle aussi figée&nbsp;: <b>les lignes ne bougent pas de la journée</b>.
     </p>
-    <button class="big-btn" id="copy-btn" disabled>📋 Copier l'indicateur (dernière version)</button>
+    <button class="big-btn" id="copy-btn" disabled>📋 Copier l'indicateur avec les niveaux du jour</button>
     <div class="btn-row">
       <a class="big-btn secondary" href="https://www.tradingview.com/chart/?symbol=CME_MINI%3AES1%21" target="_blank" rel="noopener">Ouvrir TradingView (ES)</a>
       <a class="big-btn secondary" href="https://www.tradingview.com/chart/?symbol=CME_MINI%3ANQ1%21" target="_blank" rel="noopener">Ouvrir TradingView (NQ)</a>
@@ -75,26 +76,26 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
     <div class="step"><div class="step-num">3</div><div>Sélectionnez tout le code existant (<b>Ctrl+A</b>), collez (<b>Ctrl+V</b>), puis <b>Enregistrer</b> (nommez-le « GEX ES/NQ ») et <b>Ajouter au graphique</b>.</div></div>
     <div class="step"><div class="step-num">4</div><div>C'est prêt sur ES, MES, NQ et MNQ — changez de symbole, l'indicateur s'adapte tout seul.</div></div>
 
-    <div class="card-title" style="margin:18px 0 6px">🔄 Mise à jour des niveaux</div>
+    <div class="card-title" style="margin:18px 0 6px">🗓️ Routine quotidienne (une copie par jour)</div>
     <p class="muted" style="margin:0">
-      TradingView interdit aux indicateurs d'accéder à internet&nbsp;: aucun script ne peut télécharger des données
-      d'options lui-même. Pour actualiser, revenez ici, <b>Copier</b>, puis dans le Pine Editor du script
-      <b>Ctrl+A → Ctrl+V → Enregistrer</b> — le graphique se met à jour instantanément.
-      L'open interest n'étant publié qu'une fois par jour (OCC, avant l'ouverture), <b>une mise à jour vers 9h00 New York
-      (15h00 Paris) suffit pour les murs</b>&nbsp;; recopiez en cours de séance pour suivre le déplacement du gamma flip.
-      Le tableau de l'indicateur affiche l'âge des données et <b>passe au rouge</b> quand elles sont périmées.
+      Les niveaux du jour sont figés chaque matin <b>dès 8h30 New York (14h30 Paris)</b>, avant l'ouverture.
+      Revenez ici, <b>Copier</b>, puis dans le Pine Editor du script <b>Ctrl+A → Ctrl+V → Enregistrer</b>.
+      C'est tout pour la journée&nbsp;: les niveaux ne changeront plus jusqu'à la clôture.
+      Le tableau de l'indicateur indique <b>« ✓ niveaux du jour »</b> en vert, ou signale en orange que
+      vous êtes encore sur ceux de la séance précédente.
+      (TradingView interdit aux indicateurs d'accéder à internet, d'où cette copie manuelle.)
     </p>
   </div>
 
   <div class="card" style="padding:20px">
-    <div class="card-title" style="margin-bottom:12px">🎯 Niveaux embarqués dans la version actuelle</div>
+    <div class="card-title" style="margin-bottom:12px">🎯 Niveaux clés du jour (figés)</div>
     <div class="lv-grid" id="levels"></div>
-    <p class="muted" style="margin:10px 0 0">Niveaux exprimés en points de l'indice. Dans TradingView, ils sont convertis en prix ES/NQ via la base live (ratio futures / indice).</p>
+    <p class="muted" style="margin:10px 0 0">Niveaux exprimés en points de l'indice. Dans TradingView, ils sont convertis en prix ES/NQ avec la base de clôture de la veille (ratio futures / indice), figée toute la séance.</p>
   </div>
 
   <div class="card" style="padding:20px">
     <div class="card-title" style="margin-bottom:10px">🔔 Alertes incluses</div>
-    <p class="muted" style="margin:0">Dans TradingView&nbsp;: <b>Alerte → Condition&nbsp;: GEX ES/NQ</b> → « Croisement du gamma flip », « Test du call wall » ou « Test du put wall ».</p>
+    <p class="muted" style="margin:0">Dans TradingView&nbsp;: <b>Alerte → Condition&nbsp;: GEX Key Levels</b> → « Croisement du gamma flip », « Test du call wall », « Test du put wall » ou « Sortie de l'expected move ».</p>
   </div>
 
   <details class="card" style="padding:16px 20px">
@@ -108,7 +109,7 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
   </p>
 </div>
 
-<div class="toast" id="toast">Indicateur copié ✓ — collez-le dans le Pine Editor</div>
+<div class="toast" id="toast">Niveaux du jour copiés ✓ — collez-les dans le Pine Editor</div>
 
 <script>
 'use strict';
@@ -143,20 +144,20 @@ const fmtG = v => v == null ? '—' : (Math.abs(v) >= 1000 ? (v >= 0 ? '+' : '')
 let pine = null, generated = null, copiedVersion = null;
 try { copiedVersion = localStorage.getItem('tv-copied-version'); } catch (e) {}
 
+const nyToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+const frDay = d => d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4);
+let levelsDay = null, lockedAt = null;
+
 function freshness() {
-  if (!generated) return;
-  const ageMin = (Date.now() - new Date(generated).getTime()) / 60000;
-  let col = '#0ca30c', txt;
-  if (ageMin < 60) txt = `données à jour (${Math.round(ageMin)} min)`;
-  else if (ageMin < 20 * 60) { col = '#eda100'; txt = `données d'il y a ${(ageMin / 60).toFixed(1)} h`; }
-  else { col = '#e34948'; txt = `marché fermé — dernières données il y a ${(ageMin / 60).toFixed(0)} h`; }
-  $('fresh-dot').style.background = col;
-  $('fresh-txt').textContent = txt;
-  const isNew = copiedVersion && copiedVersion !== generated;
+  if (!levelsDay) return;
+  const today = levelsDay === nyToday();
+  $('fresh-dot').style.background = today ? '#0ca30c' : '#eda100';
+  $('fresh-txt').textContent = today ? `niveaux du jour (${frDay(levelsDay)})` : `niveaux du ${frDay(levelsDay)} — ceux du jour dès 8h30 NY`;
+  const isNew = copiedVersion && copiedVersion !== levelsDay;
   $('version-line').innerHTML =
-    `Version : données du <b>${generated.slice(0, 16).replace('T', ' ')}</b> (New York)` +
-    (isNew ? ' — <b style="color:#e34948">nouvelle version disponible, recopiez-la</b>' :
-     copiedVersion === generated ? ' — ✓ vous avez copié cette version' : '');
+    `Niveaux du <b>${frDay(levelsDay)}</b>, figés à <b>${lockedAt}</b> (New York)` +
+    (isNew ? ' — <b style="color:#e34948">nouveaux niveaux disponibles, recopiez l\'indicateur</b>' :
+     copiedVersion === levelsDay ? ' — ✓ vous avez copié les niveaux de ce jour' : '');
 }
 
 function renderLevels(lv) {
@@ -167,12 +168,13 @@ function renderLevels(lv) {
     if (!d || !d.available) return '';
     const n0 = d.nearest_expiry || {};
     return `<div class="lv-card"><div class="lv-title">${label[sym]}</div>
-      <div class="lv-row"><span>Spot au snapshot</span><b>${fmt(d.spot)}</b></div>
       <div class="lv-row"><span>Call wall</span><b style="color:#2a78d6">${fmt(d.call_wall, 0)}</b></div>
       <div class="lv-row"><span>Put wall</span><b style="color:#e34948">${fmt(d.put_wall, 0)}</b></div>
       <div class="lv-row"><span>Gamma flip</span><b>${fmt(d.flip, 0)}</b></div>
-      <div class="lv-row"><span>0DTE call / put wall</span><b>${fmt(n0.call_wall, 0)} / ${fmt(n0.put_wall, 0)}</b></div>
-      <div class="lv-row"><span>GEX net</span><b style="color:${d.net_gex >= 0 ? '#2a78d6' : '#e34948'}">${fmtG(d.net_gex)}</b></div>
+      <div class="lv-row"><span>0DTE call / put wall</span><b>${fmt(d.zero_dte_call_wall, 0)} / ${fmt(d.zero_dte_put_wall, 0)}</b></div>
+      <div class="lv-row"><span>Expected move</span><b style="color:#9085e9">${fmt(d.em_down, 0)} – ${fmt(d.em_up, 0)}</b></div>
+      <div class="lv-row"><span>Régime</span><b style="color:${d.net_gex >= 0 ? '#2a78d6' : '#e34948'}">${d.net_gex >= 0 ? 'Gamma +' : 'Gamma −'} ${fmtG(d.net_gex)}</b></div>
+      <div class="lv-row"><span>Spot au verrouillage</span><b>${fmt(d.spot)}</b></div>
     </div>`;
   }).join('');
 }
@@ -180,7 +182,10 @@ function renderLevels(lv) {
 async function load() {
   try {
     const [lv, code] = await Promise.all([get('tradingview/levels.json'), get('tradingview/GEX_Levels_ES_NQ.pine', true)]);
-    pine = code; generated = lv.generated;
+    pine = code; generated = lv.day;
+    levelsDay = lv.day;
+    const first = lv.datasets.find(x => x.available);
+    lockedAt = first ? first.locked_at.slice(11, 16) : '—';
     $('code').textContent = code;
     $('copy-btn').disabled = false;
     renderLevels(lv);
@@ -206,7 +211,7 @@ $('copy-btn').addEventListener('click', async () => {
 });
 
 load();
-setInterval(load, 5 * 60 * 1000);      // vérifie les nouvelles versions toutes les 5 min
+setInterval(load, 10 * 60 * 1000);     // détecte les niveaux du jour suivant
 setInterval(freshness, 60 * 1000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>

@@ -1,5 +1,5 @@
 //@version=6
-indicator("Heiken Ashi par degres + Signaux", shorttitle="HA Sig", overlay=true)
+indicator("Heiken Ashi par degres + Signaux", shorttitle="HA Sig", overlay=true, max_lines_count=500)
 
 // =========================================================================
 // INPUTS
@@ -18,12 +18,12 @@ dampAlpha = input.int(55, "Transparence en phase de ralentissement", group = grp
 grpSqzShow  = "Affichage squeeze"
 showSqzDots = input.bool(true, "Afficher les points de squeeze sous les bougies", group = grpSqzShow)
 
-grpSig = "Signaux de retournement (extremes de couleur)"
-showSignals   = input.bool(true, "Afficher les signaux (point vert / point rouge)", group = grpSig)
-extremeZone   = input.int(75, "Zone extreme requise (0-100)", group = grpSig, minval = 40, maxval = 100, tooltip = "Le momentum normalise doit avoir atteint au moins cette valeur avant le retournement : +75 et plus = bougies violet extreme (signal baissier a venir), -75 et moins = bougies rouge extreme (signal haussier a venir). Les basculements sans extreme prealable sont ignores.")
-extremeLookback = input.int(12, "Barres de recherche de l'extreme", group = grpSig, minval = 1, tooltip = "Nombre de barres en arriere ou l'extreme de couleur doit avoir ete atteint")
-fadeBars      = input.int(2, "Bougies d'essoufflement consecutives", group = grpSig, minval = 1, maxval = 10, tooltip = "Nombre de bougies consecutives ou le momentum reflue depuis l'extreme (val qui redescend apres un pic violet, val qui remonte apres un creux rouge) requis au moment du basculement HA. Confirme que l'extreme s'epuise vraiment au lieu d'une simple pause.")
-pullbackPts   = input.int(15, "Repli minimal depuis l'extreme (points)", group = grpSig, minval = 0, maxval = 60, tooltip = "Sur l'echelle -100/+100 : le momentum doit s'etre eloigne d'au moins ce nombre de points de son extreme recent. Evite de signaler pendant que la couleur est encore saturee. 0 = desactive.")
+grpSig = "Signaux : cassure de la bougie extreme"
+showSignals  = input.bool(true, "Afficher les signaux (point vert / point rouge)", group = grpSig)
+vividZone    = input.int(75, "Seuil de couleur vive (0-100)", group = grpSig, minval = 40, maxval = 100, tooltip = "Momentum normalise a partir duquel une bougie est consideree violet vif (+) ou rouge vif (-). C'est l'entree en cycle : la premiere bougie vive ouvre la surveillance.")
+breakOnClose = input.bool(true, "Cassure a la cloture (sinon a la meche)", group = grpSig, tooltip = "Active : il faut une cloture au-dela du niveau de la bougie de reference. Desactive : une simple meche qui depasse suffit.")
+showLevels   = input.bool(true, "Afficher le niveau surveille", group = grpSig, tooltip = "Ligne pointillee sur le niveau attendu : le plus bas de la bougie violette de reference, ou le plus haut de la bougie rouge de reference.")
+maxWait      = input.int(0, "Validite du niveau (barres, 0 = illimitee)", group = grpSig, minval = 0, maxval = 500, tooltip = "Nombre de barres au-dela duquel un niveau non casse est abandonne.")
 
 // =========================================================================
 // HEIKEN ASHI (OHLC)
@@ -73,58 +73,82 @@ baseColor = normVal >= 0 ?
 haColor = strengthening ? baseColor : color.new(baseColor, dampAlpha)
 
 // =========================================================================
-// SIGNAUX DE RETOURNEMENT (bases uniquement sur cet indicateur)
+// SIGNAUX : CASSURE DE LA BOUGIE EXTREME
 // =========================================================================
-// Observation : les retournements exploitables suivent les EXTREMES de
-// couleur -- violet extreme (momentum normalise vers +100) avant un
-// retournement baissier, rouge extreme (vers -100) avant un retournement
-// haussier. Trois exigences cumulatives :
-//   1. ZONE EXTREME : |normVal| a atteint au moins 'extremeZone' dans la
-//      fenetre de recherche (le marche sort d'une couleur saturee).
-//   2. ESSOUFFLEMENT : le momentum reflue depuis 'fadeBars' bougies
-//      consecutives (pas une simple pause d'une bougie).
-//   3. REPLI : le momentum s'est eloigne d'au moins 'pullbackPts' points
-//      de son extreme recent (la couleur a vraiment commence a se vider).
-// Le declencheur reste le basculement de la bougie Heiken Ashi.
+// Quand la couleur devient VIVE (violet vif = normVal >= seuil, rouge vif
+// = normVal <= -seuil), un cycle s'ouvre sur la premiere bougie vive.
+//  - Cycle VIOLET : parmi les bougies violet vif depuis la premiere du
+//    cycle, on retient celle qui a fait LE PLUS HAUT ; sa reference est
+//    son plus haut et son plus bas (meche et corps compris).
+//    SIGNAL BAISSIER = cassure de SON PLUS BAS.
+//  - Cycle ROUGE : la bougie rouge vif ayant fait LE PLUS BAS depuis la
+//    premiere rouge vive du cycle.
+//    SIGNAL HAUSSIER = cassure de SON PLUS HAUT.
+// Un signal clot le cycle ; un passage a la couleur vive opposee bascule
+// le cycle (l'ancien niveau est abandonne).
 
-// Basculement de la bougie Heiken Ashi : la direction lissee change de camp
-bullFlip = haClose > haOpen and haClose[1] <= haOpen[1]
-bearFlip = haClose < haOpen and haClose[1] >= haOpen[1]
+bool vividUp = normVal >= vividZone     // violet vif
+bool vividDn = normVal <= -vividZone    // rouge vif
 
-// 1. Zone extreme atteinte recemment
-float hiNorm = ta.highest(normVal, extremeLookback)
-float loNorm = ta.lowest(normVal, extremeLookback)
-bool fromPurpleExtreme = hiNorm >=  extremeZone    // violet extreme -> short possible
-bool fromRedExtreme    = loNorm <= -extremeZone    // rouge extreme  -> long possible
+var int   epDir  = 0    // 1 = cycle violet (attend cassure du bas), -1 = cycle rouge (attend cassure du haut)
+var float refHi  = na   // extremes de la bougie de reference
+var float refLo  = na
+var int   refBar = na
+var line  refLn  = na
 
-// 2. Essoufflement consecutif du momentum
-var int decCnt = 0
-var int incCnt = 0
-decCnt := nz(val) < nz(val[1]) ? decCnt + 1 : 0
-incCnt := nz(val) > nz(val[1]) ? incCnt + 1 : 0
+// Ouverture / bascule de cycle sur la premiere bougie vive
+if vividUp and epDir != 1
+    epDir  := 1
+    refHi  := haHigh
+    refLo  := haLow
+    refBar := bar_index
+    if not na(refLn)
+        line.delete(refLn)
+    refLn := showLevels ? line.new(bar_index, haLow, bar_index + 1, haLow, color = color.new(#cd00db, 0), style = line.style_dashed, width = 2) : na
+if vividDn and epDir != -1
+    epDir  := -1
+    refHi  := haHigh
+    refLo  := haLow
+    refBar := bar_index
+    if not na(refLn)
+        line.delete(refLn)
+    refLn := showLevels ? line.new(bar_index, haHigh, bar_index + 1, haHigh, color = color.new(color.red, 0), style = line.style_dashed, width = 2) : na
 
-// 3. Repli mesurable depuis l'extreme
-bool pulledFromPurple = pullbackPts == 0 or normVal <= hiNorm - pullbackPts
-bool pulledFromRed    = pullbackPts == 0 or normVal >= loNorm + pullbackPts
+// Mise a jour de la bougie de reference (uniquement une bougie VIVE peut la remplacer)
+if epDir == 1 and vividUp and haHigh > refHi
+    refHi  := haHigh
+    refLo  := haLow
+    refBar := bar_index
+    if not na(refLn)
+        line.set_xy1(refLn, bar_index, refLo)
+        line.set_xy2(refLn, bar_index + 1, refLo)
+if epDir == -1 and vividDn and haLow < refLo
+    refHi  := haHigh
+    refLo  := haLow
+    refBar := bar_index
+    if not na(refLn)
+        line.set_xy1(refLn, bar_index, refHi)
+        line.set_xy2(refLn, bar_index + 1, refHi)
 
-// 4. ARMEMENT : un extreme = UN SEUL signal.
-//    L'extreme arme le signal ; le signal le consomme. Il faut que le
-//    momentum retourne en zone extreme pour re-armer. Supprime les
-//    signaux en grappe et les re-tentatives sur un extreme deja joue.
-var bool bullArmed = false
-var bool bearArmed = false
-if normVal <= -extremeZone
-    bullArmed := true
-if normVal >= extremeZone
-    bearArmed := true
+// Extension du niveau surveille jusqu'a la bougie courante
+if epDir != 0 and not na(refLn)
+    line.set_x2(refLn, bar_index)
 
-bullSignal = showSignals and bullFlip and bullArmed and fromRedExtreme    and incCnt >= fadeBars and pulledFromRed
-bearSignal = showSignals and bearFlip and bearArmed and fromPurpleExtreme and decCnt >= fadeBars and pulledFromPurple
+// Expiration optionnelle d'un niveau jamais casse
+if epDir != 0 and maxWait > 0 and bar_index - refBar > maxWait
+    epDir := 0
+    refLn := na   // la ligne reste a l'ecran, figee
 
-if bullSignal
-    bullArmed := false
-if bearSignal
-    bearArmed := false
+// Cassure de la reference -> signal (et cloture du cycle)
+bool brkDn = epDir == 1  and bar_index > refBar and (breakOnClose ? haClose < refLo : haLow  < refLo)
+bool brkUp = epDir == -1 and bar_index > refBar and (breakOnClose ? haClose > refHi : haHigh > refHi)
+
+bearSignal = showSignals and brkDn
+bullSignal = showSignals and brkUp
+
+if brkDn or brkUp
+    epDir := 0
+    refLn := na   // la ligne reste figee a l'endroit de la cassure
 
 // =========================================================================
 // AFFICHAGE
@@ -141,5 +165,5 @@ plotshape(bearSignal, title = "Retournement baissier", style = shape.circle, loc
 // =========================================================================
 // ALERTES
 // =========================================================================
-alertcondition(bullSignal, title = "Retournement haussier", message = "HA Sig : retournement haussier apres rouge extreme (point vert) sur {{ticker}} {{interval}}")
-alertcondition(bearSignal, title = "Retournement baissier", message = "HA Sig : retournement baissier apres violet extreme (point rouge) sur {{ticker}} {{interval}}")
+alertcondition(bullSignal, title = "Retournement haussier", message = "HA Sig : cassure du haut de la bougie rouge vive de reference (point vert) sur {{ticker}} {{interval}}")
+alertcondition(bearSignal, title = "Retournement baissier", message = "HA Sig : cassure du bas de la bougie violette vive de reference (point rouge) sur {{ticker}} {{interval}}")

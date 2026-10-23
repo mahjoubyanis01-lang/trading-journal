@@ -303,14 +303,19 @@ var int momUpCnt = 0
 momDnCnt := nz(val) < nz(val[1]) ? momDnCnt + 1 : 0
 momUpCnt := nz(val) > nz(val[1]) ? momUpCnt + 1 : 0
 
-var int pendingExit = 0    // 1 = achat en attente de croix, -1 = vente, 0 = rien
-var int sigBarIdx   = na
+// La croix n'est VALIDE que si le PNL est POSITIF : le prix doit etre
+// au-dela du prix du signal dans le sens du trade. Si le momentum
+// s'essouffle en perte, pas de croix -- le trade attend le SL ou un
+// retour en profit avec l'essoufflement toujours present.
+var int   pendingExit = 0    // 1 = achat en attente de croix, -1 = vente, 0 = rien
+var int   sigBarIdx   = na
+var float sigPrice    = na   // prix d'entree de reference (cloture du signal)
 bool exitAfterBull = false
 bool exitAfterBear = false
-if pendingExit == 1 and not na(sigBarIdx) and bar_index > sigBarIdx and momDnCnt >= crossBars
+if pendingExit == 1 and not na(sigBarIdx) and bar_index > sigBarIdx and momDnCnt >= crossBars and close > sigPrice
     exitAfterBull := true
     pendingExit := 0
-if pendingExit == -1 and not na(sigBarIdx) and bar_index > sigBarIdx and momUpCnt >= crossBars
+if pendingExit == -1 and not na(sigBarIdx) and bar_index > sigBarIdx and momUpCnt >= crossBars and close < sigPrice
     exitAfterBear := true
     pendingExit := 0
 // =========================================================================
@@ -390,9 +395,11 @@ if openDir != 0
 if sigBull
     pendingExit := 1
     sigBarIdx := bar_index
+    sigPrice := close
 if sigBear
     pendingExit := -1
     sigBarIdx := bar_index
+    sigPrice := close
 
 // =========================================================================
 // AFFICHAGE

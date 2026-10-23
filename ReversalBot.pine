@@ -1061,9 +1061,10 @@ if was_open and not pos_open and strategy.opentrades == 0
     stored_sess       := ""
 
 // ══ PLOTS NIVEAUX ═════════════════════════════════════════════════════
-// Les 3 plots du VWAP journalier (central + bandes ±1σ) sont déplacés en FIN
-// de script, avec leurs inputs couleur : un input doit précéder son usage, et
-// tout input ajouté au milieu décalerait les réglages déjà enregistrés.
+// Les 3 plots du VWAP journalier (central + bandes ±1σ, cibles TP de f_tp)
+// sont déplacés en FIN de script avec leurs inputs couleur : un input doit
+// précéder son usage dans le code, et tout input ajouté ici décalerait les
+// réglages déjà enregistrés sur le graphique.
 plot(i_lvl and st == 1 ? p1e : na, "P1",  color=color.new(color.orange,20), linewidth=1, style=plot.style_linebr)
 plot(i_lvl and not na(pp2) ? pp2 : na, "PP2", color=color.new(color.purple,20), linewidth=1, style=plot.style_linebr)
 // Lignes de liquidité INTERNES du bot : le range que les sweeps doivent
@@ -1093,78 +1094,6 @@ p_blue_inner = plot(i_boxes ? v_blue_inner : na, "BlueInner", display=display.no
 fill(p_entry,      p_sl, color=i_boxes and sl_in_loss ? i_col_sl : na, title="Zone SL")
 fill(p_blue_inner, p_tp, color=i_boxes and has_signal ? i_col_tp : na, title="Zone TP")
 
-// ══ INFOS TP / SL — RR & VALEUR EN DEVISE ═════════════════════════════
-// Pine ne capte pas les CLICS sur une box : l'équivalent le plus proche est
-// un label ancré sur les lignes TP / SL de la position, dont le TOOLTIP
-// (survol ou clic du label) donne le détail — RR et valeur en devise.
-// Suit l'interrupteur existant « Zones SL/TP » (i_boxes) : AUCUN input neuf,
-// donc aucun décalage des réglages enregistrés.
-// La valeur monétaire dérive du modèle de risque du bot : 1R = i_risk i_curr,
-// puisque le sizing f_qty calibre la distance entry → SL initial à i_risk.
-// Les labels suivent le SL ÉVOLUTIF (BE, trailing P3, arbitrage) en direct.
-string cur_sym = i_curr == "EUR" ? "€" : i_curr == "USD" ? "$" : i_curr == "GBP" ? "£" : i_curr == "JPY" ? "¥" : " " + i_curr
-
-f_money(float rr) =>
-    (rr >= 0 ? "+" : "") + str.tostring(math.round(rr * i_risk, 2)) + cur_sym
-
-f_rr_txt(float rr) =>
-    (rr >= 0 ? "+" : "") + str.tostring(math.round(rr, 2)) + "R"
-
-float info_ep   = not na(stored_entry_real) ? stored_entry_real : stored_e
-bool  info_buy  = strategy.position_size > 0
-float info_risk = not na(info_ep) and not na(stored_orig_sl) ? math.abs(info_ep - stored_orig_sl) : na
-bool  show_info = i_boxes and has_signal and not na(info_risk) and info_risk > 0
-
-float info_dir  = info_buy ? 1.0 : -1.0
-float rr_tp_v   = show_info ? (stored_tp      - info_ep) / info_risk * info_dir : na
-float rr_sl_v   = show_info ? (stored_sl      - info_ep) / info_risk * info_dir : na
-float rr_osl_v  = show_info ? (stored_orig_sl - info_ep) / info_risk * info_dir : na
-float rr_live_v = show_info ? (close          - info_ep) / info_risk * info_dir : na
-
-// Récap complet : sert de tooltip aux labels ET aux lignes Position / P&L du
-// dashboard (survoler la cellule affiche le détail).
-string info_tt = ""
-if show_info
-    info_tt := "Entrée : " + str.tostring(info_ep, format.mintick) +
-         "\nTP : " + str.tostring(stored_tp, format.mintick) + "  (" + f_rr_txt(rr_tp_v) + " = " + f_money(rr_tp_v) + ")" +
-         "\nSL actuel : " + str.tostring(stored_sl, format.mintick) + "  (" + f_rr_txt(rr_sl_v) + " = " + f_money(rr_sl_v) + ")" +
-         "\nSL initial : " + str.tostring(stored_orig_sl, format.mintick) + "  (" + f_rr_txt(rr_osl_v) + " = " + f_money(rr_osl_v) + ")" +
-         "\nPnL latent : " + f_rr_txt(rr_live_v) + " = " + f_money(rr_live_v) +
-         (be_done ? "\nBreakeven ✓" : "")
-
-var label lbl_tp_info = na
-var label lbl_sl_info = na
-if barstate.islast and show_info
-    string tp_txt = "TP  " + f_rr_txt(rr_tp_v) + " · " + f_money(rr_tp_v)
-    string sl_txt = (stored_sl != stored_orig_sl ? "SL évolutif  " : "SL  ") + f_rr_txt(rr_sl_v) + " · " + f_money(rr_sl_v)
-    string tp_tt  = "TAKE PROFIT\nPrix : " + str.tostring(stored_tp, format.mintick) +
-         "\nRR : " + f_rr_txt(rr_tp_v) +
-         "\nGain : " + f_money(rr_tp_v) +
-         "\n————————————\n" + info_tt
-    string sl_tt  = "STOP LOSS" + (be_done ? " (BE ✓)" : "") +
-         "\nActuel : " + str.tostring(stored_sl, format.mintick) + "  (" + f_rr_txt(rr_sl_v) + " = " + f_money(rr_sl_v) + ")" +
-         "\nInitial : " + str.tostring(stored_orig_sl, format.mintick) + "  (" + f_rr_txt(rr_osl_v) + " = " + f_money(rr_osl_v) + ")" +
-         "\n————————————\n" + info_tt
-    if na(lbl_tp_info)
-        lbl_tp_info := label.new(bar_index + 3, stored_tp, "", style=label.style_label_left, color=color.new(color.black, 20), size=size.small)
-    if na(lbl_sl_info)
-        lbl_sl_info := label.new(bar_index + 3, stored_sl, "", style=label.style_label_left, color=color.new(color.black, 20), size=size.small)
-    label.set_xy(lbl_tp_info, bar_index + 3, stored_tp)
-    label.set_text(lbl_tp_info, tp_txt)
-    label.set_tooltip(lbl_tp_info, tp_tt)
-    label.set_textcolor(lbl_tp_info, i_col_l_tp)
-    label.set_xy(lbl_sl_info, bar_index + 3, stored_sl)
-    label.set_text(lbl_sl_info, sl_txt)
-    label.set_tooltip(lbl_sl_info, sl_tt)
-    label.set_textcolor(lbl_sl_info, rr_sl_v >= 0 ? color.new(color.lime, 0) : i_col_l_sl)
-if barstate.islast and not show_info
-    if not na(lbl_tp_info)
-        label.delete(lbl_tp_info)
-        lbl_tp_info := na
-    if not na(lbl_sl_info)
-        label.delete(lbl_sl_info)
-        lbl_sl_info := na
-
 // ══ DASHBOARD ═════════════════════════════════════════════════════════
 // Déclaré ICI et non avec les autres i_db_* : TradingView associe les réglages
 // enregistrés par POSITION dans la liste des inputs, et tout ajout décale ce
@@ -1186,7 +1115,7 @@ if barstate.islast
     table.clear(tb, 0, 0, 1, 15)
     int r = 0
 
-    table.cell(tb, 0, r, "REVERSAL BOT v3.6", text_color=color.white, text_size=size.small, bgcolor=color.new(color.navy, 30))
+    table.cell(tb, 0, r, "REVERSAL BOT v3.4", text_color=color.white, text_size=size.small, bgcolor=color.new(color.navy, 30))
     table.cell(tb, 1, r, syminfo.ticker,  text_color=color.white, text_size=size.small, bgcolor=color.new(color.navy, 30))
     r := r + 1
 
@@ -1265,7 +1194,7 @@ if barstate.islast
     if i_db_pos
         string pos_txt = pos_open ? (strategy.position_size > 0 ? "LONG" : "SHORT") : (order_pending ? "ordre en attente" : "Aucune")
         table.cell(tb, 0, r, "Position", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
-        table.cell(tb, 1, r, pos_txt, text_color=color.white, text_size=size.small, bgcolor=color.new(color.black, 80), tooltip=info_tt)
+        table.cell(tb, 1, r, pos_txt, text_color=color.white, text_size=size.small, bgcolor=color.new(color.black, 80))
         r := r + 1
 
     if i_db_be
@@ -1274,14 +1203,8 @@ if barstate.islast
         r := r + 1
 
     if i_db_pnl
-        // P&L broker + RR courant + contre-valeur en devise de risque.
-        // Le tooltip (survol de la cellule) reprend le récap complet TP/SL.
-        string pnl_txt = str.tostring(math.round(strategy.openprofit, 2))
-        if show_info
-            pnl_txt := pnl_txt + " · " + f_rr_txt(rr_live_v) + " ≈ " + f_money(rr_live_v)
-        color pnl_col = not pos_open ? color.white : strategy.openprofit >= 0 ? color.new(color.lime, 0) : color.new(color.red, 0)
         table.cell(tb, 0, r, "P&L", text_color=color.silver, text_size=size.small, bgcolor=color.new(color.black, 80))
-        table.cell(tb, 1, r, pnl_txt, text_color=pnl_col, text_size=size.small, bgcolor=color.new(color.black, 80), tooltip=info_tt)
+        table.cell(tb, 1, r, str.tostring(math.round(strategy.openprofit, 2)), text_color=color.white, text_size=size.small, bgcolor=color.new(color.black, 80))
 
 // ══ SESSIONS LUXALGO ══════════════════════════════════════════════════
 show_sesa   = input(true,                '',     inline='sesa',         group='Session A')
@@ -1631,11 +1554,11 @@ alertcondition(al_tp        and ev_tp,        "Take Profit touché",          "�
 alertcondition(al_cancel    and ev_cancel,    "Ordre annulé",                "🚫 Ordre en attente annulé — liquidité opposée ou tendance invalidée")
 
 // ══ COULEURS VWAP ═════════════════════════════════════════════════════
-// Inputs déclarés tout en FIN de script, APRÈS le dernier input d'origine
-// (al_cancel) : TradingView associe les réglages enregistrés par POSITION
-// dans la liste des inputs, donc aucun réglage existant n'est décalé. Les
-// plots VWAP vivent ici pour la même raison — un input doit précéder son
-// usage. Le champ group= les range quand même dans « Affichage ».
+// Inputs déclarés tout en FIN de script, APRÈS le dernier input d'origine :
+// TradingView associe les réglages enregistrés par POSITION dans la liste
+// des inputs, donc aucun réglage existant n'est décalé. Les plots VWAP
+// vivent ici pour la même raison — un input doit précéder son usage.
+// Le champ group= les range quand même dans « Affichage ».
 i_col_vwap    = input.color(color.new(color.teal, 30), "Couleur VWAP",     group="Affichage")
 i_col_vwap_up = input.color(color.new(color.aqua, 55), "Couleur VWAP +1σ", group="Affichage")
 i_col_vwap_dn = input.color(color.new(color.aqua, 55), "Couleur VWAP -1σ", group="Affichage")

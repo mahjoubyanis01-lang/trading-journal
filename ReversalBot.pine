@@ -86,16 +86,7 @@ i_wh_tok = input.string("",  "PickMyTrade token",                        group="
 i_wh_acc = input.string("",  "PickMyTrade account_id",                   group="Webhook")
 
 // ══ HEURES ═══════════════════════════════════════════════════════════
-// Fuseau = heure SERVEUR du broker MT5 (EET : GMT+2 hiver / GMT+3 été,
-// soit Paris + 1h toute l'année). L'EA MT5 lit ses fenêtres en heure
-// serveur : avec "Europe/Paris" le range londonien courait une heure de
-// trop et absorbait le pic qui, côté EA, constituait le sweep — l'EA
-// prenait le trade, TradingView non. Les inputs gardent les mêmes
-// chiffres (8-11 / 14-17...), ils sont simplement lus en heure broker,
-// exactement comme l'EA. Si ton broker n'est pas en EET, remplace la
-// chaîne ci-dessous (l'heure serveur s'affiche dans MT5, fenêtre
-// « Observation du marché »).
-tz  = "Europe/Athens"
+tz  = "Europe/Paris"
 ch  = hour(time, tz)
 cm  = minute(time, tz)
 ph  = hour(time[1], tz)

@@ -135,15 +135,14 @@ Les snapshots locaux sont enregistrés dans `data/options/` au même format que 
 
 ---
 
-## 📈 Indicateur TradingView — niveaux clés FIXES du jour (ES/NQ)
+## 📈 Indicateur TradingView — Plan du jour ES/NQ (points de retournement)
 
-Page : **https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html** → « Copier l'indicateur avec les niveaux du jour ».
+Page : **https://mahjoubyanis01-lang.github.io/trading-journal/tradingview.html** → « Copier l'indicateur avec le plan du jour ».
 
-- **Niveaux figés pour la journée** : le premier snapshot CBOE du jour (pré-marché, dès 8h30 New York, open interest OCC du jour) verrouille les niveaux dans `data/levels/<SYM>/<jour>.json`. Ils ne sont plus jamais modifiés ensuite — et restent archivés jour par jour pour le backtest.
-- Niveaux : **call wall, put wall, gamma flip, murs 0DTE, expected move du jour** (straddle ATM 0DTE, repli IV 30 j) et **strikes GEX majeurs**.
-- **Détection automatique du marché** : ES, MES → SPX · NQ, MNQ → NDX (aussi SPX, SPY, NDX, QQQ, CFD US500/NAS100).
-- **Conversion futures figée** : base futures/indice de la clôture de la veille, gelée pour toute la séance → les lignes ne bougent pas de la journée.
-- Tableau : niveaux du jour (✓ vert) ou de la séance précédente (orange), régime gamma, expected move, base utilisée.
-- Alertes : croisement du gamma flip, test du call wall / put wall, sortie de l'expected move.
+- **R1/R2 (résistances) et S1/S2 (supports)** : strikes où le gamma des options (|GEX calls| + |GEX puts|) est le plus concentré à portée de la séance (fenêtre = max(2 × expected move, 1,2 %) du spot), espacés d'au moins 0,3 % ; force ★ à ★★★ selon le poids relatif, +1 en confluence avec un mur 0DTE, un mur global ou une borne de l'expected move.
+- **Pivot gamma** (gamma flip, s'il est à portée) et **bornes de l'expected move** (straddle ATM 0DTE, repli IV 30 j).
+- **Plan figé** : calculé à partir du snapshot qui verrouille la journée (`data/levels/<SYM>/<jour>.json`, dès 8h30 New York), archivé jour par jour pour le backtest.
+- **Rien ne bouge** : l'écart futures/indice est mesuré en moyenne de 9h30 à 9h45 New York puis gelé toute la séance (avant : écart de la veille, marqué « provisoire ») ; le plan est dessiné une seule fois (plus une fois au gel de 9h45), jamais recalculé à chaque tick.
+- Détection automatique : ES, MES → SPX · NQ, MNQ → NDX. Alertes : test R1/R2, test S1/S2, pivot, sortie de l'expected move.
 
-**Routine** : une copie par jour après 8h30 New York (14h30 Paris) — Pine Editor, Ctrl+A, Ctrl+V, Enregistrer. TradingView interdit tout accès internet depuis Pine Script (et Pine Seeds n'accepte plus de nouveaux dépôts), d'où cette copie.
+**Routine** : une copie par jour après 8h30 New York (14h30 Paris) — Pine Editor, Ctrl+A, Ctrl+V, Enregistrer. TradingView interdit tout accès internet depuis Pine Script, d'où cette copie.

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f8f8f6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
-<title>Niveaux clés du jour — GEX ES/NQ</title>
+<title>Plan du jour ES/NQ — retournements GEX</title>
 <link rel="icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
@@ -53,15 +53,16 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
 <div class="main tv-wrap">
 
   <div class="card" style="padding:20px">
-    <div class="card-title" style="margin-bottom:6px">📈 GEX Key Levels ES/NQ — niveaux clés fixes de la journée</div>
+    <div class="card-title" style="margin-bottom:6px">📈 Plan du jour ES/NQ — points de retournement (options CBOE)</div>
     <p class="muted" style="margin:0 0 14px">
-      Chaque matin, les niveaux du jour sont calculés <b>une seule fois</b> sur les options SPX/NDX (open interest
-      OCC du jour) puis <b>figés jusqu'à la clôture</b>&nbsp;: call wall, put wall, gamma flip, murs 0DTE,
-      expected move du jour et strikes GEX majeurs. L'indicateur <b>reconnaît tout seul le marché</b>
-      (ES, MES → S&amp;P 500 · NQ, MNQ → Nasdaq 100) et convertit les niveaux en prix futures avec la base de
-      clôture de la veille, elle aussi figée&nbsp;: <b>les lignes ne bougent pas de la journée</b>.
+      Chaque matin, le plan de la séance est calculé <b>une seule fois</b> sur les options SPX/NDX&nbsp;:
+      <b>R1/R2 (résistances) et S1/S2 (supports)</b> = les strikes où le gamma des options est le plus concentré
+      à portée de la journée — là où les dealers couvrent le plus et où le prix a tendance à buter ou rebondir —,
+      notés ★ à ★★★ selon leur force et leurs confluences, plus le <b>pivot gamma</b> et les <b>bornes de l'expected move</b>.
+      L'indicateur reconnaît tout seul le marché (ES, MES → SPX · NQ, MNQ → NDX), cale l'écart futures/indice
+      <b>une fois à 9h45 New York (15h45 Paris)</b>, puis <b>plus rien ne bouge de la journée</b>.
     </p>
-    <button class="big-btn" id="copy-btn" disabled>📋 Copier l'indicateur avec les niveaux du jour</button>
+    <button class="big-btn" id="copy-btn" disabled>📋 Copier l'indicateur avec le plan du jour</button>
     <div class="btn-row">
       <a class="big-btn secondary" href="https://www.tradingview.com/chart/?symbol=CME_MINI%3AES1%21" target="_blank" rel="noopener">Ouvrir TradingView (ES)</a>
       <a class="big-btn secondary" href="https://www.tradingview.com/chart/?symbol=CME_MINI%3ANQ1%21" target="_blank" rel="noopener">Ouvrir TradingView (NQ)</a>
@@ -73,7 +74,7 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
     <div class="card-title" style="margin-bottom:6px">⚙️ Installation (une seule fois)</div>
     <div class="step"><div class="step-num">1</div><div>Cliquez <b>« Copier l'indicateur »</b> ci-dessus.</div></div>
     <div class="step"><div class="step-num">2</div><div>Dans TradingView, ouvrez le <b>Pine Editor</b> (onglet en bas de l'écran) → menu du script → <b>Créer un nouveau → Indicateur</b>.</div></div>
-    <div class="step"><div class="step-num">3</div><div>Sélectionnez tout le code existant (<b>Ctrl+A</b>), collez (<b>Ctrl+V</b>), puis <b>Enregistrer</b> (nommez-le « GEX ES/NQ ») et <b>Ajouter au graphique</b>.</div></div>
+    <div class="step"><div class="step-num">3</div><div>Sélectionnez tout le code existant (<b>Ctrl+A</b>), collez (<b>Ctrl+V</b>), puis <b>Enregistrer</b> et <b>Ajouter au graphique</b>. <b>Retirez du graphique l'ancien indicateur « GEX ES/NQ » / « GEX Levels »</b> s'il y est encore&nbsp;: le nouveau s'appelle <b>« Plan GEX »</b> et affiche un tableau « PLAN DU jj/mm ».</div></div>
     <div class="step"><div class="step-num">4</div><div>C'est prêt sur ES, MES, NQ et MNQ — changez de symbole, l'indicateur s'adapte tout seul.</div></div>
 
     <div class="card-title" style="margin:18px 0 6px">🗓️ Routine quotidienne (une copie par jour)</div>
@@ -88,14 +89,14 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
   </div>
 
   <div class="card" style="padding:20px">
-    <div class="card-title" style="margin-bottom:12px">🎯 Niveaux clés du jour (figés)</div>
+    <div class="card-title" style="margin-bottom:12px">🎯 Plan du jour (en points d'indice)</div>
     <div class="lv-grid" id="levels"></div>
-    <p class="muted" style="margin:10px 0 0">Niveaux exprimés en points de l'indice. Dans TradingView, ils sont convertis en prix ES/NQ avec la base de clôture de la veille (ratio futures / indice), figée toute la séance.</p>
+    <p class="muted" style="margin:10px 0 0">Niveaux exprimés en points de l'indice. Dans TradingView, ils sont convertis en prix ES/NQ avec l'écart futures/indice mesuré de 9h30 à 9h45 New York, gelé toute la séance.</p>
   </div>
 
   <div class="card" style="padding:20px">
     <div class="card-title" style="margin-bottom:10px">🔔 Alertes incluses</div>
-    <p class="muted" style="margin:0">Dans TradingView&nbsp;: <b>Alerte → Condition&nbsp;: GEX Key Levels</b> → « Croisement du gamma flip », « Test du call wall », « Test du put wall » ou « Sortie de l'expected move ».</p>
+    <p class="muted" style="margin:0">Dans TradingView&nbsp;: <b>Alerte → Condition&nbsp;: Plan du jour ES/NQ</b> → « Test d'une résistance (R1/R2) », « Test d'un support (S1/S2) », « Croisement du pivot gamma » ou « Sortie de l'expected move ».</p>
   </div>
 
   <details class="card" style="padding:16px 20px">
@@ -109,7 +110,7 @@ pre.code{max-height:260px;overflow:auto;font-size:11px;background:var(--surface2
   </p>
 </div>
 
-<div class="toast" id="toast">Niveaux du jour copiés ✓ — collez-les dans le Pine Editor</div>
+<div class="toast" id="toast">Plan du jour copié ✓ — collez-le dans le Pine Editor</div>
 
 <script>
 'use strict';
@@ -167,14 +168,18 @@ function renderLevels(lv) {
     const d = lv.datasets.find(x => x.symbol === sym);
     if (!d || !d.available) return '';
     const n0 = d.nearest_expiry || {};
+    const pl = d.plan || {};
+    const st = l => l ? '★'.repeat(l.stars) : '';
+    const row = (name, l, col) => `<div class="lv-row"><span>${name} <span style="color:${col}">${st(l)}</span></span><b style="color:${col}">${l ? fmt(l.strike, 2) : '—'}</b></div>`;
     return `<div class="lv-card"><div class="lv-title">${label[sym]}</div>
-      <div class="lv-row"><span>Call wall</span><b style="color:#2a78d6">${fmt(d.call_wall, 0)}</b></div>
-      <div class="lv-row"><span>Put wall</span><b style="color:#e34948">${fmt(d.put_wall, 0)}</b></div>
-      <div class="lv-row"><span>Gamma flip</span><b>${fmt(d.flip, 0)}</b></div>
-      <div class="lv-row"><span>0DTE call / put wall</span><b>${fmt(d.zero_dte_call_wall, 0)} / ${fmt(d.zero_dte_put_wall, 0)}</b></div>
-      <div class="lv-row"><span>Expected move</span><b style="color:#9085e9">${fmt(d.em_down, 0)} – ${fmt(d.em_up, 0)}</b></div>
-      <div class="lv-row"><span>Régime</span><b style="color:${d.net_gex >= 0 ? '#2a78d6' : '#e34948'}">${d.net_gex >= 0 ? 'Gamma +' : 'Gamma −'} ${fmtG(d.net_gex)}</b></div>
-      <div class="lv-row"><span>Spot au verrouillage</span><b>${fmt(d.spot)}</b></div>
+      ${row('R2 · résistance', pl.R2, '#e34948')}
+      ${row('R1 · résistance', pl.R1, '#e34948')}
+      <div class="lv-row"><span>Spot au calcul</span><b>${fmt(pl.spot)}</b></div>
+      ${row('S1 · support', pl.S1, '#0ca30c')}
+      ${row('S2 · support', pl.S2, '#0ca30c')}
+      <div class="lv-row"><span>Expected move</span><b style="color:#9085e9">${fmt(pl.em_down, 0)} – ${fmt(pl.em_up, 0)}</b></div>
+      <div class="lv-row"><span>Pivot gamma</span><b style="color:#eda100">${fmt(pl.pivot, 0)}</b></div>
+      <div class="lv-row"><span>Régime</span><b style="color:${d.net_gex >= 0 ? '#2a78d6' : '#e34948'}">${d.net_gex >= 0 ? 'Gamma +' : 'Gamma −'}</b></div>
     </div>`;
   }).join('');
 }

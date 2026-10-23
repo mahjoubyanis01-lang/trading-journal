@@ -118,6 +118,9 @@ Ajouter un symbole : éditer le dict `SYMBOLS` dans `scripts/fetch_options_snaps
 
 ## 💻 Application locale (sur ton PC)
 
+**Installation en un clic** : ouvre https://mahjoubyanis01-lang.github.io/trading-journal/install.html et clique sur « Installer l'application » — l'installateur met Python si besoin, pose l'app et un raccourci sur le Bureau, et la lance.
+
+
 Deux façons d'avoir l'app en local :
 
 ### Option A — Installer la PWA (le plus simple)

@@ -319,6 +319,6 @@ function handleJSON(e){const file=e.target.files[0];if(!file)return;const reader
 
 function refresh(){const st=computeStats();renderKPIs(st);renderTrades(st);renderStats(st);renderMonthly(st);if(st&&st.n>0){buildEquityChart(st);buildDDChart(st);buildDistChart(st);buildPieChart(st);}else{['eq','dd','dist','pie'].forEach(id=>destroyChart(id));}}
 
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/trading-journal/sw.js').catch(()=>{}));
+if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 
 refresh();

@@ -1,10 +1,16 @@
-const CACHE = 'tj-v1';
+const CACHE = 'tj-v2';
+// Chemins relatifs au scope du service worker : fonctionne sur GitHub Pages
+// (/trading-journal/) comme en local (http://127.0.0.1:876x/).
 const ASSETS = [
-  '/trading-journal/',
-  '/trading-journal/index.html',
-  '/trading-journal/app.js',
-  '/trading-journal/style.css',
-  '/trading-journal/manifest.json',
+  './',
+  'index.html',
+  'app.js',
+  'style.css',
+  'manifest.json',
+  'options.html',
+  'options.js',
+  'icon-192.png',
+  'icon-512.png',
 ];
 
 self.addEventListener('install', e => {
@@ -20,7 +26,13 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  // Les données d'options doivent toujours être fraîches : réseau d'abord.
+  if (url.pathname.includes('/data/') || url.hostname === 'raw.githubusercontent.com') {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    return;
+  }
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('/trading-journal/')))
+    caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./')))
   );
 });

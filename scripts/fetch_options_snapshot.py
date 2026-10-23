@@ -19,11 +19,9 @@ import re
 import ssl
 import sys
 import urllib.request
-from datetime import datetime
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
-NY = ZoneInfo("America/New_York")
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "options"
 CBOE_URL = "https://cdn.cboe.com/api/global/delayed_quotes/options/{cboe}.json"
@@ -36,6 +34,26 @@ SYMBOLS = {
     "NDX": {"cboe": "_NDX", "pct_range": 0.07, "max_dte": 45},  # Nasdaq 100 (indice)
     "QQQ": {"cboe": "QQQ", "pct_range": 0.07, "max_dte": 45},   # Nasdaq 100 (ETF)
 }
+
+
+def now_ny() -> datetime:
+    """Heure de New York. Sur Windows sans le paquet tzdata, zoneinfo ne connaît
+    pas America/New_York : on retombe sur les règles DST américaines (2e dimanche
+    de mars 7h UTC -> 1er dimanche de novembre 6h UTC)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/New_York"))
+    except Exception:
+        u = datetime.now(timezone.utc)
+
+        def nth_sunday(year: int, month: int, n: int) -> int:
+            d = date(year, month, 1)
+            return (d + timedelta(days=(6 - d.weekday()) % 7 + 7 * (n - 1))).day
+
+        dst_start = datetime(u.year, 3, nth_sunday(u.year, 3, 2), 7, tzinfo=timezone.utc)
+        dst_end = datetime(u.year, 11, nth_sunday(u.year, 11, 1), 6, tzinfo=timezone.utc)
+        offset = -4 if dst_start <= u < dst_end else -5
+        return u.astimezone(timezone(timedelta(hours=offset)))
 
 
 def fetch(cboe_sym: str) -> dict:
@@ -197,14 +215,13 @@ def save(sym: str, snap: dict, force: bool) -> bool:
     return True
 
 
-def main() -> int:
-    args = [a for a in sys.argv[1:] if not a.startswith("-")]
-    force = "--force" in sys.argv
-    syms = args or list(SYMBOLS)
-    now_ny = datetime.now(NY)
+def run(syms=None, force: bool = False) -> int:
+    """Prend un snapshot pour chaque symbole. Appelable depuis un autre script."""
+    syms = syms or list(SYMBOLS)
+    now = now_ny()
 
-    if not force and not market_open(now_ny):
-        print(f"Marché fermé ({now_ny:%Y-%m-%d %H:%M} NY) — rien à faire (utiliser --force pour ignorer)")
+    if not force and not market_open(now):
+        print(f"Marché fermé ({now:%Y-%m-%d %H:%M} NY) — rien à faire (utiliser --force pour ignorer)")
         return 0
 
     wrote = False
@@ -219,7 +236,7 @@ def main() -> int:
         except Exception as e:  # noqa: BLE001 — un symbole en échec ne bloque pas les autres
             print(f"[{sym}] échec de récupération CBOE : {e}", file=sys.stderr)
             continue
-        snap = build_snapshot(sym, cfg, raw, now_ny)
+        snap = build_snapshot(sym, cfg, raw, now)
         if save(sym, snap, force):
             wrote = True
         latest[sym] = snap["day"]
@@ -229,11 +246,16 @@ def main() -> int:
     manifest.setdefault("symbols", sorted(SYMBOLS))
     manifest["symbols"] = sorted(set(manifest["symbols"]) | set(SYMBOLS))
     manifest.setdefault("latest_day", {}).update(latest)
-    manifest["updated"] = now_ny.isoformat(timespec="seconds")
+    manifest["updated"] = now.isoformat(timespec="seconds")
     if wrote or not manifest_file.exists():
         OUT.mkdir(parents=True, exist_ok=True)
         manifest_file.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
     return 0
+
+
+def main() -> int:
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    return run(syms=args or None, force="--force" in sys.argv)
 
 
 if __name__ == "__main__":

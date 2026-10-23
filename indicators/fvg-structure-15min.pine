@@ -1,0 +1,234 @@
+//@version=6
+// FVG + Structure 15 Minutes — version épurée.
+//
+// Affiche UNIQUEMENT :
+//   1) Les Fair Value Gaps détectés sur les bougies 15m clôturées :
+//      zones persistantes étendues à droite, grisées et figées au toucher
+//      (ou supprimées, au choix), étiquetées C (continuation) / R
+//      (retournement).
+//   2) La structure de marché 15m (moteur P1->P4 du LIQUIDITY DETECTOR) :
+//      labels P3+/P3- (cassures de continuation), P4^/P4v (cassures de
+//      retournement) et fond teinté selon la tendance en cours.
+//
+// Pas de signaux, pas de filtres, pas de score : voir fvg-15min.pine pour
+// la version complète. Fonctionne sur toute unité de temps <= 15 minutes.
+
+indicator("FVG + Structure 15min", shorttitle = "FVG+MS 15m", overlay = true, max_boxes_count = 500, max_labels_count = 500)
+
+// ── Paramètres ──────────────────────────────────────────────────────────────
+grpDetect   = "Détection"
+tfFVG       = input.timeframe("15",  "Unité de temps",                      group = grpDetect)
+minSizePct  = input.float(0.0,       "Taille minimale du gap (%)",          group = grpDetect, minval = 0.0, step = 0.01, tooltip = "Ignore les FVG dont la hauteur est inférieure à ce pourcentage du prix. 0 = tous les FVG.")
+maxActive   = input.int(50,          "Nombre max de FVG affichés",          group = grpDetect, minval = 1, maxval = 200)
+
+grpStyle    = "Style des FVG"
+bullColor   = input.color(color.new(color.teal,   80), "Fond FVG haussier", group = grpStyle)
+bearColor   = input.color(color.new(color.red,    80), "Fond FVG baissier", group = grpStyle)
+bullBorder  = input.color(color.new(color.teal,   40), "Bordure haussière", group = grpStyle)
+bearBorder  = input.color(color.new(color.red,    40), "Bordure baissière", group = grpStyle)
+showTag     = input.bool(true,       "Étiquette C / R dans la box",         group = grpStyle)
+showMidline = input.bool(false,      "Afficher la ligne médiane (CE)",      group = grpStyle)
+
+grpMitig    = "Zones touchées (mitigées)"
+keepMitig   = input.bool(true,       "Garder les zones touchées en grisé",  group = grpMitig, tooltip = "Si activé, une zone touchée reste affichée en gris et cesse de s'étendre. Sinon elle est supprimée.")
+mitigColor  = input.color(color.new(color.gray, 85), "Fond zone mitigée",   group = grpMitig)
+mitigBorder = input.color(color.new(color.gray, 60), "Bordure zone mitigée", group = grpMitig)
+maxMitig    = input.int(30,          "Nombre max de zones mitigées",        group = grpMitig, minval = 1, maxval = 200)
+
+grpStruct   = "Structure de marché 15m"
+showStruct  = input.bool(true,  "Labels P3 / P4",                           group = grpStruct)
+structSize  = input.string("Petit", "Taille des labels", options = ["Minuscule", "Petit", "Normal"], group = grpStruct)
+p3Color     = input.color(color.red,  "P3 (continuation)",                  group = grpStruct, inline = "sc")
+p4Color     = input.color(color.lime, "P4 (retournement)",                  group = grpStruct, inline = "sc")
+showTrendBg = input.bool(true,  "Fond coloré selon la tendance 15m",        group = grpStruct, tooltip = "Vert = structure 15m haussière, rouge = baissière.")
+
+// ── Stockage ────────────────────────────────────────────────────────────────
+var array<box>    fvgBoxes  = array.new<box>()
+var array<bool>   fvgIsBull = array.new<bool>()
+var array<line>   fvgMid    = array.new<line>()
+var array<box>    mitigBoxes = array.new<box>()
+
+// ── Moteur de structure P1-P4 (repris du LIQUIDITY DETECTOR) ──────────────
+f_structure(float o, float h, float l, float c, bool do_step) =>
+    var int   tr  = 1
+    var int   stt = 0
+    var float p1e = na
+    var float p1o = na
+    var float p2e = na
+    var float pp2 = na
+    var float pp1 = na
+    var bool  hp1 = false
+    bool e_p3up = false
+    bool e_p3dn = false
+    bool e_p4up = false
+    bool e_p4dn = false
+    if do_step
+        if na(p1e)
+            tr  := c >= o ? 1 : -1
+            p1e := c >= o ? h : l
+            p1o := c >= o ? l : h
+            pp2 := c >= o ? h : l
+        if tr == 1
+            if stt == 0 and h > p1e
+                p1e := h
+                p1o := l
+                hp1 := true
+            if stt == 0 and h <= p1e and l < p1o
+                p2e := l
+                stt := 1
+            if stt == 1 and l < p2e
+                p2e := l
+            if stt == 1 and c > p1e
+                e_p3up := true
+                pp2 := p2e
+                pp1 := na
+                hp1 := false
+                p1e := h
+                p1o := l
+                p2e := na
+                stt := 0
+            bool tdn = (not na(pp2) and c < pp2) or (hp1 and not na(pp1) and c < pp1)
+            if stt == 1 and tdn and not (c > p1e)
+                e_p4dn := true
+                pp2 := na
+                pp1 := p1e
+                hp1 := true
+                tr  := -1
+                stt := 0
+                p1e := l
+                p1o := h
+                p2e := na
+        if tr == -1
+            if stt == 0 and l < p1e
+                p1e := l
+                p1o := h
+                hp1 := true
+            if stt == 0 and l >= p1e and h > p1o
+                p2e := h
+                stt := 1
+            if stt == 1 and h > p2e
+                p2e := h
+            if stt == 1 and c < p1e
+                e_p3dn := true
+                pp2 := p2e
+                pp1 := na
+                hp1 := false
+                p1e := l
+                p1o := h
+                p2e := na
+                stt := 0
+            bool tup = (not na(pp2) and c > pp2) or (hp1 and not na(pp1) and c > pp1)
+            if stt == 1 and tup and not (c < p1e)
+                e_p4up := true
+                pp2 := na
+                pp1 := p1e
+                hp1 := true
+                tr  := 1
+                stt := 0
+                p1e := h
+                p1o := l
+                p2e := na
+    [tr, e_p3up, e_p3dn, e_p4up, e_p4dn]
+
+// ── Données 15 minutes ─────────────────────────────────────────────────────
+// À l'ouverture d'une nouvelle bougie 15m, la bougie [1] vient de clôturer.
+// Le pattern FVG complet utilise les bougies [1] (C), [2] (B) et [3] (A).
+[h1, l1, h3, l3, t1, o1, c1] = request.security(syminfo.tickerid, tfFVG,
+     [high[1], low[1], high[3], low[3], time[1], open[1], close[1]],
+     lookahead = barmerge.lookahead_off)
+
+new15mBar = timeframe.change(tfFVG)
+
+[stTrend, p3up, p3dn, p4up, p4dn] = f_structure(o1, h1, l1, c1, new15mBar and not na(c1))
+
+// Classement du FVG : P3 -> C, P4 -> R, sinon selon la tendance 15m.
+bullType = p3up ? "C" : p4up ? "R" : stTrend == 1  ? "C" : "R"
+bearType = p3dn ? "C" : p4dn ? "R" : stTrend == -1 ? "C" : "R"
+
+// FVG haussier : le low de C est au-dessus du high de A → gap [h3 ; l1]
+bullFVG = new15mBar and l1 > h3
+// FVG baissier : le high de C est en dessous du low de A → gap [h1 ; l3]
+bearFVG = new15mBar and h1 < l3
+
+gapTop    = bullFVG ? l1 : l3
+gapBottom = bullFVG ? h3 : h1
+gapSizeOk = (gapTop - gapBottom) / close * 100 >= minSizePct
+
+// ── Création des boxes ─────────────────────────────────────────────────────
+createFVG(bool isBull, float top, float bottom, int startTime, string tag) =>
+    b = box.new(startTime, top, time, bottom,
+         xloc         = xloc.bar_time,
+         extend       = extend.right,
+         bgcolor      = isBull ? bullColor  : bearColor,
+         border_color = isBull ? bullBorder : bearBorder,
+         border_width = 1,
+         text         = showTag ? tag : "",
+         text_color   = isBull ? bullBorder : bearBorder,
+         text_size    = size.tiny,
+         text_halign  = text.align_right,
+         text_valign  = isBull ? text.align_top : text.align_bottom)
+    m = showMidline ?
+         line.new(startTime, (top + bottom) / 2, time, (top + bottom) / 2,
+             xloc   = xloc.bar_time,
+             extend = extend.right,
+             color  = isBull ? bullBorder : bearBorder,
+             style  = line.style_dotted) : line(na)
+    array.push(fvgBoxes,  b)
+    array.push(fvgIsBull, isBull)
+    array.push(fvgMid,    m)
+
+lblSize = structSize == "Minuscule" ? size.tiny : structSize == "Normal" ? size.normal : size.small
+
+if barstate.isconfirmed or barstate.ishistory
+    if bullFVG and gapSizeOk
+        createFVG(true, l1, h3, t1, bullType)
+    if bearFVG and gapSizeOk
+        createFVG(false, l3, h1, t1, bearType)
+    // Labels de structure 15m
+    if showStruct
+        if p3up
+            label.new(bar_index, low,  "P3+", style = label.style_label_up,   color = p3Color, textcolor = color.white, size = lblSize)
+        if p3dn
+            label.new(bar_index, high, "P3-", style = label.style_label_down, color = p3Color, textcolor = color.white, size = lblSize)
+        if p4up
+            label.new(bar_index, low,  "P4^", style = label.style_label_up,   color = p4Color, textcolor = color.white, size = lblSize)
+        if p4dn
+            label.new(bar_index, high, "P4v", style = label.style_label_down, color = p4Color, textcolor = color.white, size = lblSize)
+
+// Limite du nombre de FVG affichés : on supprime les plus anciens.
+while array.size(fvgBoxes) > maxActive
+    box.delete(array.shift(fvgBoxes))
+    line.delete(array.shift(fvgMid))
+    array.shift(fvgIsBull)
+
+// ── Mitigation : la zone est grisée (ou supprimée) dès que le prix la touche ─
+if array.size(fvgBoxes) > 0
+    for i = array.size(fvgBoxes) - 1 to 0
+        b      = array.get(fvgBoxes, i)
+        isBull = array.get(fvgIsBull, i)
+        touched = isBull ? low <= box.get_top(b) : high >= box.get_bottom(b)
+        if touched
+            if keepMitig
+                box.set_extend(b, extend.none)
+                box.set_right(b, time)
+                box.set_bgcolor(b, mitigColor)
+                box.set_border_color(b, mitigBorder)
+                array.push(mitigBoxes, b)
+            else
+                box.delete(b)
+            line.delete(array.get(fvgMid, i))
+            array.remove(fvgBoxes, i)
+            array.remove(fvgIsBull, i)
+            array.remove(fvgMid, i)
+
+while array.size(mitigBoxes) > maxMitig
+    box.delete(array.shift(mitigBoxes))
+
+// ── Fond coloré : tendance de structure 15m ────────────────────────────────
+bgcolor(showTrendBg ? (stTrend == 1 ? color.new(color.teal, 92) : color.new(color.red, 92)) : na, title = "Tendance 15m")
+
+// ── Alertes ────────────────────────────────────────────────────────────────
+alertcondition(bullFVG and gapSizeOk, "Nouveau FVG haussier", "Nouveau FVG 15m haussier")
+alertcondition(bearFVG and gapSizeOk, "Nouveau FVG baissier", "Nouveau FVG 15m baissier")
+alertcondition(p3up or p3dn, "Cassure P3 (continuation)",  "Structure 15m : cassure de continuation (P3)")
+alertcondition(p4up or p4dn, "Cassure P4 (retournement)",  "Structure 15m : cassure de retournement (P4)")

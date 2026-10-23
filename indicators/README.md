@@ -1,5 +1,13 @@
 # Indicateurs TradingView
 
+## FVG + Structure 15min (`fvg-structure-15min.pine`)
+
+Version **épurée** : uniquement les zones FVG 15m (persistantes, grisées au
+toucher, étiquetées C/R) et la structure de marché 15m (labels P3+/P3-/P4^/P4v
+du moteur P1→P4 + fond teinté selon la tendance). Pas de signaux, pas de
+filtres, pas de score. 4 alertes : nouveau FVG haussier/baissier, cassure
+P3, cassure P4.
+
 ## FVG 15min (`fvg-15min.pine`)
 
 Indicateur Pine Script v6 qui affiche les **Fair Value Gaps (FVG)** détectés sur

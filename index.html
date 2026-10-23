@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="TJ">
+<meta name="theme-color" content="#f8f8f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Trading Journal</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+</head>
+<body>
+
+<!-- ── TOPBAR ── -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-dot"></div>
+    <div>
+      <div class="brand-name">Trading Journal</div>
+      <div class="brand-sub">Institutional</div>
+    </div>
+  </div>
+
+  <!-- Desktop nav -->
+  <nav class="top-nav">
+    <button class="tnav-btn active" data-section="dashboard"   onclick="showSection('dashboard')">Dashboard</button>
+    <button class="tnav-btn"        data-section="trades"      onclick="showSection('trades')">Trades</button>
+    <button class="tnav-btn"        data-section="stats"       onclick="showSection('stats')">Stats</button>
+    <button class="tnav-btn"        data-section="monthly"     onclick="showSection('monthly')">Monthly</button>
+    <button class="tnav-btn"        data-section="montecarlo"  onclick="showSection('montecarlo')">Monte Carlo</button>
+    <a class="tnav-btn" href="options.html" style="text-decoration:none">Options GEX</a>
+  </nav>
+
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="pill" id="pill-count">0 trade</span>
+    <button class="btn btn-ghost btn-sm" onclick="exportJSON()" title="Backup JSON">💾</button>
+    <button class="btn btn-ghost btn-sm" onclick="importJSON()" title="Restaurer JSON">📂</button>
+  </div>
+</div>
+
+<!-- ── MAIN ── -->
+<div class="main">
+
+<!-- ══ DASHBOARD ══ -->
+<div id="section-dashboard" class="section active">
+  <div class="sec-header">
+    <div class="sec-title">Dashboard</div>
+    <span id="score-badge-main" class="score-badge s3">—/100</span>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Trades</div><div class="kpi-value" id="k-trades">0</div></div>
+    <div class="kpi"><div class="kpi-label">Rendement composé</div><div class="kpi-value" id="k-compound">—</div></div>
+    <div class="kpi"><div class="kpi-label">Rendement cumulé</div><div class="kpi-value" id="k-cumul">—</div></div>
+    <div class="kpi"><div class="kpi-label">Winrate brut</div><div class="kpi-value" id="k-wr-brut">—</div></div>
+    <div class="kpi"><div class="kpi-label">Winrate net</div><div class="kpi-value" id="k-wr-net">—</div></div>
+    <div class="kpi"><div class="kpi-label">Max Drawdown</div><div class="kpi-value neg" id="k-maxdd">—</div></div>
+    <div class="kpi"><div class="kpi-label">Profit Factor</div><div class="kpi-value" id="k-pf">—</div></div>
+    <div class="kpi"><div class="kpi-label">Expectancy</div><div class="kpi-value" id="k-exp">—</div></div>
+  </div>
+
+  <div id="alerts" class="alerts"></div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="card chart-full" style="padding:16px">
+      <div class="card-title" style="margin-bottom:12px">📈 Equity Curve</div>
+      <div class="chart-container" style="height:200px"><canvas id="equity-chart"></canvas></div>
+    </div>
+    <div class="card" style="padding:16px">
+      <div class="card-title" style="margin-bottom:12px">📉 Drawdown</div>
+      <div class="chart-container" style="height:160px"><canvas id="dd-chart"></canvas></div>
+    </div>
+    <div class="card" style="padding:16px">
+      <div class="card-title" style="margin-bottom:12px">📊 Distribution</div>
+      <div class="chart-container" style="height:160px"><canvas id="dist-chart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="card" style="padding:16px">
+      <div class="card-title" style="margin-bottom:12px">WIN / SL / BE</div>
+      <div style="display:flex;gap:16px;align-items:center">
+        <div class="chart-container" style="height:140px;width:140px;flex-shrink:0"><canvas id="pie-chart"></canvas></div>
+        <div id="pie-legend" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+    <div class="card" style="padding:16px">
+      <div class="card-title" style="margin-bottom:10px">🏆 Score de rentabilité</div>
+      <div class="score-breakdown">
+        <div class="score-item"><div class="score-item-label">Winrate</div><div class="score-item-pts" id="sp-wr">—</div><div class="score-item-max">/25</div></div>
+        <div class="score-item"><div class="score-item-label">Profit F.</div><div class="score-item-pts" id="sp-pf">—</div><div class="score-item-max">/20</div></div>
+        <div class="score-item"><div class="score-item-label">Sharpe</div><div class="score-item-pts" id="sp-sh">—</div><div class="score-item-max">/20</div></div>
+        <div class="score-item"><div class="score-item-label">Max DD</div><div class="score-item-pts" id="sp-dd">—</div><div class="score-item-max">/20</div></div>
+        <div class="score-item"><div class="score-item-label">Expect.</div><div class="score-item-pts" id="sp-ex">—</div><div class="score-item-max">/15</div></div>
+      </div>
+      <div style="margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+          <span style="font-size:11px;color:var(--text3)">Score total</span>
+          <span style="font-size:28px;font-weight:700;font-family:monospace" id="score-big">0</span>
+        </div>
+        <div style="height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
+          <div id="score-bar" style="height:100%;width:0%;border-radius:3px;transition:width .5s ease"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TRADES ══ -->
+<div id="section-trades" class="section">
+  <div class="sec-header"><div class="sec-title">Journal des trades</div></div>
+
+  <!-- Add form -->
+  <div class="card" id="add-form" style="margin-bottom:16px">
+    <div class="card-header"><span class="card-title">Ajouter un trade</span></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input type="date" id="f-date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rendement % <span style="color:var(--red)">*</span></label>
+          <input type="number" id="f-ret" class="form-input" step="0.01" placeholder="ex: 2.5 ou -1">
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Lien TradingView</label>
+          <input type="text" id="f-link" class="form-input" placeholder="https://tradingview.com/...">
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">Commentaire</label>
+          <input type="text" id="f-comment" class="form-input" placeholder="optionnel">
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+        <button class="btn btn-primary" onclick="addTrade()">Ajouter le trade</button>
+        <span id="add-error" style="font-size:12px;color:var(--red);display:none">Rendement obligatoire</span>
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="importCSV()">Importer CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">Exporter CSV</button>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Historique</span>
+      <span id="trades-count" style="font-size:12px;color:var(--text3)">0 trades</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Date</th><th>Rendement</th><th>Gain/Perte</th>
+            <th>Equity</th><th>Drawdown</th><th>Streak</th><th>Tag</th>
+            <th>Lien</th><th>Commentaire</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="trades-tbody">
+          <tr><td colspan="11" class="empty">Aucun trade</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ STATS ══ -->
+<div id="section-stats" class="section">
+  <div class="sec-header"><div class="sec-title">Statistiques</div></div>
+  <div class="stats-grid">
+    <div class="stat-section">
+      <div class="stat-section-title">Performance</div>
+      <div id="stats-perf"></div>
+    </div>
+    <div class="stat-section">
+      <div class="stat-section-title">Ratios institutionnels</div>
+      <div id="stats-ratios"></div>
+    </div>
+    <div class="stat-section">
+      <div class="stat-section-title">Winrate & SL/BE</div>
+      <div id="stats-wr"></div>
+    </div>
+    <div class="stat-section">
+      <div class="stat-section-title">Drawdown</div>
+      <div id="stats-dd"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MONTHLY ══ -->
+<div id="section-monthly" class="section">
+  <div class="sec-header"><div class="sec-title">Heatmap mensuelle</div></div>
+  <div class="card">
+    <div class="heatmap-scroll">
+      <table class="heatmap-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding-left:10px">Année</th>
+            <th>Jan</th><th>Fév</th><th>Mar</th><th>Avr</th><th>Mai</th><th>Jun</th>
+            <th>Jul</th><th>Aoû</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Déc</th>
+            <th style="background:var(--surface2)">Total</th>
+          </tr>
+        </thead>
+        <tbody id="heatmap-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <p class="text-xs" style="margin-top:8px;padding:0 4px">
+    Les trades sans date héritent de la date du trade précédent · 0.0% = aucun trade ce mois
+  </p>
+</div>
+
+<!-- ══ MONTE CARLO ══ -->
+<div id="section-montecarlo" class="section">
+  <div class="sec-header">
+    <div class="sec-title">Monte Carlo</div>
+    <button class="btn btn-ghost btn-sm" onclick="runMonteCarlo()">Relancer (F9)</button>
+  </div>
+
+  <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+    <div class="kpi"><div class="kpi-label">Simulations</div><div class="kpi-value">100</div></div>
+    <div class="kpi"><div class="kpi-label">P10 — pire</div><div class="kpi-value neg" id="mc-p10">—</div></div>
+    <div class="kpi"><div class="kpi-label">Médiane</div><div class="kpi-value" id="mc-med">—</div></div>
+    <div class="kpi"><div class="kpi-label">P90 — meilleur</div><div class="kpi-value pos" id="mc-p90">—</div></div>
+    <div class="kpi"><div class="kpi-label">% simulations prof.</div><div class="kpi-value" id="mc-pct">—</div></div>
+  </div>
+
+  <div class="card" style="padding:16px;margin-bottom:12px">
+    <div class="card-title" style="margin-bottom:12px">Distribution des résultats — 100 simulations</div>
+    <div class="chart-container" style="height:220px"><canvas id="mc-chart"></canvas></div>
+  </div>
+
+  <div class="card" style="padding:16px">
+    <div class="card-title" style="margin-bottom:10px">Interprétation automatique</div>
+    <p id="mc-interp" style="font-size:13px;color:var(--text2);line-height:1.6">
+      Saisir au moins 5 trades pour lancer les simulations.
+    </p>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- ── BOTTOM NAV (mobile) ── -->
+<div class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bnav-btn active" data-section="dashboard"  onclick="showSection('dashboard')"><span class="bnav-icon">📊</span>Dashboard</button>
+    <button class="bnav-btn"        data-section="trades"     onclick="showSection('trades')"><span class="bnav-icon">📝</span>Trades</button>
+    <button class="bnav-btn"        data-section="stats"      onclick="showSection('stats')"><span class="bnav-icon">📈</span>Stats</button>
+    <button class="bnav-btn"        data-section="monthly"    onclick="showSection('monthly')"><span class="bnav-icon">🗓</span>Monthly</button>
+    <button class="bnav-btn"        data-section="montecarlo" onclick="showSection('montecarlo')"><span class="bnav-icon">🎲</span>MC</button>
+    <a class="bnav-btn" href="options.html" style="text-decoration:none"><span class="bnav-icon">🔥</span>GEX</a>
+  </div>
+</div>
+
+<!-- Hidden inputs -->
+<input type="file" id="csv-input"  accept=".csv"  style="display:none" onchange="handleCSV(event)">
+<input type="file" id="json-input" accept=".json" style="display:none" onchange="handleJSON(event)">
+
+<script src="app.js"></script>
+<!-- sw.js registered via app.js serviceWorker.register('/trading-journal/sw.js') -->
+</body>
+</html>

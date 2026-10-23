@@ -1,0 +1,37 @@
+{
+ "day": "2026-10-23",
+ "symbol": "SPX",
+ "snapshots": [
+  {
+   "time": "1229",
+   "file": "1229.json",
+   "spot": 7653.0298,
+   "cboe_timestamp": "2026-10-23 16:28:20",
+   "net_gex": -55185.721,
+   "flip": 7735.64,
+   "call_wall": 8000.0,
+   "put_wall": 7650.0
+  },
+  {
+   "time": "1232",
+   "file": "1232.json",
+   "spot": 7649.6401,
+   "cboe_timestamp": "2026-10-23 16:31:20",
+   "net_gex": -57885.087,
+   "flip": 7735.63,
+   "call_wall": 8000.0,
+   "put_wall": 7650.0
+  },
+  {
+   "time": "1253",
+   "file": "1253.json",
+   "spot": 7648.5698,
+   "cboe_timestamp": "2026-10-23 16:52:21",
+   "net_gex": -58492.641,
+   "net_dex": -2918.641,
+   "flip": 7714.64,
+   "call_wall": 8000.0,
+   "put_wall": 7650.0
+  }
+ ]
+}

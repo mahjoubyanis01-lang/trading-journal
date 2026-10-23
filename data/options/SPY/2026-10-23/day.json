@@ -1,0 +1,37 @@
+{
+ "day": "2026-10-23",
+ "symbol": "SPY",
+ "snapshots": [
+  {
+   "time": "1229",
+   "file": "1229.json",
+   "spot": 762.81,
+   "cboe_timestamp": "2026-10-23 16:28:24",
+   "net_gex": -13271.339,
+   "flip": 763.62,
+   "call_wall": 765.0,
+   "put_wall": 760.0
+  },
+  {
+   "time": "1232",
+   "file": "1232.json",
+   "spot": 762.39,
+   "cboe_timestamp": "2026-10-23 16:31:24",
+   "net_gex": -13922.349,
+   "flip": 763.64,
+   "call_wall": 765.0,
+   "put_wall": 760.0
+  },
+  {
+   "time": "1253",
+   "file": "1253.json",
+   "spot": 762.31,
+   "cboe_timestamp": "2026-10-23 16:52:25",
+   "net_gex": -14144.135,
+   "net_dex": -410.225,
+   "flip": 763.64,
+   "call_wall": 765.0,
+   "put_wall": 760.0
+  }
+ ]
+}

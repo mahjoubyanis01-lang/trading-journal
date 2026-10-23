@@ -1,0 +1,52 @@
+name: Options GEX snapshot
+
+on:
+  schedule:
+    # Toutes les 30 min, 13h-21h UTC lun-ven : couvre les heures de marché US
+    # (9h30-16h00 New York) en heure d'été comme en heure d'hiver. Le script
+    # lui-même ignore les exécutions hors marché (heure de New York).
+    - cron: '9,39 13-21 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Forcer un snapshot même hors heures de marché'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: options-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch CBOE data & compute GEX
+        run: |
+          if [ "${{ inputs.force }}" = "true" ]; then
+            python3 scripts/fetch_options_snapshot.py --force
+          else
+            python3 scripts/fetch_options_snapshot.py
+          fi
+
+      - name: Commit & push snapshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/options
+          if git diff --cached --quiet; then
+            echo "Aucun nouveau snapshot."
+            exit 0
+          fi
+          git commit -m "data: snapshot options GEX $(TZ=America/New_York date '+%Y-%m-%d %H:%M %Z')"
+          for i in 1 2 3; do
+            git push && exit 0
+            git pull --rebase
+          done
+          git push

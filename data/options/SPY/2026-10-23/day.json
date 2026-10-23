@@ -21,6 +21,17 @@
    "flip": 763.64,
    "call_wall": 765.0,
    "put_wall": 760.0
+  },
+  {
+   "time": "1253",
+   "file": "1253.json",
+   "spot": 762.31,
+   "cboe_timestamp": "2026-10-23 16:52:25",
+   "net_gex": -14144.135,
+   "net_dex": -410.225,
+   "flip": 763.64,
+   "call_wall": 765.0,
+   "put_wall": 760.0
   }
  ]
 }

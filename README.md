@@ -108,8 +108,8 @@ Ne pas saisir `0.025` — l'application divise automatiquement par 100.
 
 Page : **`options.html`** (lien « Options GEX » dans la navigation du journal).
 
-- **Fournisseur de données réel et gratuit** : chaînes d'options [CBOE delayed quotes](https://cdn.cboe.com/api/global/delayed_quotes/options/_SPX.json) (cotations différées ~15 min, sans clé API). Symboles : SPX, SPY.
-- **Indicateur** : GEX (Gamma Exposure) par strike — `gamma × open interest × 100 × spot² × 1 %`, calls positifs / puts négatifs. KPIs : GEX net total, gamma flip, call wall, put wall, IV 30 j.
+- **Fournisseur de données réel et gratuit** : chaînes d'options [CBOE delayed quotes](https://cdn.cboe.com/api/global/delayed_quotes/options/_SPX.json) (cotations différées ~15 min, sans clé API). Symboles : **SPX, SPY (S&P 500) et NDX, QQQ (Nasdaq 100)**.
+- **Indicateur** : GEX (Gamma Exposure) par strike — `gamma × open interest × 100 × spot² × 1 %`, calls positifs / puts négatifs. KPIs : GEX net total, **DEX net total** (exposition delta, sélecteur d'indicateur GEX/DEX), gamma flip, call wall, put wall, IV 30 j.
 - **Heatmap intrajournalière** : strikes en Y, heure (NY) en X, couleur = GEX net (bleu positif / rouge négatif), ligne de spot et niveaux de flip superposés. Clic sur une colonne → profil GEX détaillé de ce snapshot.
 - **Mise à jour & reset journalier** : le workflow `.github/workflows/options-snapshot.yml` prend un snapshot **toutes les 30 min pendant les heures de marché US** et le committe dans `data/options/<SYM>/<YYYY-MM-DD>/`. Chaque jour de bourse démarre un nouveau dossier (reset automatique), la page charge le dernier jour par défaut.
 - **Backtest** : toutes les journées restent archivées dans le repo — sélecteur « Journée (backtest) » dans la page, et bouton **Export** pour télécharger le JSON complet de la journée. Lancement manuel possible : onglet *Actions* → *Options GEX snapshot* → *Run workflow*.

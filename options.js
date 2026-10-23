@@ -48,10 +48,13 @@ const S = {
   day: null,
   snapshots: [],   // snapshots complets du jour, triés par heure
   selected: -1,    // index du snapshot sélectionné
-  grid: null,      // { strikes desc, times, cells[row][col] = snapIdx|-1 }
+  grid: null,      // { strikes desc, cells[row][col], vmax par métrique }
+  metric: 'gex',   // 'gex' | 'dex'
   hmGeom: null,
   showTable: false,
 };
+const cellNet = (cell, m) =>
+  m === 'dex' ? (cell.cd == null ? null : cell.cd + cell.pd) : cell.cg + cell.pg;
 
 const $ = id => document.getElementById(id);
 const cssVar = name => getComputedStyle(document.querySelector('.viz-root')).getPropertyValue(name).trim();
@@ -128,19 +131,27 @@ function buildGrid() {
   S.snapshots.forEach((s, c) => {
     s.strikes.forEach((k, j) => {
       cells[rowOf.get(k)][c] = {
-        net: s.call_gex[j] + s.put_gex[j],
         cg: s.call_gex[j], pg: s.put_gex[j],
+        cd: s.call_dex ? s.call_dex[j] : null,
+        pd: s.put_dex ? s.put_dex[j] : null,
         coi: s.call_oi[j], poi: s.put_oi[j],
         cv: s.call_vol[j], pv: s.put_vol[j],
       };
     });
   });
-  let vmax = 0;
-  const all = [];
-  cells.forEach(r => r.forEach(c => { if (c) all.push(Math.abs(c.net)); }));
-  all.sort((a, b) => a - b);
-  vmax = all.length ? all[Math.floor(all.length * 0.98)] || all[all.length - 1] : 1;
-  S.grid = { strikes, cells, vmax: vmax || 1 };
+  // échelle de couleur par métrique : 98e percentile des |valeurs| de la journée
+  const vmax = {};
+  for (const m of ['gex', 'dex']) {
+    const all = [];
+    cells.forEach(r => r.forEach(c => {
+      if (!c) return;
+      const v = cellNet(c, m);
+      if (v != null) all.push(Math.abs(v));
+    }));
+    all.sort((a, b) => a - b);
+    vmax[m] = (all.length ? all[Math.floor(all.length * 0.98)] || all[all.length - 1] : 1) || 1;
+  }
+  S.grid = { strikes, cells, vmax };
 }
 
 // ── Rendu ──────────────────────────────────────────────────────────
@@ -159,6 +170,13 @@ function renderKPIs() {
   const g = $('k-gex');
   g.textContent = fmtG(s.summary.net_gex);
   g.className = 'kpi-value ' + (s.summary.net_gex >= 0 ? 'pos' : 'neg');
+  const d = $('k-dex');
+  d.textContent = s.summary.net_dex != null ? fmtG(s.summary.net_dex) : '—';
+  d.className = 'kpi-value ' + (s.summary.net_dex >= 0 ? 'pos' : 'neg');
+  const label = S.metric === 'dex' ? 'DEX' : 'GEX';
+  $('hm-title').textContent = label;
+  $('legend-metric').textContent = label;
+  $('profile-metric').textContent = label;
   $('k-flip').textContent = fmt(s.summary.flip, 0);
   $('k-cwall').textContent = fmt(s.summary.call_wall, 0);
   $('k-pwall').textContent = fmt(s.summary.put_wall, 0);
@@ -182,7 +200,8 @@ function drawHeatmap() {
   const { ctx, w, h } = setupCanvas(cv, Math.min(560, Math.max(380, S.grid.strikes.length * 3)));
   const M = { l: 58, r: 14, t: 8, b: 30 };
   const pw = w - M.l - M.r, ph = h - M.t - M.b;
-  const { strikes, cells, vmax } = S.grid;
+  const { strikes, cells } = S.grid;
+  const vmax = S.grid.vmax[S.metric];
   const nC = S.snapshots.length, nR = strikes.length;
   const cw = pw / nC, ch = ph / nR;
   ctx.clearRect(0, 0, w, h);
@@ -192,7 +211,9 @@ function drawHeatmap() {
     for (let c = 0; c < nC; c++) {
       const cell = cells[r][c];
       if (!cell) continue;
-      ctx.fillStyle = divColor(cell.net, vmax);
+      const v = cellNet(cell, S.metric);
+      if (v == null) continue; // ancien snapshot sans cette métrique
+      ctx.fillStyle = divColor(v, vmax);
       ctx.fillRect(M.l + c * cw + 0.5, M.t + r * ch, Math.max(cw - 1, 1), Math.max(ch - (ch > 3 ? 1 : 0), 1));
     }
   }
@@ -269,7 +290,9 @@ function drawProfile() {
   const M = { l: 58, r: 14, t: 8, b: 24 };
   const pw = w - M.l - M.r, ph = h - M.t - M.b;
   const strikes = s.strikes.slice().reverse();
-  const cg = s.call_gex.slice().reverse(), pg = s.put_gex.slice().reverse();
+  const useDex = S.metric === 'dex' && s.call_dex;
+  const cg = (useDex ? s.call_dex : s.call_gex).slice().reverse();
+  const pg = (useDex ? s.put_dex : s.put_gex).slice().reverse();
   const nR = strikes.length, rh = ph / nR;
   const vmax = Math.max(...cg.map(Math.abs), ...pg.map(Math.abs), 1e-9);
   const x0 = M.l + pw * (vmax / (2 * vmax)); // zéro au centre
@@ -334,7 +357,7 @@ function drawProfile() {
 }
 
 function renderLegend() {
-  const { vmax } = S.grid;
+  const vmax = S.grid.vmax[S.metric];
   const stops = [];
   for (let i = 0; i <= 10; i++) {
     const v = -vmax + (2 * vmax * i) / 10;
@@ -350,7 +373,8 @@ function renderTable() {
   const rows = [];
   for (let j = s.strikes.length - 1; j >= 0; j--) {
     const net = s.call_gex[j] + s.put_gex[j];
-    rows.push(`<tr><td>${fmt(s.strikes[j], 2)}</td><td>${fmt(s.call_gex[j], 1)}</td><td>${fmt(s.put_gex[j], 1)}</td><td>${fmt(net, 1)}</td><td>${fmt(s.call_oi[j])}</td><td>${fmt(s.put_oi[j])}</td><td>${fmt(s.call_vol[j])}</td><td>${fmt(s.put_vol[j])}</td></tr>`);
+    const dnet = s.call_dex ? s.call_dex[j] + s.put_dex[j] : null;
+    rows.push(`<tr><td>${fmt(s.strikes[j], 2)}</td><td>${fmt(s.call_gex[j], 1)}</td><td>${fmt(s.put_gex[j], 1)}</td><td>${fmt(net, 1)}</td><td>${dnet == null ? '—' : fmt(dnet, 1)}</td><td>${fmt(s.call_oi[j])}</td><td>${fmt(s.put_oi[j])}</td><td>${fmt(s.call_vol[j])}</td><td>${fmt(s.put_vol[j])}</td></tr>`);
   }
   $('table-body').innerHTML = rows.join('');
 }
@@ -390,9 +414,11 @@ $('heatmap').addEventListener('mousemove', ev => {
   }
   const cell = S.grid.cells[r][c];
   const snap = S.snapshots[c];
+  const dnet = cellNet(cell, 'dex');
   tooltip.innerHTML =
     `<b>${fmt(S.grid.strikes[r], 2)}</b> · ${hhmm(snap.time)} NY<br>` +
-    `GEX net&nbsp;: <b>${fmt(cell.net, 1)} M$</b><br>` +
+    `GEX net&nbsp;: <b>${fmt(cellNet(cell, 'gex'), 1)} M$</b>` +
+    (dnet == null ? '' : ` · DEX&nbsp;: <b>${fmt(dnet, 1)} M$</b>`) + `<br>` +
     `Calls&nbsp;: ${fmt(cell.cg, 1)} M$ · OI ${fmt(cell.coi)}<br>` +
     `Puts&nbsp;: ${fmt(cell.pg, 1)} M$ · OI ${fmt(cell.poi)}<br>` +
     `Spot&nbsp;: ${fmt(snap.spot, 2)}`;
@@ -416,6 +442,7 @@ $('heatmap').addEventListener('click', ev => {
 $('c-symbol').addEventListener('change', async e => { S.symbol = e.target.value; await loadDays(); });
 $('c-day').addEventListener('change', async e => { S.day = e.target.value; await loadDay(); });
 $('c-snap').addEventListener('change', e => { S.selected = +e.target.value; renderAll(); });
+$('c-metric').addEventListener('change', e => { S.metric = e.target.value; renderAll(); });
 window.addEventListener('resize', () => { if (S.snapshots.length) { drawHeatmap(); drawProfile(); } });
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (S.snapshots.length) renderAll(); });
 

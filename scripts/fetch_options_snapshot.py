@@ -31,8 +31,10 @@ OPT_RE = re.compile(r"^[A-Z]+(\d{6})([CP])(\d{8})$")
 
 # Par symbole : code CBOE, fenêtre de strikes autour du spot, DTE max retenu.
 SYMBOLS = {
-    "SPX": {"cboe": "_SPX", "pct_range": 0.07, "max_dte": 45},
-    "SPY": {"cboe": "SPY", "pct_range": 0.07, "max_dte": 45},
+    "SPX": {"cboe": "_SPX", "pct_range": 0.07, "max_dte": 45},  # S&P 500 (indice)
+    "SPY": {"cboe": "SPY", "pct_range": 0.07, "max_dte": 45},   # S&P 500 (ETF)
+    "NDX": {"cboe": "_NDX", "pct_range": 0.07, "max_dte": 45},  # Nasdaq 100 (indice)
+    "QQQ": {"cboe": "QQQ", "pct_range": 0.07, "max_dte": 45},   # Nasdaq 100 (ETF)
 }
 
 
@@ -60,7 +62,7 @@ def build_snapshot(sym: str, cfg: dict, raw: dict, now_ny: datetime) -> dict:
     lo, hi = spot * (1 - cfg["pct_range"]), spot * (1 + cfg["pct_range"])
     today = now_ny.date()
 
-    per_strike: dict[float, list[float]] = {}  # strike -> [cGex,pGex,cOI,pOI,cVol,pVol]
+    per_strike: dict[float, list[float]] = {}  # strike -> [cGex,pGex,cOI,pOI,cVol,pVol,cDex,pDex]
     per_exp: dict[str, float] = {}             # expiration -> net GEX
 
     for o in data["options"]:
@@ -76,19 +78,23 @@ def build_snapshot(sym: str, cfg: dict, raw: dict, now_ny: datetime) -> dict:
             continue
         oi = float(o.get("open_interest") or 0)
         gamma = float(o.get("gamma") or 0)
+        delta = float(o.get("delta") or 0)
         vol = float(o.get("volume") or 0)
-        # dollar-gamma pour 1% de move, en millions
+        # dollar-gamma / dollar-delta pour 1% de move, en millions
         gex = gamma * oi * 100 * spot * spot * 0.01 / 1e6
-        row = per_strike.setdefault(strike, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        dex = delta * oi * 100 * spot * 0.01 / 1e6  # delta des puts déjà négatif
+        row = per_strike.setdefault(strike, [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         if cp == "C":
             row[0] += gex
             row[2] += oi
             row[4] += vol
+            row[6] += dex
             per_exp[exp] = per_exp.get(exp, 0.0) + gex
         else:
             row[1] -= gex
             row[3] += oi
             row[5] += vol
+            row[7] += dex
             per_exp[exp] = per_exp.get(exp, 0.0) - gex
 
     strikes = sorted(per_strike)
@@ -131,9 +137,12 @@ def build_snapshot(sym: str, cfg: dict, raw: dict, now_ny: datetime) -> dict:
         "put_oi": [round(per_strike[k][3]) for k in strikes],
         "call_vol": [round(per_strike[k][4]) for k in strikes],
         "put_vol": [round(per_strike[k][5]) for k in strikes],
+        "call_dex": [round(per_strike[k][6], 3) for k in strikes],
+        "put_dex": [round(per_strike[k][7], 3) for k in strikes],
         "per_expiration": {k: round(v, 3) for k, v in sorted(per_exp.items())},
         "summary": {
             "net_gex": round(sum(net), 3),
+            "net_dex": round(sum(per_strike[k][6] + per_strike[k][7] for k in strikes), 3),
             "flip": flip,
             "call_wall": call_wall,
             "put_wall": put_wall,

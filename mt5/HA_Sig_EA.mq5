@@ -56,10 +56,21 @@ input bool   InpUseBE      = true;   // Break-even a +N R
 input double InpBeTrigger  = 1.0;    // Declenchement du break-even (en R)
 input long   InpMagic      = 20251023; // Magic number
 
+enum ENUM_HIST_MODE
+  {
+   HIST_LAST_MONTH = 0,  // Dernier mois
+   HIST_LAST_YEAR  = 1,  // Derniere annee
+   HIST_CUSTOM     = 2,  // Dates personnalisees
+   HIST_BARS       = 3   // Nombre de bougies
+  };
+
 input group "Affichage (historique sur le graphique)"
 input bool   InpDraw        = true;  // Dessiner l'historique des trades
 input bool   InpClearOnInit = false; // Effacer l'historique au (re)demarrage
-input int    InpHistoryBars = 5000;  // Bougies d'historique a simuler au demarrage (0 = tout)
+input ENUM_HIST_MODE InpHistMode = HIST_LAST_MONTH; // Periode d'historique a simuler
+input datetime InpHistFrom  = D'2026.01.01 00:00';  // Date de debut (mode Dates personnalisees)
+input datetime InpHistTo    = 0;                    // Date de fin (0 = jusqu'a maintenant)
+input int    InpHistoryBars = 5000;  // Bougies (mode Nombre de bougies, 0 = tout)
 
 //=================== ETAT GLOBAL ====================================
 // Heiken Ashi (etat de la derniere bougie close traitee)
@@ -690,8 +701,31 @@ void WarmUp()
    int total = Bars(_Symbol, _Period);
    int minNeed = InpKcLength * 2 + 5;
    int start = total - minNeed;
-   if(InpHistoryBars > 0)
-      start = MathMin(start, InpHistoryBars);
+   datetime endTime = 0;   // 0 = jusqu'a maintenant
+
+   // periode demandee -> bougie de depart
+   if(InpHistMode == HIST_BARS)
+     {
+      if(InpHistoryBars > 0)
+         start = MathMin(start, InpHistoryBars);
+     }
+   else
+     {
+      datetime fromT = 0;
+      if(InpHistMode == HIST_LAST_MONTH)
+         fromT = TimeCurrent() - 30 * 86400;
+      else if(InpHistMode == HIST_LAST_YEAR)
+         fromT = TimeCurrent() - 365 * 86400;
+      else // HIST_CUSTOM
+        {
+         fromT = InpHistFrom;
+         endTime = InpHistTo;
+        }
+      int shF = iBarShift(_Symbol, _Period, fromT, false);
+      if(shF >= 0)
+         start = MathMin(start, shF);
+     }
+
    // ne traite que des bougies reellement chargees : une bougie absente
    // renverrait silencieusement des zeros et fausserait tous les calculs
    while(start >= 2 && (iTime(_Symbol, _Period, start + minNeed) == 0 || iClose(_Symbol, _Period, start + minNeed) <= 0))
@@ -702,7 +736,11 @@ void WarmUp()
       return;
      }
    for(int sh = start; sh >= 2; sh--)
+     {
+      if(endTime > 0 && iTime(_Symbol, _Period, sh) > endTime)
+         break;
       ProcessBar(sh, false);
+     }
    // transition : un trade virtuel encore ouvert n'est pas repris en reel
    if(g_trOpen)
      {

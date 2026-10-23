@@ -1,5 +1,5 @@
 // @version=6
-strategy("ReversalBot", overlay=true, max_labels_count=500, max_lines_count=500, default_qty_type=strategy.fixed, default_qty_value=1, use_bar_magnifier=true)
+strategy("ReversalBot", overlay=true, max_labels_count=500, max_lines_count=500, default_qty_type=strategy.fixed, default_qty_value=1)
 
 // ══ INPUTS ═══════════════════════════════════════════════════════════
 i_risk   = input.float(100.0, "Montant risque",    group="Config")

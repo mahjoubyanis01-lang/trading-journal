@@ -64,6 +64,8 @@ i_col_vwap    = input.color(color.new(color.teal, 30), "Couleur VWAP",     group
 i_col_vwap_up = input.color(color.new(color.aqua, 55), "Couleur VWAP +1σ", group="Affichage")
 i_col_vwap_dn = input.color(color.new(color.aqua, 55), "Couleur VWAP -1σ", group="Affichage")
 i_lvl    = input.bool(true, "Niveaux",         group="Affichage")
+i_col_p1  = input.color(color.new(color.orange, 20), "Couleur niveau P1",  group="Affichage")
+i_col_pp2 = input.color(color.new(color.purple, 20), "Couleur niveau PP2", group="Affichage")
 i_diag   = input.bool(true, "Diagnostic (raisons de non-entrée)", group="Affichage")
 i_liq     = input.bool(true, "Niveaux de liquidité",               group="Affichage")
 i_liq_lbl = input.bool(true, "Labels de sweep",                    group="Affichage")
@@ -1075,8 +1077,8 @@ if was_open and not pos_open and strategy.opentrades == 0
 plot(i_vwap ? vw : na, "VWAP",     color=i_col_vwap,    linewidth=1)
 plot(i_vwap ? vu : na, "VWAP +1σ", color=i_col_vwap_up, linewidth=1)
 plot(i_vwap ? vl : na, "VWAP -1σ", color=i_col_vwap_dn, linewidth=1)
-plot(i_lvl and st == 1 ? p1e : na, "P1",  color=color.new(color.orange,20), linewidth=1, style=plot.style_linebr)
-plot(i_lvl and not na(pp2) ? pp2 : na, "PP2", color=color.new(color.purple,20), linewidth=1, style=plot.style_linebr)
+plot(i_lvl and st == 1 ? p1e : na, "P1",  color=i_col_p1,  linewidth=1, style=plot.style_linebr)
+plot(i_lvl and not na(pp2) ? pp2 : na, "PP2", color=i_col_pp2, linewidth=1, style=plot.style_linebr)
 // Lignes de liquidité INTERNES du bot : le range que les sweeps doivent
 // percer, affiché pendant la fenêtre de sweep correspondante. Ce sont ces
 // lignes-là qui comptent, pas les boxes du module Sessions visuel.

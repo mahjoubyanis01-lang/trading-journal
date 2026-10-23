@@ -26,6 +26,7 @@ showLevels   = input.bool(true, "Afficher le niveau surveille", group = grpSig, 
 showExitCross = input.bool(true, "Croix noire de perte de momentum", group = grpSig, tooltip = "Apres chaque signal, marque d'une croix noire la bougie ou la perte de momentum est confirmee : le prix peut potentiellement se retourner dans le sens inverse. Au-dessus de la bougie apres un achat, en dessous apres une vente. Une seule croix par signal.")
 crossBars     = input.int(2, "Bougies de repli pour confirmer la croix", group = grpSig, minval = 1, maxval = 10, tooltip = "Nombre de bougies CONSECUTIVES de momentum a contre-sens du signal necessaires pour poser la croix. 1 = des le premier flechissement (bruyant). 2-3 = la perte d'elan est confirmee et le risque de retournement du prix est reel.")
 maxWait      = input.int(0, "Validite du niveau (barres, 0 = illimitee)", group = grpSig, minval = 0, maxval = 500, tooltip = "Nombre de barres au-dela duquel un niveau non casse est abandonne.")
+cancelTol    = input.int(0, "Tolerance avant annulation du cycle (0-50)", group = grpSig, minval = 0, maxval = 50, tooltip = "Un cycle est ANNULE des qu'une bougie affiche la famille de couleur opposee : momentum normalise au-dela de +tolerance pour un cycle rouge, en-deca de -tolerance pour un cycle violet. Aucun signal ne peut plus sortir d'un cycle annule. 0 = le moindre passage de l'autre cote de zero annule ; augmenter (ex. 15-20) pour tolerer les bougies grises.")
 
 grpTrade = "Trade : sortie sur couleur HA ou croix"
 showTrade  = input.bool(true, "Gerer un trade par signal (entree + resultat)", group = grpTrade, tooltip = "Un seul trade a la fois, sans aucun stop fixe ni break-even. La position se clot des que la bougie Heiken Ashi change de couleur contre le trade, ou a la croix de perte de momentum -- gain ou perte, peu importe. Resultat affiche en R a la cloture.")
@@ -174,6 +175,24 @@ bullSignal = showSignals and brkUp
 if brkDn or brkUp
     epDir := 0
     refLn := na   // la ligne reste figee a l'endroit de la cassure
+
+// ANNULATION DU CYCLE AU CHANGEMENT DE COULEUR AFFICHEE : un cycle
+// rouge meurt des qu'une bougie passe en famille violette (momentum
+// normalise positif), un cycle violet des qu'une bougie passe en
+// famille rouge. Le niveau est retire, aucun signal ne peut plus en
+// sortir ; il faudra une nouvelle bougie vive pour rouvrir un cycle.
+// (Evalue apres la cassure : si cassure et changement de couleur
+// tombent sur la meme bougie, le signal garde la priorite.)
+if epDir == -1 and normVal > cancelTol
+    epDir := 0
+    if not na(refLn)
+        line.delete(refLn)
+    refLn := na
+if epDir == 1 and normVal < -cancelTol
+    epDir := 0
+    if not na(refLn)
+        line.delete(refLn)
+    refLn := na
 
 // =========================================================================
 // CROIX DE PERTE DE MOMENTUM (une par signal)

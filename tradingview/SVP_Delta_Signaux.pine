@@ -25,18 +25,19 @@
 //    au-dessus) puis vient toucher la VAH ou la VAL, comme un ordre limite
 //    d'achat. Niveau de vente : le prix vient par en dessous, comme un ordre
 //    limite de vente.
-//  - Tant que la seance du jour n'est pas finie, un niveau peut etre touche
-//    plusieurs fois : chaque nouvelle arrivee sur le niveau relance un setup
-//    (meme pour un niveau J-2 deja coupe aujourd'hui).
-//  - La bougie qui touche est la bougie de reference. Tant qu'une bougie
-//    suivante fait un plus bas (achat) / un plus haut (vente), elle devient
-//    la nouvelle reference.
+//  - Une fois le niveau touche, le prix n'a plus besoin de rester du bon cote :
+//    il peut rester sur le niveau ou le traverser, le setup reste actif.
+//  - Bougie de reference : la bougie qui touche, puis chaque bougie qui fait un
+//    nouveau plus bas (achat) / plus haut (vente), et chaque nouvelle arrivee
+//    sur un niveau pendant le setup (activation et compteur conserves). Tant
+//    que la seance du jour n'est pas finie, un niveau peut etre touche
+//    plusieurs fois (meme un niveau J-2 deja coupe aujourd'hui).
 //  - Signal quand la couleur du delta est forte (vive), bleue OU rouge, peu
-//    importe le sens du trade, a la touche et sur la bougie du signal, ET :
-//    (1) meche de rejet : achat = cloture au-dessus des 50 % de la bougie avec
-//        une meche basse > 50 % de la bougie ; vente = cloture sous les 50 %
-//        avec une meche haute > 50 % ;
-//    (2) ou cassure de la bougie de reference : achat = au-dessus de son plus
+//    importe le sens du trade, a l'activation et sur la bougie du signal, ET :
+//    (1) la bougie de reference est une bougie de rejet : corps entier (du
+//        haut au bas du corps) au-dessus des 50 % de la bougie pour acheter,
+//        sous les 50 % pour vendre ;
+//    (2) ou une bougie casse la reference : achat = au-dessus de son plus
 //        haut ; vente = sous son plus bas.
 // =============================================================================
 indicator("SVP + Δ Heatmap — Signaux VAH/VAL", "SVP Δ", overlay=true, max_lines_count=500, max_labels_count=200)
@@ -67,7 +68,7 @@ sigOn      = input.bool(true, "Afficher les signaux", group="Signaux")
 vivid      = input.float(0.7, "Seuil couleur forte (0 = gris, 1 = couleur pleine)", minval=0.05, maxval=1, step=0.05, group="Signaux")
 touchVivid = input.bool(true, "Delta vif exige aussi a la touche", group="Signaux")
 brkClose   = input.bool(true, "Cassure validee en cloture (sinon meche)", group="Signaux")
-setupBars  = input.int(10, "Validite du setup (bougies apres la touche)", minval=1, maxval=100, group="Signaux")
+setupBars  = input.int(10, "Validite du setup (bougies apres l'activation)", minval=1, maxval=100, group="Signaux")
 
 //========================== DONNEES INTRABAR (1 minute) ==========================
 ltf = timeframe.in_seconds() < 60 ? timeframe.period : "1"
@@ -377,70 +378,79 @@ if array.size(oldVal) > 0
 bool dVif    = math.abs(ratio) >= vivid    // delta vif, bleu OU rouge
 bool touchOk = not touchVivid or dVif
 
-// Meche de rejet : cloture du bon cote des 50 % et meche opposee > 50 % de la bougie
-float cRng = high - low
+// Bougie de rejet : le corps ENTIER (du haut au bas du corps) dans la bonne moitie
+// de la bougie -> achat = corps au-dessus des 50 %, vente = corps sous les 50 %.
 float cMid = (high + low) / 2
-bool pinBuy  = cRng > 0 and close > cMid and math.min(open, close) - low  > cRng * 0.5
-bool pinSell = cRng > 0 and close < cMid and high - math.max(open, close) > cRng * 0.5
+bool rejBuy  = high > low and math.min(open, close) > cMid
+bool rejSell = high > low and math.max(open, close) < cMid
 
-// Setup d'achat : touche par au-dessus -> la bougie qui touche est la reference,
-// remplacee par chaque nouveau plus bas ; signal sur meche de rejet ou cassure du plus haut.
+// Setup d'achat. Activation : arrivee par au-dessus sur un niveau (+ couleur forte).
+// Ensuite le prix peut aller n'importe ou (sur le niveau, en dessous) : le setup tient
+// jusqu'a sa validite. Bougie de reference = la bougie d'activation, puis chaque nouveau
+// plus bas, et chaque nouvelle arrivee par au-dessus (activation et compteur conserves).
+// Signal : la bougie de reference est une bougie de rejet, ou une bougie casse son plus haut.
 var bool  bOn   = false
 var float bRefH = na
 var float bRefL = na
 var int   bBar  = na
 bool bArm = false
+bool bRef = false
 bool bBrk = false
-if not na(touchBuyLv) and touchOk
-    bOn   := true
-    bArm  := true
-    bRefH := high
-    bRefL := low
-    bBar  := bar_index
+if bOn and (not canTouch or bar_index - bBar > setupBars)
+    bOn := false
+if not na(touchBuyLv) and (bOn or touchOk)
+    if not bOn
+        bOn  := true
+        bBar := bar_index
+    bArm := true
+    bRef := true
 else if bOn
-    if not canTouch or bar_index - bBar > setupBars
-        bOn := false
-    else if low < bRefL
-        bRefH := high
-        bRefL := low
+    if low < bRefL
+        bRef := true
     else
         bBrk := (brkClose ? close : high) > bRefH
-bool buySig = bOn and dVif and (pinBuy or bBrk)
+if bRef
+    bRefH := high
+    bRefL := low
+bool buySig = bOn and dVif and ((bRef and rejBuy) or bBrk)
 if buySig
     bOn := false
 
-// Setup de vente : touche par en dessous -> reference remplacee par chaque nouveau
-// plus haut ; signal sur meche de rejet ou cassure du plus bas.
+// Setup de vente : miroir de l'achat (arrivee par en dessous, reference = chaque
+// nouveau plus haut ; signal = reference en rejet ou cassure de son plus bas).
 var bool  sOn   = false
 var float sRefH = na
 var float sRefL = na
 var int   sBar  = na
 bool sArm = false
+bool sRef = false
 bool sBrk = false
-if not na(touchSellLv) and touchOk
-    sOn   := true
-    sArm  := true
-    sRefH := high
-    sRefL := low
-    sBar  := bar_index
+if sOn and (not canTouch or bar_index - sBar > setupBars)
+    sOn := false
+if not na(touchSellLv) and (sOn or touchOk)
+    if not sOn
+        sOn  := true
+        sBar := bar_index
+    sArm := true
+    sRef := true
 else if sOn
-    if not canTouch or bar_index - sBar > setupBars
-        sOn := false
-    else if high > sRefH
-        sRefH := high
-        sRefL := low
+    if high > sRefH
+        sRef := true
     else
         sBrk := (brkClose ? close : low) < sRefL
-bool sellSig = sOn and dVif and (pinSell or sBrk)
+if sRef
+    sRefH := high
+    sRefL := low
+bool sellSig = sOn and dVif and ((sRef and rejSell) or sBrk)
 if sellSig
     sOn := false
 
 plotshape(sigOn and bArm and not buySig,  "Touche niveau d'achat", shape.diamond, location.belowbar, color.new(c_strongBuy, 30),  size=size.tiny)
 plotshape(sigOn and sArm and not sellSig, "Touche niveau de vente", shape.diamond, location.abovebar, color.new(c_strongSell, 30), size=size.tiny)
 plotshape(sigOn and buySig and bBrk,      "Achat — cassure", shape.labelup,   location.belowbar, c_strongBuy,  text="ACHAT\ncassure", textcolor=color.white, size=size.small)
-plotshape(sigOn and buySig and not bBrk,  "Achat — meche",   shape.labelup,   location.belowbar, c_strongBuy,  text="ACHAT\nmeche",   textcolor=color.white, size=size.small)
+plotshape(sigOn and buySig and not bBrk,  "Achat — rejet",   shape.labelup,   location.belowbar, c_strongBuy,  text="ACHAT\nrejet",   textcolor=color.white, size=size.small)
 plotshape(sigOn and sellSig and sBrk,     "Vente — cassure", shape.labeldown, location.abovebar, c_strongSell, text="VENTE\ncassure", textcolor=color.white, size=size.small)
-plotshape(sigOn and sellSig and not sBrk, "Vente — meche",   shape.labeldown, location.abovebar, c_strongSell, text="VENTE\nmeche",   textcolor=color.white, size=size.small)
+plotshape(sigOn and sellSig and not sBrk, "Vente — rejet",   shape.labeldown, location.abovebar, c_strongSell, text="VENTE\nrejet",   textcolor=color.white, size=size.small)
 
 alertcondition(buySig,  "SVP Δ — Achat", "SVP Δ : signal d'ACHAT sur VAH/VAL ({{ticker}}, {{interval}})")
 alertcondition(sellSig, "SVP Δ — Vente", "SVP Δ : signal de VENTE sur VAH/VAL ({{ticker}}, {{interval}})")

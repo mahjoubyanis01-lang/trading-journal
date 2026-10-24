@@ -45,13 +45,16 @@
 //  - SL = plus bas (achat) / plus haut (vente) de la bougie de reference.
 //  - TP = prochain niveau VAH ou VAL valide (J-1, ancien niveau non coupe ou
 //    coupe aujourd'hui) au-dessus de l'entree (achat) / en dessous (vente).
-//    Pas de niveau dans le sens du trade -> pas de position.
+//    Le TP est obligatoirement un AUTRE niveau que celui (ou ceux) qui a active
+//    le setup. Pas d'autre niveau dans le sens du trade -> pas de position.
 //  - Break-even : des que le prix a depasse 2R, le SL passe au prix d'entree.
 //  - Une seule position a la fois, 2 positions maximum par seance.
 //    Apres un TP : plus de position ce jour-la. Apres un SL ou un break-even :
 //    une 2e position reste possible.
+//  - Losange de couleur = signal pris ; losange gris = signal non pris (la
+//    raison s'affiche au survol).
 // =============================================================================
-strategy("SVP + Δ Heatmap — Strategie VAH/VAL", "SVP Δ Strat", overlay=true, max_lines_count=500, max_labels_count=200,
+strategy("SVP + Δ Heatmap — Strategie VAH/VAL", "SVP Δ Strat", overlay=true, max_lines_count=500, max_labels_count=500,
      process_orders_on_close=true, default_qty_type=strategy.fixed, default_qty_value=1)
 
 //========================== INPUTS ==========================
@@ -448,34 +451,66 @@ bool sellSig = sOn and ((sRef and rejSell) or sBrk)
 if sellSig
     sOn := false
 
-// Signaux : petits losanges uniquement (achat sous la bougie, vente au-dessus)
-plotshape(sigOn and buySig,  "Signal achat", shape.diamond, location.belowbar, color.new(c_strongBuy, 30),  size=size.tiny)
-plotshape(sigOn and sellSig, "Signal vente", shape.diamond, location.abovebar, color.new(c_strongSell, 30), size=size.tiny)
-
 //========================== STRATEGIE ==========================
+// Niveau arrive du bon cote sur cette bougie (memes conditions que la detection des touches)
+f_arrived(lv, dir) =>
+    canTouch and tLo <= lv and tHi >= lv and (dir > 0 ? pLo > lv : pHi < lv)
+
+// Tous les niveaux sur lesquels le prix arrive sur cette bougie (dir = 1 : par au-dessus)
+f_arrivals(dir) =>
+    array<float> out = array.new_float()
+    if not na(liveVah) and f_arrived(liveVahLv, dir)
+        array.push(out, liveVahLv)
+    if not na(liveVal) and f_arrived(liveValLv, dir)
+        array.push(out, liveValLv)
+    if array.size(oldVahL) > 0
+        for i = 0 to array.size(oldVahL) - 1
+            int cut = array.get(oldVahS, i)
+            if (na(cut) or cut == d_start) and f_arrived(array.get(oldVahL, i), dir)
+                array.push(out, array.get(oldVahL, i))
+    if array.size(oldValL) > 0
+        for i = 0 to array.size(oldValL) - 1
+            int cut = array.get(oldValS, i)
+            if (na(cut) or cut == d_start) and f_arrived(array.get(oldValL, i), dir)
+                array.push(out, array.get(oldValL, i))
+    out
+
 // Prochain niveau VAH/VAL valide au-dessus (dir = 1) ou en dessous (dir = -1) d'un prix :
 // J-1, et anciens niveaux non coupes ou coupes pendant la seance du jour.
-f_pick(best, lv, px, dir) =>
-    bool ok = dir > 0 ? lv > px : lv < px
+// Les niveaux qui ont active le setup (excl) ne peuvent pas servir de TP.
+f_pick(best, lv, px, dir, excl) =>
+    bool ok = (dir > 0 ? lv > px : lv < px) and not array.includes(excl, lv)
     ok and (na(best) or math.abs(lv - px) < math.abs(best - px)) ? lv : best
 
-f_nextLevel(px, dir) =>
+f_nextLevel(px, dir, excl) =>
     float best = na
     if not na(liveVah)
-        best := f_pick(best, liveVahLv, px, dir)
+        best := f_pick(best, liveVahLv, px, dir, excl)
     if not na(liveVal)
-        best := f_pick(best, liveValLv, px, dir)
+        best := f_pick(best, liveValLv, px, dir, excl)
     if array.size(oldVahL) > 0
         for i = 0 to array.size(oldVahL) - 1
             int cut = array.get(oldVahS, i)
             if na(cut) or cut == d_start
-                best := f_pick(best, array.get(oldVahL, i), px, dir)
+                best := f_pick(best, array.get(oldVahL, i), px, dir, excl)
     if array.size(oldValL) > 0
         for i = 0 to array.size(oldValL) - 1
             int cut = array.get(oldValS, i)
             if na(cut) or cut == d_start
-                best := f_pick(best, array.get(oldValL, i), px, dir)
+                best := f_pick(best, array.get(oldValL, i), px, dir, excl)
     best
+
+// Niveaux ayant active (ou relance) le setup en cours : remis a zero a chaque activation
+var array<float> bActs = array.new_float()
+var array<float> sActs = array.new_float()
+if not na(touchBuyLv)
+    if bBar == bar_index
+        array.clear(bActs)
+    array.concat(bActs, f_arrivals(1))
+if not na(touchSellLv)
+    if sBar == bar_index
+        array.clear(sActs)
+    array.concat(sActs, f_arrivals(-1))
 
 var int   nTrades    = 0       // positions ouvertes pendant la seance
 var bool  tpDone     = false   // un TP a ete atteint pendant la seance -> plus de position
@@ -513,32 +548,61 @@ if strategy.position_size < 0
         slPx := entryPx
     strategy.exit("XS", "S", stop=slPx, limit=tpPx)
 
-// (3) Nouvelle position : a plat, moins de 2 positions dans la seance, pas de TP aujourd'hui
-bool canOpen = strategy.position_size == 0 and nTrades < 2 and not tpDone
-if canOpen and buySig
-    float tp = f_nextLevel(close, 1)
-    if close > bRefL and not na(tp)
-        entryPx   := close
-        slPx      := bRefL
-        tpPx      := tp
-        riskR     := close - bRefL
-        beOn      := false
-        entrySess := d_start
-        nTrades   += 1
-        strategy.entry("L", strategy.long)
-        strategy.exit("XL", "L", stop=slPx, limit=tpPx)
-else if canOpen and sellSig
-    float tp = f_nextLevel(close, -1)
-    if close < sRefH and not na(tp)
-        entryPx   := close
-        slPx      := sRefH
-        tpPx      := tp
-        riskR     := sRefH - close
-        beOn      := false
-        entrySess := d_start
-        nTrades   += 1
-        strategy.entry("S", strategy.short)
-        strategy.exit("XS", "S", stop=slPx, limit=tpPx)
+// (3) Nouvelle position : a plat, moins de 2 positions dans la seance, pas de TP aujourd'hui.
+//     Raison du refus gardee pour l'afficher sur le losange gris.
+f_gate() =>
+    strategy.position_size != 0 ? "position deja ouverte" : tpDone ? "TP deja atteint dans la seance" : nTrades >= 2 ? "2 positions deja prises dans la seance" : ""
+
+bool   bTook = false
+bool   sTook = false
+string bWhy  = ""
+string sWhy  = ""
+if buySig
+    bWhy := f_gate()
+    if bWhy == ""
+        float tp = f_nextLevel(close, 1, bActs)
+        if na(tp)
+            bWhy := "aucun autre niveau VAH/VAL au-dessus pour le TP"
+        else if close <= bRefL
+            bWhy := "SL invalide (cloture sous la bougie de reference)"
+        else
+            entryPx   := close
+            slPx      := bRefL
+            tpPx      := tp
+            riskR     := close - bRefL
+            beOn      := false
+            entrySess := d_start
+            nTrades   += 1
+            bTook     := true
+            strategy.entry("L", strategy.long)
+            strategy.exit("XL", "L", stop=slPx, limit=tpPx)
+if sellSig
+    sWhy := bTook ? "achat pris sur la meme bougie" : f_gate()
+    if sWhy == ""
+        float tp = f_nextLevel(close, -1, sActs)
+        if na(tp)
+            sWhy := "aucun autre niveau VAH/VAL en dessous pour le TP"
+        else if close >= sRefH
+            sWhy := "SL invalide (cloture au-dessus de la bougie de reference)"
+        else
+            entryPx   := close
+            slPx      := sRefH
+            tpPx      := tp
+            riskR     := sRefH - close
+            beOn      := false
+            entrySess := d_start
+            nTrades   += 1
+            sTook     := true
+            strategy.entry("S", strategy.short)
+            strategy.exit("XS", "S", stop=slPx, limit=tpPx)
+
+// Losanges : couleur = signal pris ; gris = signal non pris (raison au survol)
+plotshape(sigOn and bTook, "Signal achat pris", shape.diamond, location.belowbar, color.new(c_strongBuy, 30),  size=size.tiny)
+plotshape(sigOn and sTook, "Signal vente pris", shape.diamond, location.abovebar, color.new(c_strongSell, 30), size=size.tiny)
+if sigOn and buySig and not bTook
+    label.new(bar_index, low, "", yloc=yloc.belowbar, style=label.style_diamond, color=color.new(color.gray, 30), size=size.tiny, tooltip="Achat non pris : " + bWhy)
+if sigOn and sellSig and not sTook
+    label.new(bar_index, high, "", yloc=yloc.abovebar, style=label.style_diamond, color=color.new(color.gray, 30), size=size.tiny, tooltip="Vente non prise : " + sWhy)
 
 plot(strategy.position_size != 0 ? slPx : na, "SL", color.red,   style=plot.style_linebr)
 plot(strategy.position_size != 0 ? tpPx : na, "TP", color.green, style=plot.style_linebr)

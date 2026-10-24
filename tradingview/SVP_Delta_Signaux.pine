@@ -387,7 +387,6 @@ var bool  bOn   = false
 var float bRefH = na
 var float bRefL = na
 var int   bBar  = na
-bool bArm = false
 bool bRef = false
 bool bBrk = false
 if bOn and (not canTouch or bar_index - bBar > setupBars)
@@ -396,7 +395,6 @@ if not na(touchBuyLv)
     if not bOn
         bOn  := true
         bBar := bar_index
-    bArm := true
     bRef := true
 else if bOn
     if low < bRefL
@@ -416,7 +414,6 @@ var bool  sOn   = false
 var float sRefH = na
 var float sRefL = na
 var int   sBar  = na
-bool sArm = false
 bool sRef = false
 bool sBrk = false
 if sOn and (not canTouch or bar_index - sBar > setupBars)
@@ -425,7 +422,6 @@ if not na(touchSellLv)
     if not sOn
         sOn  := true
         sBar := bar_index
-    sArm := true
     sRef := true
 else if sOn
     if high > sRefH
@@ -439,12 +435,9 @@ bool sellSig = sOn and ((sRef and rejSell) or sBrk)
 if sellSig
     sOn := false
 
-plotshape(sigOn and bArm and not buySig,  "Touche niveau d'achat", shape.diamond, location.belowbar, color.new(c_strongBuy, 30),  size=size.tiny)
-plotshape(sigOn and sArm and not sellSig, "Touche niveau de vente", shape.diamond, location.abovebar, color.new(c_strongSell, 30), size=size.tiny)
-plotshape(sigOn and buySig and bBrk,      "Achat — cassure", shape.labelup,   location.belowbar, c_strongBuy,  text="ACHAT\ncassure", textcolor=color.white, size=size.small)
-plotshape(sigOn and buySig and not bBrk,  "Achat — rejet",   shape.labelup,   location.belowbar, c_strongBuy,  text="ACHAT\nrejet",   textcolor=color.white, size=size.small)
-plotshape(sigOn and sellSig and sBrk,     "Vente — cassure", shape.labeldown, location.abovebar, c_strongSell, text="VENTE\ncassure", textcolor=color.white, size=size.small)
-plotshape(sigOn and sellSig and not sBrk, "Vente — rejet",   shape.labeldown, location.abovebar, c_strongSell, text="VENTE\nrejet",   textcolor=color.white, size=size.small)
+// Signaux : petits losanges uniquement (achat sous la bougie, vente au-dessus)
+plotshape(sigOn and buySig,  "Signal achat", shape.diamond, location.belowbar, color.new(c_strongBuy, 30),  size=size.tiny)
+plotshape(sigOn and sellSig, "Signal vente", shape.diamond, location.abovebar, color.new(c_strongSell, 30), size=size.tiny)
 
 alertcondition(buySig,  "SVP Δ — Achat", "SVP Δ : signal d'ACHAT sur VAH/VAL ({{ticker}}, {{interval}})")
 alertcondition(sellSig, "SVP Δ — Vente", "SVP Δ : signal de VENTE sur VAH/VAL ({{ticker}}, {{interval}})")

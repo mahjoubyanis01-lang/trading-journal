@@ -16,7 +16,7 @@
 //  Backtests de référence (frais inclus) :
 //   Signal A ES : 563 trades 2020-26 · 45 % gagnants · PF 1.34 · +0.20 R/trade · 6/7 ans positifs, pire série -17.1 R
 //   Signal A NQ : 513 trades 2020-26 · 45 % gagnants · PF 1.39 · +0.22 R/trade · 7/7 ans positifs, pire série -12.5 R
-//   Signal B ES : 33 signaux 2 ans · 64 % gagnants · PF 2.08 · +0.31 R/trade, pire série -2.39 R
+//   Signal B ES : 34 signaux 2 ans · 65 % gagnants · PF 2.13 · +0.32 R/trade, pire série -2.39 R
 //   Signal B NQ : 15 signaux 2 ans · 67 % gagnants · PF 3.02 · +0.63 R/trade, pire série -2.7 R
 //  Les performances passées ne garantissent pas les résultats futurs.
 //
@@ -29,7 +29,7 @@ indicator("Trading ES/NQ — biais, niveaux, signaux, heatmap", shorttitle = "ES
 // ── BACKTESTS DE RÉFÉRENCE (générés automatiquement) ─────────────────────
 A_ES_REF = "563 trades 2020-26 · 45 % gagnants · PF 1.34 · +0.20 R/trade · 6/7 ans positifs"
 A_NQ_REF = "513 trades 2020-26 · 45 % gagnants · PF 1.39 · +0.22 R/trade · 7/7 ans positifs"
-ES_REF = "33 signaux 2 ans · 64 % gagnants · PF 2.08 · +0.31 R/trade"
+ES_REF = "34 signaux 2 ans · 65 % gagnants · PF 2.13 · +0.32 R/trade"
 NQ_REF = "15 signaux 2 ans · 67 % gagnants · PF 3.02 · +0.63 R/trade"
 
 // ── PLAN GEX + HEATMAP DU JOUR (générés automatiquement) ─────────────────

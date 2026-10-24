@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-23T15:20:33-04:00",
+ "generated": "2026-10-24T10:00:44-04:00",
  "rule": "Backtest de référence des signaux ES/NQ de l'indicateur TradingView.\n\nImplémentation barre par barre sur bougies 1 h, dans le MÊME ordre d'opérations\nque le moteur Pine (fonction `engine` de tradingview/GEX_Levels_ES_NQ.pine).\n\nRègle du signal « cassure validée + retest dans la tendance » :\n  - PDH / PDL : plus haut / plus bas de la séance cash de la veille\n    (bougies 1 h de 10h à 15h, heure de New York) ;\n  - tendance : clôture de la veille au-dessus (haussière) ou en dessous\n    (baissière) de la moyenne des 20 dernières clôtures ;\n  - cassure ACCEPTÉE : 2 clôtures 1 h consécutives au-delà du niveau, après\n    une clôture en deçà ;\n  - RETEST : une bougie revient toucher le niveau (à `tol` près) et clôture du\n    bon côté -> entrée à la clôture, uniquement dans le sens de la tendance ;\n  - stop : niveau -/+ stop_off ; objectif : 2R ; sortie forcée à 16h00 NY ;\n  - fenêtre de signal : bougies de 10h à 14h NY ; 1 signal maximum par jour ;\n  - frais : 0,5 pt ES / 2 pts NQ par aller-retour (slippage + commission).",
  "markets": {
   "ES": {
@@ -8,11 +8,11 @@
     "2026-10-23"
    ],
    "summary": {
-    "n": 33,
-    "win_rate": 63.6,
-    "expectancy_r": 0.312,
-    "total_r": 10.29,
-    "profit_factor": 2.08,
+    "n": 34,
+    "win_rate": 64.7,
+    "expectancy_r": 0.315,
+    "total_r": 10.71,
+    "profit_factor": 2.13,
     "max_drawdown_r": -2.39
    },
    "by_year": {
@@ -33,11 +33,11 @@
      "max_drawdown_r": -1.06
     },
     "2026": {
-     "n": 8,
-     "win_rate": 50.0,
-     "expectancy_r": 0.105,
-     "total_r": 0.84,
-     "profit_factor": 1.24,
+     "n": 9,
+     "win_rate": 55.6,
+     "expectancy_r": 0.14,
+     "total_r": 1.26,
+     "profit_factor": 1.35,
      "max_drawdown_r": -2.39
     }
    },
@@ -50,11 +50,11 @@
     "max_drawdown_r": -2.39
    },
    "shorts": {
-    "n": 6,
-    "win_rate": 66.7,
-    "expectancy_r": 0.574,
-    "total_r": 3.44,
-    "profit_factor": 2.68,
+    "n": 7,
+    "win_rate": 71.4,
+    "expectancy_r": 0.551,
+    "total_r": 3.86,
+    "profit_factor": 2.89,
     "max_drawdown_r": -2.04
    },
    "trades": [
@@ -519,19 +519,23 @@
      "exit": 7746.75,
      "why": "stop",
      "r": -1.036
+    },
+    {
+     "date": "2026-10-23",
+     "time": "14:00",
+     "side": -1,
+     "level": "PDL",
+     "level_px": 7676.75,
+     "entry": 7667.75,
+     "stop": 7682.75,
+     "target": 7637.75,
+     "risk": 15.0,
+     "exit": 7661.0,
+     "why": "clôture",
+     "r": 0.417
     }
    ],
-   "open_trade": {
-    "date": "2026-10-23",
-    "time": "14:00",
-    "side": -1,
-    "level": "PDL",
-    "level_px": 7676.75,
-    "entry": 7667.75,
-    "stop": 7682.75,
-    "target": 7637.75,
-    "risk": 15.0
-   }
+   "open_trade": null
   },
   "NQ": {
    "period": [

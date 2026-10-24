@@ -4,6 +4,10 @@
 //  (meme logique que l'indicateur SVP_Delta_Signaux.pine, + gestion des positions)
 //
 //  SVP — Session Volume Profile (VAH / VAL figes en fin de journee)
+//  - Profil calcule sur les bougies 30 min (reglable) : bien plus d'historique
+//    qu'en 1 min, donc beaucoup plus de seances et de niveaux visibles, meme sur
+//    un graphique 1 min. Les touches restent detectees a la minute pres (avant
+//    le debut de l'historique du graphique : sur les bougies 30 min).
 //  - Les niveaux ne sont traces QU'A LA CLOTURE de chaque seance.
 //  - Chaque niveau s'etend vers la droite (facon TradingView).
 //  - J-1 (derniere seance close) : l'extension court jusqu'a la bougie
@@ -58,6 +62,7 @@ strategy("SVP + Δ Heatmap — Strategie VAH/VAL", "SVP Δ Strat", overlay=true,
      process_orders_on_close=true, default_qty_type=strategy.fixed, default_qty_value=1)
 
 //========================== INPUTS ==========================
+svpTf      = input.timeframe("30", "Unite de temps du calcul SVP", group="Profil")
 calc_ticks = input.int(1,    "Precision du calcul (ticks par niveau)", minval=1, maxval=50, group="Profil")
 percent    = input.float(70.,"Value Area Volume %", minval=0, maxval=100, group="Profil")
 keepSess   = input.int(60,   "Seances conservees a l'ecran", minval=1, maxval=240, group="Affichage")
@@ -84,8 +89,9 @@ brkClose   = input.bool(true, "Cassure validee en cloture (sinon meche)", group=
 setupBars  = input.int(10, "Validite du setup (bougies apres l'activation)", minval=1, maxval=100, group="Signaux")
 
 //========================== DONNEES INTRABAR (1 minute) ==========================
+// Servent a verifier la plage horaire des touches a la minute pres.
 ltf = timeframe.in_seconds() < 60 ? timeframe.period : "1"
-[iT, iO, iH, iL, iC, iV] = request.security_lower_tf(syminfo.tickerid, ltf, [time, open, high, low, close, volume])
+[iT, iH, iL] = request.security_lower_tf(syminfo.tickerid, ltf, [time, high, low])
 
 //========================== DELTA HEATMAP ==========================
 f_adjust_brightness(_col, _pct) =>
@@ -118,26 +124,24 @@ plotcandle(open, high, low, close,
      wickcolor=ColorWick,
      bordercolor=ColorOutline)
 
-//========================== SESSION (jour du graphique) ==========================
-var array<float> sHi = array.new_float()
-var array<float> sLo = array.new_float()
-var array<float> sVo = array.new_float()
-var int   d_start        = na
-var int   sess_start_bar = na
-var float sesLo   = na
-var float sesHi   = na
+//========================== FENETRE DE TOUCHE ==========================
+// Plage "HHMM-HHMM" -> minutes depuis minuit (une plage qui passe minuit est geree).
+f_hhmm(s) =>
+    int v = int(str.tonumber(s))
+    int(v / 100) * 60 + v % 100
+int touchBeg = f_hhmm(str.substring(touchSess, 0, 4))
+int touchEnd = f_hhmm(str.substring(touchSess, 5, 9))
 
-dayChg = ta.change(time("D"))
-bool new_sess = na(time[1]) or nz(dayChg, 0) != 0
+f_inWin(t) =>
+    int m = hour(t, touchTz) * 60 + minute(t, touchTz)
+    touchBeg <= touchEnd ? (m >= touchBeg and m < touchEnd) : (m >= touchBeg or m < touchEnd)
 
-//========================== VA AU TICK (barre par barre) ==========================
-var array<float> gDiff = array.new_float(20002, 0.)
-var array<float> gTot  = array.new_float(20001, 0.)
-
-f_sessionVA() =>
+//========================== VA D'UNE SEANCE (au tick) ==========================
+// Volume de chaque bougie reparti uniformement sur son range, puis Value Area autour du POC.
+f_va(aH, aL, aV, sesLo, sesHi) =>
     float _vah = na
     float _val = na
-    int n = array.size(sVo)
+    int n = array.size(aV)
     if n > 0 and not na(sesLo) and not na(sesHi) and sesHi > sesLo
         float rng   = sesHi - sesLo
         int   kmult = math.max(calc_ticks, int(math.ceil(rng / (syminfo.mintick * 2000))))
@@ -146,11 +150,12 @@ f_sessionVA() =>
         if fnum > 20000
             fnum  := 20000
             fstep := rng / 20000
-        array.fill(gDiff, 0.0, 0, fnum + 2)
+        array<float> gDiff = array.new_float(fnum + 2, 0.)
+        array<float> gTot  = array.new_float(fnum, 0.)
         for k = 0 to n - 1
-            float bh = array.get(sHi, k)
-            float bl = array.get(sLo, k)
-            float vv = array.get(sVo, k)
+            float bh = array.get(aH, k)
+            float bl = array.get(aL, k)
+            float vv = array.get(aV, k)
             if vv > 0
                 int j0 = math.min(fnum - 1, math.max(0, int(math.floor((bl - sesLo) / fstep))))
                 int j1 = math.min(fnum - 1, math.max(0, int(math.floor((bh - sesLo) / fstep))))
@@ -198,115 +203,68 @@ f_sessionVA() =>
             _val := math.round_to_mintick(sesLo + fstep * d)
     [_vah, _val]
 
-//========================== ETAT DES NIVEAUX FIGES ==========================
-// VA finale (barre par barre) de la seance EN COURS
-var float shVah = na
-var float shVal = na
+//========================== NIVEAUX DES SEANCES CLOSES (unite svpTf) ==========================
+// Calcule dans l'unite de temps du calcul SVP (30 min par defaut) : bien plus d'historique
+// qu'en 1 min, donc beaucoup plus de seances et de niveaux, meme sur un graphique 1 min.
+// Pour chaque seance close : debut, VAH, VAL et heure de la 1re touche de chaque niveau
+// dans la plage horaire apres la cloture de la seance (na = pas encore touche).
+f_htfLevels() =>
+    var array<int>   aT    = array.new_int()
+    var array<float> aVah  = array.new_float()
+    var array<float> aVal  = array.new_float()
+    var array<int>   aCutH = array.new_int()
+    var array<int>   aCutL = array.new_int()
+    var array<float> bH    = array.new_float()
+    var array<float> bL    = array.new_float()
+    var array<float> bV    = array.new_float()
+    var int   sT  = na
+    var float sLo = na
+    var float sHi = na
+    int dch = nz(ta.change(time("D")), 0)
+    if na(time[1]) or dch != 0
+        [vh, vl] = f_va(bH, bL, bV, sLo, sHi)
+        if not na(vh) and not na(sT)
+            array.push(aT, sT)
+            array.push(aVah, vh)
+            array.push(aVal, vl)
+            array.push(aCutH, int(na))
+            array.push(aCutL, int(na))
+            if array.size(aT) > keepSess
+                array.shift(aT)
+                array.shift(aVah)
+                array.shift(aVal)
+                array.shift(aCutH)
+                array.shift(aCutL)
+        array.clear(bH)
+        array.clear(bL)
+        array.clear(bV)
+        sT  := time
+        sLo := na
+        sHi := na
+    array.push(bH, high)
+    array.push(bL, low)
+    array.push(bV, nz(volume))
+    sLo := na(sLo) ? low  : math.min(sLo, low)
+    sHi := na(sHi) ? high : math.max(sHi, high)
+    if (not touchOnly or f_inWin(time)) and array.size(aT) > 0
+        for i = 0 to array.size(aT) - 1
+            float h1 = array.get(aVah, i)
+            float l1 = array.get(aVal, i)
+            if na(array.get(aCutH, i)) and low <= h1 and high >= h1
+                array.set(aCutH, i, time)
+            if na(array.get(aCutL, i)) and low <= l1 and high >= l1
+                array.set(aCutL, i, time)
+    [aT, aVah, aVal, aCutH, aCutL]
 
-// Ligne "J-1" (derniere seance close) : s'etend en direct, ne se coupe pas
-var line  liveVah   = na
-var line  liveVal   = na
-var float liveVahLv = na
-var float liveValLv = na
-var int   liveVahTouch = na   // 1re touche pendant le jour en cours (memorisee, pas appliquee)
-var int   liveValTouch = na
+[hT, hVah, hVal, hCutH, hCutL] = request.security(syminfo.tickerid, svpTf, f_htfLevels())
 
-// Lignes "J-2 et plus ancien"
-var array<line>  oldVah  = array.new<line>()
-var array<line>  oldVal  = array.new<line>()
-var array<float> oldVahL = array.new_float()
-var array<float> oldValL = array.new_float()
-var array<int>   oldVahS = array.new_int()    // seance (d_start) de la coupure ; na = pas encore coupee
-var array<int>   oldValS = array.new_int()
-
-color cVah = #2962ff
-color cVal = #ff9800
-
-//========================== BASCULE DE SEANCE ==========================
+//========================== SESSION (jour du graphique) ==========================
+var int d_start = na
+var int firstT  = time    // 1re bougie du graphique : avant elle, seules les touches svpTf sont connues
+dayChg = ta.change(time("D"))
+bool new_sess = na(time[1]) or nz(dayChg, 0) != 0
 if new_sess
-    // (a) GRADUATION : l'ancienne J-1 devient J-2 -> on applique la coupure differee
-    if not na(liveVah)
-        if not na(liveVahTouch)
-            line.set_x2(liveVah, liveVahTouch)   // retro-coupe a la 1re touche du jour ecoule
-        array.push(oldVah,  liveVah)
-        array.push(oldVahL, liveVahLv)
-        array.push(oldVahS, not na(liveVahTouch) ? d_start : na)   // coupee pendant la seance ecoulee
-        if not na(liveValTouch)
-            line.set_x2(liveVal, liveValTouch)
-        array.push(oldVal,  liveVal)
-        array.push(oldValL, liveValLv)
-        array.push(oldValS, not na(liveValTouch) ? d_start : na)
-    liveVah := na
-    liveVal := na
-    liveVahTouch := na
-    liveValTouch := na
-
-    // (b) NOUVELLE J-1 : trace la VA finale de la seance qui vient de clore
-    //     (shVah/shVal tiennent encore la derniere valeur de la seance ecoulee)
-    if not na(shVah) and not na(sess_start_bar)
-        liveVah   := line.new(sess_start_bar, shVah, bar_index, shVah, xloc=xloc.bar_index, color=color.new(cVah, 0), width=1)
-        liveVal   := line.new(sess_start_bar, shVal, bar_index, shVal, xloc=xloc.bar_index, color=color.new(cVal, 0), width=1)
-        liveVahLv := shVah
-        liveValLv := shVal
-
-    // (c) elagage : ne garder que les N dernieres seances
-    while array.size(oldVah) > keepSess
-        line.delete(array.shift(oldVah))
-        array.shift(oldVahL)
-        array.shift(oldVahS)
-    while array.size(oldVal) > keepSess
-        line.delete(array.shift(oldVal))
-        array.shift(oldValL)
-        array.shift(oldValS)
-
-    // (d) reset de l'accumulation pour la nouvelle seance
-    array.clear(sHi)
-    array.clear(sLo)
-    array.clear(sVo)
-    d_start        := time
-    sess_start_bar := bar_index
-    sesLo := na
-    sesHi := na
-    shVah := na
-    shVal := na
-
-//========================== ACCUMULATION SESSION ==========================
-if not na(d_start)
-    int nib = array.size(iV)
-    if nib > 0
-        for k = 0 to nib - 1
-            float h_ = array.get(iH, k)
-            float l_ = array.get(iL, k)
-            array.push(sHi, h_)
-            array.push(sLo, l_)
-            array.push(sVo, nz(array.get(iV, k)))
-            sesLo := na(sesLo) ? l_ : math.min(sesLo, l_)
-            sesHi := na(sesHi) ? h_ : math.max(sesHi, h_)
-    else
-        array.push(sHi, high)
-        array.push(sLo, low)
-        array.push(sVo, nz(volume))
-        sesLo := na(sesLo) ? low  : math.min(sesLo, low)
-        sesHi := na(sesHi) ? high : math.max(sesHi, high)
-
-//========================== CALCUL VA DE LA SEANCE EN COURS ==========================
-if not na(d_start)
-    [w_vah, w_val] = f_sessionVA()
-    if not na(w_vah)
-        shVah := w_vah
-        shVal := w_val
-
-//========================== FENETRE DE TOUCHE ==========================
-// Plage "HHMM-HHMM" -> minutes depuis minuit (une plage qui passe minuit est geree).
-f_hhmm(s) =>
-    int v = int(str.tonumber(s))
-    int(v / 100) * 60 + v % 100
-int touchBeg = f_hhmm(str.substring(touchSess, 0, 4))
-int touchEnd = f_hhmm(str.substring(touchSess, 5, 9))
-
-f_inWin(t) =>
-    int m = hour(t, touchTz) * 60 + minute(t, touchTz)
-    touchBeg <= touchEnd ? (m >= touchBeg and m < touchEnd) : (m >= touchBeg or m < touchEnd)
+    d_start := time
 
 // tLo / tHi = extremes atteints DANS la plage pendant la bougie courante
 // (na si aucune minute de la bougie n'est dans la plage -> pas de touche possible).
@@ -327,65 +285,92 @@ else
         tHi := high
 bool canTouch = not na(tLo) and not na(tHi)
 
-//========================== EXTENSION / COUPURE DES NIVEAUX ==========================
+//========================== LIGNES DES NIVEAUX ==========================
+// Une ligne VAH et une ligne VAL par seance close, de son debut vers la droite.
+// - J-1 (derniere seance close) : s'etend jusqu'a la bougie courante et ne se coupe pas
+//   aujourd'hui ; quand elle devient J-2, elle est retro-coupee a sa 1re touche.
+// - J-2 et plus ancien : coupe a la 1re touche dans la plage, sinon continue.
+var array<int>  kT    = array.new_int()     // seances dessinees (debut), meme ordre que hT
+var array<line> lnH   = array.new<line>()
+var array<line> lnL   = array.new<line>()
+var array<int>  cCutH = array.new_int()     // 1re touche vue sur le graphique (heure de la bougie)
+var array<int>  cCutL = array.new_int()
+var array<bool> fixH  = array.new_bool()    // ligne figee a sa coupure
+var array<bool> fixL  = array.new_bool()
+
+color cVah = #2962ff
+color cVal = #ff9800
+
+// Synchronisation avec les seances closes : nouvelle seance -> nouvelles lignes,
+// seance elaguee -> lignes supprimees.
+int nS = array.size(hT)
+if nS > 0
+    int lastK = array.size(kT) > 0 ? array.last(kT) : na
+    if na(lastK) or array.last(hT) != lastK
+        for i = 0 to nS - 1
+            int st = array.get(hT, i)
+            if na(lastK) or st > lastK
+                array.push(kT, st)
+                array.push(lnH, line.new(st, array.get(hVah, i), time, array.get(hVah, i), xloc=xloc.bar_time, color=cVah, width=1))
+                array.push(lnL, line.new(st, array.get(hVal, i), time, array.get(hVal, i), xloc=xloc.bar_time, color=cVal, width=1))
+                array.push(cCutH, int(na))
+                array.push(cCutL, int(na))
+                array.push(fixH, false)
+                array.push(fixL, false)
+        while array.size(kT) > 0 and array.first(kT) < array.first(hT)
+            line.delete(array.shift(lnH))
+            line.delete(array.shift(lnL))
+            array.shift(kT)
+            array.shift(cCutH)
+            array.shift(cCutL)
+            array.shift(fixH)
+            array.shift(fixL)
+
 // Sens d'arrivee sur un niveau touche : bougie precedente entierement au-dessus
 // -> niveau d'achat ; entierement en dessous -> niveau de vente.
 float pLo = low[1]
 float pHi = high[1]
 float touchBuyLv  = na
 float touchSellLv = na
+array<float> okLv = array.new_float()     // niveaux touchables aujourd'hui (signaux, TP)
 
-// J-1 : on prolonge jusqu'a la bougie courante et on MEMORISE la 1re touche
-//       (sans couper) — la coupure sera appliquee a la graduation.
-if not na(liveVah)
-    line.set_x2(liveVah, bar_index)
-    if canTouch and tLo <= liveVahLv and tHi >= liveVahLv
-        if na(liveVahTouch)
-            liveVahTouch := bar_index
-        if pLo > liveVahLv
-            touchBuyLv := liveVahLv
-        else if pHi < liveVahLv
-            touchSellLv := liveVahLv
-if not na(liveVal)
-    line.set_x2(liveVal, bar_index)
-    if canTouch and tLo <= liveValLv and tHi >= liveValLv
-        if na(liveValTouch)
-            liveValTouch := bar_index
-        if pLo > liveValLv
-            touchBuyLv := liveValLv
-        else if pHi < liveValLv
-            touchSellLv := liveValLv
+// Un niveau sur la bougie courante : coupure (1re touche dans la plage), extension de la
+// ligne et sens d'arrivee. Coupure connue : touche vue sur le graphique, sinon touche svpTf
+// anterieure au debut du graphique. Renvoie [touchable aujourd'hui, sens : 1 par au-dessus
+// (achat), -1 par en dessous (vente), 0 sinon].
+f_level(lv, ln, hc, cuts, fixs, j, isJ1) =>
+    int  cc   = array.get(cuts, j)
+    int  cut  = not na(cc) ? cc : (not na(hc) and hc < firstT ? hc : na)
+    bool ok   = na(cut) or cut >= d_start      // coupe aujourd'hui : reste touchable jusqu'a la fin de la seance
+    int  side = 0
+    if ok and canTouch and tLo <= lv and tHi >= lv
+        if na(cc)
+            array.set(cuts, j, time)
+            cut := time
+        side := pLo > lv ? 1 : pHi < lv ? -1 : 0
+    if not array.get(fixs, j)
+        if not na(cut) and not (isJ1 and cut >= d_start)
+            line.set_x2(ln, cut)
+            array.set(fixs, j, true)
+        else
+            line.set_x2(ln, time)
+    [ok, side]
 
-// J-2 et plus ancien : tant que non coupe, on prolonge ; a la 1re touche on coupe.
-// Coupe aujourd'hui, le niveau reste touchable (signaux) jusqu'a la fin de la seance.
-if array.size(oldVah) > 0
-    for i = 0 to array.size(oldVah) - 1
-        int cut = array.get(oldVahS, i)
-        if na(cut) or cut == d_start
-            float lv = array.get(oldVahL, i)
-            if na(cut)
-                line.set_x2(array.get(oldVah, i), bar_index)
-            if canTouch and tLo <= lv and tHi >= lv
-                if na(cut)
-                    array.set(oldVahS, i, d_start)   // coupe a la bougie qui touche (x2 = bar_index)
-                if pLo > lv
-                    touchBuyLv := lv
-                else if pHi < lv
-                    touchSellLv := lv
-if array.size(oldVal) > 0
-    for i = 0 to array.size(oldVal) - 1
-        int cut = array.get(oldValS, i)
-        if na(cut) or cut == d_start
-            float lv = array.get(oldValL, i)
-            if na(cut)
-                line.set_x2(array.get(oldVal, i), bar_index)
-            if canTouch and tLo <= lv and tHi >= lv
-                if na(cut)
-                    array.set(oldValS, i, d_start)
-                if pLo > lv
-                    touchBuyLv := lv
-                else if pHi < lv
-                    touchSellLv := lv
+if nS > 0 and array.size(kT) == nS
+    for j = 0 to nS - 1
+        bool  isJ1 = j == nS - 1
+        float vh   = array.get(hVah, j)
+        float vl   = array.get(hVal, j)
+        [okH, sdH] = f_level(vh, array.get(lnH, j), array.get(hCutH, j), cCutH, fixH, j, isJ1)
+        [okL, sdL] = f_level(vl, array.get(lnL, j), array.get(hCutL, j), cCutL, fixL, j, isJ1)
+        if okH
+            array.push(okLv, vh)
+        if okL
+            array.push(okLv, vl)
+        if sdH > 0 or sdL > 0
+            touchBuyLv := sdH > 0 ? vh : vl
+        if sdH < 0 or sdL < 0
+            touchSellLv := sdH < 0 ? vh : vl
 
 //========================== SIGNAUX ==========================
 // Bougie de rejet : le corps ENTIER (du haut au bas du corps) dans la bonne moitie
@@ -459,24 +444,15 @@ f_arrived(lv, dir) =>
 // Tous les niveaux sur lesquels le prix arrive sur cette bougie (dir = 1 : par au-dessus)
 f_arrivals(dir) =>
     array<float> out = array.new_float()
-    if not na(liveVah) and f_arrived(liveVahLv, dir)
-        array.push(out, liveVahLv)
-    if not na(liveVal) and f_arrived(liveValLv, dir)
-        array.push(out, liveValLv)
-    if array.size(oldVahL) > 0
-        for i = 0 to array.size(oldVahL) - 1
-            int cut = array.get(oldVahS, i)
-            if (na(cut) or cut == d_start) and f_arrived(array.get(oldVahL, i), dir)
-                array.push(out, array.get(oldVahL, i))
-    if array.size(oldValL) > 0
-        for i = 0 to array.size(oldValL) - 1
-            int cut = array.get(oldValS, i)
-            if (na(cut) or cut == d_start) and f_arrived(array.get(oldValL, i), dir)
-                array.push(out, array.get(oldValL, i))
+    if array.size(okLv) > 0
+        for i = 0 to array.size(okLv) - 1
+            float lv = array.get(okLv, i)
+            if f_arrived(lv, dir)
+                array.push(out, lv)
     out
 
 // Prochain niveau VAH/VAL valide au-dessus (dir = 1) ou en dessous (dir = -1) d'un prix :
-// J-1, et anciens niveaux non coupes ou coupes pendant la seance du jour.
+// niveaux touchables aujourd'hui (J-1, et anciens niveaux non coupes ou coupes aujourd'hui).
 // Les niveaux qui ont active le setup (excl) ne peuvent pas servir de TP.
 f_pick(best, lv, px, dir, excl) =>
     bool ok = (dir > 0 ? lv > px : lv < px) and not array.includes(excl, lv)
@@ -484,20 +460,9 @@ f_pick(best, lv, px, dir, excl) =>
 
 f_nextLevel(px, dir, excl) =>
     float best = na
-    if not na(liveVah)
-        best := f_pick(best, liveVahLv, px, dir, excl)
-    if not na(liveVal)
-        best := f_pick(best, liveValLv, px, dir, excl)
-    if array.size(oldVahL) > 0
-        for i = 0 to array.size(oldVahL) - 1
-            int cut = array.get(oldVahS, i)
-            if na(cut) or cut == d_start
-                best := f_pick(best, array.get(oldVahL, i), px, dir, excl)
-    if array.size(oldValL) > 0
-        for i = 0 to array.size(oldValL) - 1
-            int cut = array.get(oldValS, i)
-            if na(cut) or cut == d_start
-                best := f_pick(best, array.get(oldValL, i), px, dir, excl)
+    if array.size(okLv) > 0
+        for i = 0 to array.size(okLv) - 1
+            best := f_pick(best, array.get(okLv, i), px, dir, excl)
     best
 
 // Niveaux ayant active (ou relance) le setup en cours : remis a zero a chaque activation

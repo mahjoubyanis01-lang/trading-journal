@@ -1,0 +1,544 @@
+//@version=6
+// =============================================================================
+//  SVP + Delta Heatmap — STRATEGIE sur les signaux VAH / VAL
+//  (meme logique que l'indicateur SVP_Delta_Signaux.pine, + gestion des positions)
+//
+//  SVP — Session Volume Profile (VAH / VAL figes en fin de journee)
+//  - Les niveaux ne sont traces QU'A LA CLOTURE de chaque seance.
+//  - Chaque niveau s'etend vers la droite (facon TradingView).
+//  - J-1 (derniere seance close) : l'extension court jusqu'a la bougie
+//    courante et ne se coupe PAS, meme touchee, jusqu'a la fin du jour.
+//  - J-2 et plus ancien : l'extension se coupe a la 1re bougie dont la
+//    meche touche le niveau (low <= niveau <= high) ; sinon elle continue.
+//  - A la bascule (J finit, J+1 demarre) l'ancienne J-1 devient J-2 et son
+//    extension est retro-coupee a la 1re touche survenue pendant le jour ecoule.
+//  - Une touche ne compte QUE dans la plage horaire choisie (15h30 -> 22h15
+//    heure de Paris par defaut) ; hors plage, les niveaux continuent de s'etendre.
+//    La plage est verifiee sur les intrabars 1 min : exacte quelle que soit
+//    l'unite de temps du graphique.
+//
+//  DELTA HEATMAP (d'apres "[uxo] Delta Heatmap" de @uxoriaa)
+//  - Bougies colorees selon le delta de volume lisse : bleu = acheteurs,
+//    rouge = vendeurs, gris = neutre. Masquer les bougies du graphique.
+//
+//  SIGNAUX (touche dans la plage horaire)
+//  - Niveau d'achat : le prix est au-dessus (bougie precedente entierement
+//    au-dessus) puis vient toucher la VAH ou la VAL, comme un ordre limite
+//    d'achat. Niveau de vente : le prix vient par en dessous, comme un ordre
+//    limite de vente.
+//  - Une fois le niveau touche, le prix n'a plus besoin de rester du bon cote :
+//    il peut rester sur le niveau ou le traverser, le setup reste actif.
+//  - Bougie de reference : la bougie qui touche, puis chaque bougie qui fait un
+//    nouveau plus bas (achat) / plus haut (vente), et chaque nouvelle arrivee
+//    sur un niveau pendant le setup (activation et compteur conserves). Tant
+//    que la seance du jour n'est pas finie, un niveau peut etre touche
+//    plusieurs fois (meme un niveau J-2 deja coupe aujourd'hui).
+//  - Signal (aucune condition de couleur du delta) quand :
+//    (1) la bougie de reference est une bougie de rejet : corps entier (du
+//        haut au bas du corps) au-dessus des 50 % de la bougie pour acheter,
+//        sous les 50 % pour vendre ;
+//    (2) ou une bougie casse la reference : achat = au-dessus de son plus
+//        haut ; vente = sous son plus bas.
+//
+//  STRATEGIE
+//  - Entree a la cloture de la bougie signal.
+//  - SL = plus bas (achat) / plus haut (vente) de la bougie de reference.
+//  - TP = prochain niveau VAH ou VAL valide (J-1, ancien niveau non coupe ou
+//    coupe aujourd'hui) au-dessus de l'entree (achat) / en dessous (vente).
+//    Pas de niveau dans le sens du trade -> pas de position.
+//  - Break-even : des que le prix a depasse 2R, le SL passe au prix d'entree.
+//  - Une seule position a la fois, 2 positions maximum par seance.
+//    Apres un TP : plus de position ce jour-la. Apres un SL ou un break-even :
+//    une 2e position reste possible.
+// =============================================================================
+strategy("SVP + Δ Heatmap — Strategie VAH/VAL", "SVP Δ Strat", overlay=true, max_lines_count=500, max_labels_count=200,
+     process_orders_on_close=true, default_qty_type=strategy.fixed, default_qty_value=1)
+
+//========================== INPUTS ==========================
+calc_ticks = input.int(1,    "Precision du calcul (ticks par niveau)", minval=1, maxval=50, group="Profil")
+percent    = input.float(70.,"Value Area Volume %", minval=0, maxval=100, group="Profil")
+keepSess   = input.int(60,   "Seances conservees a l'ecran", minval=1, maxval=240, group="Affichage")
+touchOnly  = input.bool(true, "Touche comptee uniquement de", inline="tw", group="Touche")
+touchSess  = input.session("1530-2215", "", inline="tw", group="Touche")
+touchTz    = input.string("Europe/Paris", "Fuseau horaire de la plage", options=["Europe/Paris", "America/New_York", "America/Chicago", "UTC"], group="Touche")
+
+group_calc      = "Delta — Calcul"
+smoothingLength = input.int(15, "Lookback Smoothing (Bars)", minval=1, group=group_calc)
+gradientScale   = input.float(0.8, "Gradient Scale (x Avg|Δ|)", minval=0.1, step=0.1, group=group_calc)
+
+group_colors    = "Delta — Couleurs"
+c_strongBuy     = input.color(color.rgb(0, 120, 255), "Strong Buy Color", group=group_colors)
+c_strongSell    = input.color(color.rgb(255, 0, 150), "Strong Sell Color", group=group_colors)
+c_neutral       = input.color(color.gray, "Neutral Color", group=group_colors)
+
+group_style     = "Delta — Style (Outline & Wick)"
+useCustom       = input.bool(false, "Use Custom Brightness?", group=group_style)
+outlinePct      = input.int(-20, "Outline Brightness %", minval=-100, maxval=100, group=group_style)
+wickPct         = input.int(10, "Wick Brightness %", minval=-100, maxval=100, group=group_style)
+
+sigOn      = input.bool(true, "Afficher les signaux", group="Signaux")
+brkClose   = input.bool(true, "Cassure validee en cloture (sinon meche)", group="Signaux")
+setupBars  = input.int(10, "Validite du setup (bougies apres l'activation)", minval=1, maxval=100, group="Signaux")
+
+//========================== DONNEES INTRABAR (1 minute) ==========================
+ltf = timeframe.in_seconds() < 60 ? timeframe.period : "1"
+[iT, iO, iH, iL, iC, iV] = request.security_lower_tf(syminfo.tickerid, ltf, [time, open, high, low, close, volume])
+
+//========================== DELTA HEATMAP ==========================
+f_adjust_brightness(_col, _pct) =>
+    _factor = 1.0 + (_pct / 100.0)
+    _r = math.min(255, math.max(0, color.r(_col) * _factor))
+    _g = math.min(255, math.max(0, color.g(_col) * _factor))
+    _b = math.min(255, math.max(0, color.b(_col) * _factor))
+    color.rgb(_r, _g, _b)
+
+// 1. Delta brut (approxime) ; 2. lissage pondere ; 3. base de normalisation
+rawDelta      = close >= open ? volume : -volume
+smoothedDelta = ta.wma(rawDelta, smoothingLength)
+avgAbsDelta   = ta.sma(math.abs(rawDelta), smoothingLength)
+
+// 4. Ratio du degrade (-1.0 a 1.0)
+normalizationFactor = avgAbsDelta * gradientScale
+ratio = normalizationFactor != 0 ? smoothedDelta / normalizationFactor : 0
+ratio := math.max(math.min(ratio, 1.0), -1.0)
+
+bodyColor = ratio >= 0 ?
+     color.from_gradient(ratio, 0, 1, c_neutral, c_strongBuy) :
+     color.from_gradient(ratio, -1, 0, c_strongSell, c_neutral)
+ColorOutline = useCustom ? f_adjust_brightness(bodyColor, outlinePct) : bodyColor
+ColorWick    = useCustom ? f_adjust_brightness(bodyColor, wickPct)    : bodyColor
+
+// Masquer les bougies du graphique pour un meilleur rendu
+plotcandle(open, high, low, close,
+     title="Heatmap Candles",
+     color=bodyColor,
+     wickcolor=ColorWick,
+     bordercolor=ColorOutline)
+
+//========================== SESSION (jour du graphique) ==========================
+var array<float> sHi = array.new_float()
+var array<float> sLo = array.new_float()
+var array<float> sVo = array.new_float()
+var int   d_start        = na
+var int   sess_start_bar = na
+var float sesLo   = na
+var float sesHi   = na
+
+dayChg = ta.change(time("D"))
+bool new_sess = na(time[1]) or nz(dayChg, 0) != 0
+
+//========================== VA AU TICK (barre par barre) ==========================
+var array<float> gDiff = array.new_float(20002, 0.)
+var array<float> gTot  = array.new_float(20001, 0.)
+
+f_sessionVA() =>
+    float _vah = na
+    float _val = na
+    int n = array.size(sVo)
+    if n > 0 and not na(sesLo) and not na(sesHi) and sesHi > sesLo
+        float rng   = sesHi - sesLo
+        int   kmult = math.max(calc_ticks, int(math.ceil(rng / (syminfo.mintick * 2000))))
+        float fstep = syminfo.mintick * kmult
+        int   fnum  = int(math.ceil(rng / fstep)) + 1
+        if fnum > 20000
+            fnum  := 20000
+            fstep := rng / 20000
+        array.fill(gDiff, 0.0, 0, fnum + 2)
+        for k = 0 to n - 1
+            float bh = array.get(sHi, k)
+            float bl = array.get(sLo, k)
+            float vv = array.get(sVo, k)
+            if vv > 0
+                int j0 = math.min(fnum - 1, math.max(0, int(math.floor((bl - sesLo) / fstep))))
+                int j1 = math.min(fnum - 1, math.max(0, int(math.floor((bh - sesLo) / fstep))))
+                if bh - bl <= 0 or j1 == j0
+                    array.set(gDiff, j0,     array.get(gDiff, j0)     + vv)
+                    array.set(gDiff, j0 + 1, array.get(gDiff, j0 + 1) - vv)
+                else
+                    float dens = vv / (bh - bl)
+                    float e0   = dens * math.max(sesLo + (j0 + 1) * fstep - bl, 0)
+                    float e1   = dens * math.max(bh - (sesLo + j1 * fstep), 0)
+                    array.set(gDiff, j0,     array.get(gDiff, j0)     + e0)
+                    array.set(gDiff, j0 + 1, array.get(gDiff, j0 + 1) - e0)
+                    array.set(gDiff, j1,     array.get(gDiff, j1)     + e1)
+                    array.set(gDiff, j1 + 1, array.get(gDiff, j1 + 1) - e1)
+                    if j1 - j0 >= 2
+                        float dfull = dens * fstep
+                        array.set(gDiff, j0 + 1, array.get(gDiff, j0 + 1) + dfull)
+                        array.set(gDiff, j1,     array.get(gDiff, j1)     - dfull)
+        float run = 0.
+        float tot = 0.
+        int   poc = 0
+        float mxv = -1.
+        for j = 0 to fnum - 1
+            run += array.get(gDiff, j)
+            array.set(gTot, j, run)
+            tot += run
+            if run > mxv
+                mxv := run
+                poc := j
+        float target = tot * percent / 100.
+        float acc = array.get(gTot, poc)
+        int u = poc
+        int d = poc
+        while acc < target and (u < fnum - 1 or d > 0)
+            float uv = u < fnum - 1 ? array.get(gTot, u + 1) : 0.
+            float lv = d > 0        ? array.get(gTot, d - 1) : 0.
+            if d <= 0 or (u < fnum - 1 and uv >= lv)
+                acc += uv
+                u += 1
+            else
+                acc += lv
+                d -= 1
+        if tot > 0
+            _vah := math.round_to_mintick(sesLo + fstep * u)
+            _val := math.round_to_mintick(sesLo + fstep * d)
+    [_vah, _val]
+
+//========================== ETAT DES NIVEAUX FIGES ==========================
+// VA finale (barre par barre) de la seance EN COURS
+var float shVah = na
+var float shVal = na
+
+// Ligne "J-1" (derniere seance close) : s'etend en direct, ne se coupe pas
+var line  liveVah   = na
+var line  liveVal   = na
+var float liveVahLv = na
+var float liveValLv = na
+var int   liveVahTouch = na   // 1re touche pendant le jour en cours (memorisee, pas appliquee)
+var int   liveValTouch = na
+
+// Lignes "J-2 et plus ancien"
+var array<line>  oldVah  = array.new<line>()
+var array<line>  oldVal  = array.new<line>()
+var array<float> oldVahL = array.new_float()
+var array<float> oldValL = array.new_float()
+var array<int>   oldVahS = array.new_int()    // seance (d_start) de la coupure ; na = pas encore coupee
+var array<int>   oldValS = array.new_int()
+
+color cVah = #2962ff
+color cVal = #ff9800
+
+//========================== BASCULE DE SEANCE ==========================
+if new_sess
+    // (a) GRADUATION : l'ancienne J-1 devient J-2 -> on applique la coupure differee
+    if not na(liveVah)
+        if not na(liveVahTouch)
+            line.set_x2(liveVah, liveVahTouch)   // retro-coupe a la 1re touche du jour ecoule
+        array.push(oldVah,  liveVah)
+        array.push(oldVahL, liveVahLv)
+        array.push(oldVahS, not na(liveVahTouch) ? d_start : na)   // coupee pendant la seance ecoulee
+        if not na(liveValTouch)
+            line.set_x2(liveVal, liveValTouch)
+        array.push(oldVal,  liveVal)
+        array.push(oldValL, liveValLv)
+        array.push(oldValS, not na(liveValTouch) ? d_start : na)
+    liveVah := na
+    liveVal := na
+    liveVahTouch := na
+    liveValTouch := na
+
+    // (b) NOUVELLE J-1 : trace la VA finale de la seance qui vient de clore
+    //     (shVah/shVal tiennent encore la derniere valeur de la seance ecoulee)
+    if not na(shVah) and not na(sess_start_bar)
+        liveVah   := line.new(sess_start_bar, shVah, bar_index, shVah, xloc=xloc.bar_index, color=color.new(cVah, 0), width=1)
+        liveVal   := line.new(sess_start_bar, shVal, bar_index, shVal, xloc=xloc.bar_index, color=color.new(cVal, 0), width=1)
+        liveVahLv := shVah
+        liveValLv := shVal
+
+    // (c) elagage : ne garder que les N dernieres seances
+    while array.size(oldVah) > keepSess
+        line.delete(array.shift(oldVah))
+        array.shift(oldVahL)
+        array.shift(oldVahS)
+    while array.size(oldVal) > keepSess
+        line.delete(array.shift(oldVal))
+        array.shift(oldValL)
+        array.shift(oldValS)
+
+    // (d) reset de l'accumulation pour la nouvelle seance
+    array.clear(sHi)
+    array.clear(sLo)
+    array.clear(sVo)
+    d_start        := time
+    sess_start_bar := bar_index
+    sesLo := na
+    sesHi := na
+    shVah := na
+    shVal := na
+
+//========================== ACCUMULATION SESSION ==========================
+if not na(d_start)
+    int nib = array.size(iV)
+    if nib > 0
+        for k = 0 to nib - 1
+            float h_ = array.get(iH, k)
+            float l_ = array.get(iL, k)
+            array.push(sHi, h_)
+            array.push(sLo, l_)
+            array.push(sVo, nz(array.get(iV, k)))
+            sesLo := na(sesLo) ? l_ : math.min(sesLo, l_)
+            sesHi := na(sesHi) ? h_ : math.max(sesHi, h_)
+    else
+        array.push(sHi, high)
+        array.push(sLo, low)
+        array.push(sVo, nz(volume))
+        sesLo := na(sesLo) ? low  : math.min(sesLo, low)
+        sesHi := na(sesHi) ? high : math.max(sesHi, high)
+
+//========================== CALCUL VA DE LA SEANCE EN COURS ==========================
+if not na(d_start)
+    [w_vah, w_val] = f_sessionVA()
+    if not na(w_vah)
+        shVah := w_vah
+        shVal := w_val
+
+//========================== FENETRE DE TOUCHE ==========================
+// Plage "HHMM-HHMM" -> minutes depuis minuit (une plage qui passe minuit est geree).
+f_hhmm(s) =>
+    int v = int(str.tonumber(s))
+    int(v / 100) * 60 + v % 100
+int touchBeg = f_hhmm(str.substring(touchSess, 0, 4))
+int touchEnd = f_hhmm(str.substring(touchSess, 5, 9))
+
+f_inWin(t) =>
+    int m = hour(t, touchTz) * 60 + minute(t, touchTz)
+    touchBeg <= touchEnd ? (m >= touchBeg and m < touchEnd) : (m >= touchBeg or m < touchEnd)
+
+// tLo / tHi = extremes atteints DANS la plage pendant la bougie courante
+// (na si aucune minute de la bougie n'est dans la plage -> pas de touche possible).
+float tLo = na
+float tHi = na
+if not touchOnly
+    tLo := low
+    tHi := high
+else
+    int nTb = array.size(iT)
+    if nTb > 0
+        for k = 0 to nTb - 1
+            if f_inWin(array.get(iT, k))
+                tLo := na(tLo) ? array.get(iL, k) : math.min(tLo, array.get(iL, k))
+                tHi := na(tHi) ? array.get(iH, k) : math.max(tHi, array.get(iH, k))
+    else if f_inWin(time)
+        tLo := low
+        tHi := high
+bool canTouch = not na(tLo) and not na(tHi)
+
+//========================== EXTENSION / COUPURE DES NIVEAUX ==========================
+// Sens d'arrivee sur un niveau touche : bougie precedente entierement au-dessus
+// -> niveau d'achat ; entierement en dessous -> niveau de vente.
+float pLo = low[1]
+float pHi = high[1]
+float touchBuyLv  = na
+float touchSellLv = na
+
+// J-1 : on prolonge jusqu'a la bougie courante et on MEMORISE la 1re touche
+//       (sans couper) — la coupure sera appliquee a la graduation.
+if not na(liveVah)
+    line.set_x2(liveVah, bar_index)
+    if canTouch and tLo <= liveVahLv and tHi >= liveVahLv
+        if na(liveVahTouch)
+            liveVahTouch := bar_index
+        if pLo > liveVahLv
+            touchBuyLv := liveVahLv
+        else if pHi < liveVahLv
+            touchSellLv := liveVahLv
+if not na(liveVal)
+    line.set_x2(liveVal, bar_index)
+    if canTouch and tLo <= liveValLv and tHi >= liveValLv
+        if na(liveValTouch)
+            liveValTouch := bar_index
+        if pLo > liveValLv
+            touchBuyLv := liveValLv
+        else if pHi < liveValLv
+            touchSellLv := liveValLv
+
+// J-2 et plus ancien : tant que non coupe, on prolonge ; a la 1re touche on coupe.
+// Coupe aujourd'hui, le niveau reste touchable (signaux) jusqu'a la fin de la seance.
+if array.size(oldVah) > 0
+    for i = 0 to array.size(oldVah) - 1
+        int cut = array.get(oldVahS, i)
+        if na(cut) or cut == d_start
+            float lv = array.get(oldVahL, i)
+            if na(cut)
+                line.set_x2(array.get(oldVah, i), bar_index)
+            if canTouch and tLo <= lv and tHi >= lv
+                if na(cut)
+                    array.set(oldVahS, i, d_start)   // coupe a la bougie qui touche (x2 = bar_index)
+                if pLo > lv
+                    touchBuyLv := lv
+                else if pHi < lv
+                    touchSellLv := lv
+if array.size(oldVal) > 0
+    for i = 0 to array.size(oldVal) - 1
+        int cut = array.get(oldValS, i)
+        if na(cut) or cut == d_start
+            float lv = array.get(oldValL, i)
+            if na(cut)
+                line.set_x2(array.get(oldVal, i), bar_index)
+            if canTouch and tLo <= lv and tHi >= lv
+                if na(cut)
+                    array.set(oldValS, i, d_start)
+                if pLo > lv
+                    touchBuyLv := lv
+                else if pHi < lv
+                    touchSellLv := lv
+
+//========================== SIGNAUX ==========================
+// Bougie de rejet : le corps ENTIER (du haut au bas du corps) dans la bonne moitie
+// de la bougie -> achat = corps au-dessus des 50 %, vente = corps sous les 50 %.
+float cMid = (high + low) / 2
+bool rejBuy  = high > low and math.min(open, close) > cMid
+bool rejSell = high > low and math.max(open, close) < cMid
+
+// Setup d'achat. Activation : arrivee par au-dessus sur un niveau.
+// Ensuite le prix peut aller n'importe ou (sur le niveau, en dessous) : le setup tient
+// jusqu'a sa validite. Bougie de reference = la bougie d'activation, puis chaque nouveau
+// plus bas, et chaque nouvelle arrivee par au-dessus (activation et compteur conserves).
+// Signal : la bougie de reference est une bougie de rejet, ou une bougie casse son plus haut.
+var bool  bOn   = false
+var float bRefH = na
+var float bRefL = na
+var int   bBar  = na
+bool bRef = false
+bool bBrk = false
+if bOn and (not canTouch or bar_index - bBar > setupBars)
+    bOn := false
+if not na(touchBuyLv)
+    if not bOn
+        bOn  := true
+        bBar := bar_index
+    bRef := true
+else if bOn
+    if low < bRefL
+        bRef := true
+    else
+        bBrk := (brkClose ? close : high) > bRefH
+if bRef
+    bRefH := high
+    bRefL := low
+bool buySig = bOn and ((bRef and rejBuy) or bBrk)
+if buySig
+    bOn := false
+
+// Setup de vente : miroir de l'achat (arrivee par en dessous, reference = chaque
+// nouveau plus haut ; signal = reference en rejet ou cassure de son plus bas).
+var bool  sOn   = false
+var float sRefH = na
+var float sRefL = na
+var int   sBar  = na
+bool sRef = false
+bool sBrk = false
+if sOn and (not canTouch or bar_index - sBar > setupBars)
+    sOn := false
+if not na(touchSellLv)
+    if not sOn
+        sOn  := true
+        sBar := bar_index
+    sRef := true
+else if sOn
+    if high > sRefH
+        sRef := true
+    else
+        sBrk := (brkClose ? close : low) < sRefL
+if sRef
+    sRefH := high
+    sRefL := low
+bool sellSig = sOn and ((sRef and rejSell) or sBrk)
+if sellSig
+    sOn := false
+
+// Signaux : petits losanges uniquement (achat sous la bougie, vente au-dessus)
+plotshape(sigOn and buySig,  "Signal achat", shape.diamond, location.belowbar, color.new(c_strongBuy, 30),  size=size.tiny)
+plotshape(sigOn and sellSig, "Signal vente", shape.diamond, location.abovebar, color.new(c_strongSell, 30), size=size.tiny)
+
+//========================== STRATEGIE ==========================
+// Prochain niveau VAH/VAL valide au-dessus (dir = 1) ou en dessous (dir = -1) d'un prix :
+// J-1, et anciens niveaux non coupes ou coupes pendant la seance du jour.
+f_pick(best, lv, px, dir) =>
+    bool ok = dir > 0 ? lv > px : lv < px
+    ok and (na(best) or math.abs(lv - px) < math.abs(best - px)) ? lv : best
+
+f_nextLevel(px, dir) =>
+    float best = na
+    if not na(liveVah)
+        best := f_pick(best, liveVahLv, px, dir)
+    if not na(liveVal)
+        best := f_pick(best, liveValLv, px, dir)
+    if array.size(oldVahL) > 0
+        for i = 0 to array.size(oldVahL) - 1
+            int cut = array.get(oldVahS, i)
+            if na(cut) or cut == d_start
+                best := f_pick(best, array.get(oldVahL, i), px, dir)
+    if array.size(oldValL) > 0
+        for i = 0 to array.size(oldValL) - 1
+            int cut = array.get(oldValS, i)
+            if na(cut) or cut == d_start
+                best := f_pick(best, array.get(oldValL, i), px, dir)
+    best
+
+var int   nTrades    = 0       // positions ouvertes pendant la seance
+var bool  tpDone     = false   // un TP a ete atteint pendant la seance -> plus de position
+var int   lastClosed = 0
+var int   entrySess  = na      // seance (d_start) de la position en cours
+var float entryPx    = na
+var float slPx       = na
+var float tpPx       = na
+var float riskR      = na
+var bool  beOn       = false
+
+if new_sess
+    nTrades := 0
+    tpDone  := false
+
+// (1) Position cloturee sur cette bougie : TP -> plus de position aujourd'hui ;
+//     SL ou break-even -> une 2e position reste possible.
+if strategy.closedtrades > lastClosed
+    int   n  = strategy.closedtrades - 1
+    float xp = strategy.closedtrades.exit_price(n)
+    bool  hitTp = strategy.closedtrades.size(n) > 0 ? xp >= tpPx - syminfo.mintick / 2 : xp <= tpPx + syminfo.mintick / 2
+    if hitTp and entrySess == d_start
+        tpDone := true
+    lastClosed := strategy.closedtrades
+
+// (2) Position en cours : break-even des que le prix a depasse 2R
+if strategy.position_size > 0
+    if not beOn and high >= entryPx + 2 * riskR
+        beOn := true
+        slPx := entryPx
+    strategy.exit("XL", "L", stop=slPx, limit=tpPx)
+if strategy.position_size < 0
+    if not beOn and low <= entryPx - 2 * riskR
+        beOn := true
+        slPx := entryPx
+    strategy.exit("XS", "S", stop=slPx, limit=tpPx)
+
+// (3) Nouvelle position : a plat, moins de 2 positions dans la seance, pas de TP aujourd'hui
+bool canOpen = strategy.position_size == 0 and nTrades < 2 and not tpDone
+if canOpen and buySig
+    float tp = f_nextLevel(close, 1)
+    if close > bRefL and not na(tp)
+        entryPx   := close
+        slPx      := bRefL
+        tpPx      := tp
+        riskR     := close - bRefL
+        beOn      := false
+        entrySess := d_start
+        nTrades   += 1
+        strategy.entry("L", strategy.long)
+        strategy.exit("XL", "L", stop=slPx, limit=tpPx)
+else if canOpen and sellSig
+    float tp = f_nextLevel(close, -1)
+    if close < sRefH and not na(tp)
+        entryPx   := close
+        slPx      := sRefH
+        tpPx      := tp
+        riskR     := sRefH - close
+        beOn      := false
+        entrySess := d_start
+        nTrades   += 1
+        strategy.entry("S", strategy.short)
+        strategy.exit("XS", "S", stop=slPx, limit=tpPx)
+
+plot(strategy.position_size != 0 ? slPx : na, "SL", color.red,   style=plot.style_linebr)
+plot(strategy.position_size != 0 ? tpPx : na, "TP", color.green, style=plot.style_linebr)

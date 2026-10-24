@@ -1,0 +1,266 @@
+//@version=6
+// =============================================================================
+//  SVP — Session Volume Profile (VAH / VAL figes en fin de journee)
+//  - Les niveaux ne sont traces QU'A LA CLOTURE de chaque seance.
+//  - Chaque niveau s'etend vers la droite (facon TradingView).
+//  - J-1 (derniere seance close) : l'extension court jusqu'a la bougie
+//    courante et ne se coupe PAS, meme touchee, jusqu'a la fin du jour.
+//  - J-2 et plus ancien : l'extension se coupe a la 1re bougie dont la
+//    meche touche le niveau (low <= niveau <= high) ; sinon elle continue.
+//  - A la bascule (J finit, J+1 demarre) l'ancienne J-1 devient J-2 et son
+//    extension est retro-coupee a la 1re touche survenue pendant le jour ecoule.
+//  - Une touche ne compte QUE dans la plage horaire choisie (15h30 -> 22h15
+//    heure de Paris par defaut) ; hors plage, les niveaux continuent de s'etendre.
+//    La plage est verifiee sur les intrabars 1 min : exacte quelle que soit
+//    l'unite de temps du graphique.
+// =============================================================================
+indicator("SVP — Session Volume Profile", "SVP", overlay=true, max_lines_count=500, max_labels_count=200)
+
+//========================== INPUTS ==========================
+calc_ticks = input.int(1,    "Precision du calcul (ticks par niveau)", minval=1, maxval=50, group="Profil")
+percent    = input.float(70.,"Value Area Volume %", minval=0, maxval=100, group="Profil")
+keepSess   = input.int(60,   "Seances conservees a l'ecran", minval=1, maxval=240, group="Affichage")
+touchOnly  = input.bool(true, "Touche comptee uniquement de", inline="tw", group="Touche")
+touchSess  = input.session("1530-2215", "", inline="tw", group="Touche")
+touchTz    = input.string("Europe/Paris", "Fuseau horaire de la plage", options=["Europe/Paris", "America/New_York", "America/Chicago", "UTC"], group="Touche")
+
+//========================== DONNEES INTRABAR (1 minute) ==========================
+ltf = timeframe.in_seconds() < 60 ? timeframe.period : "1"
+[iT, iO, iH, iL, iC, iV] = request.security_lower_tf(syminfo.tickerid, ltf, [time, open, high, low, close, volume])
+
+//========================== SESSION (jour du graphique) ==========================
+var array<float> sHi = array.new_float()
+var array<float> sLo = array.new_float()
+var array<float> sVo = array.new_float()
+var int   d_start        = na
+var int   sess_start_bar = na
+var float sesLo   = na
+var float sesHi   = na
+
+dayChg = ta.change(time("D"))
+bool new_sess = na(time[1]) or nz(dayChg, 0) != 0
+
+//========================== VA AU TICK (barre par barre) ==========================
+var array<float> gDiff = array.new_float(20002, 0.)
+var array<float> gTot  = array.new_float(20001, 0.)
+
+f_sessionVA() =>
+    float _vah = na
+    float _val = na
+    int n = array.size(sVo)
+    if n > 0 and not na(sesLo) and not na(sesHi) and sesHi > sesLo
+        float rng   = sesHi - sesLo
+        int   kmult = math.max(calc_ticks, int(math.ceil(rng / (syminfo.mintick * 2000))))
+        float fstep = syminfo.mintick * kmult
+        int   fnum  = int(math.ceil(rng / fstep)) + 1
+        if fnum > 20000
+            fnum  := 20000
+            fstep := rng / 20000
+        array.fill(gDiff, 0.0, 0, fnum + 2)
+        for k = 0 to n - 1
+            float bh = array.get(sHi, k)
+            float bl = array.get(sLo, k)
+            float vv = array.get(sVo, k)
+            if vv > 0
+                int j0 = math.min(fnum - 1, math.max(0, int(math.floor((bl - sesLo) / fstep))))
+                int j1 = math.min(fnum - 1, math.max(0, int(math.floor((bh - sesLo) / fstep))))
+                if bh - bl <= 0 or j1 == j0
+                    array.set(gDiff, j0,     array.get(gDiff, j0)     + vv)
+                    array.set(gDiff, j0 + 1, array.get(gDiff, j0 + 1) - vv)
+                else
+                    float dens = vv / (bh - bl)
+                    float e0   = dens * math.max(sesLo + (j0 + 1) * fstep - bl, 0)
+                    float e1   = dens * math.max(bh - (sesLo + j1 * fstep), 0)
+                    array.set(gDiff, j0,     array.get(gDiff, j0)     + e0)
+                    array.set(gDiff, j0 + 1, array.get(gDiff, j0 + 1) - e0)
+                    array.set(gDiff, j1,     array.get(gDiff, j1)     + e1)
+                    array.set(gDiff, j1 + 1, array.get(gDiff, j1 + 1) - e1)
+                    if j1 - j0 >= 2
+                        float dfull = dens * fstep
+                        array.set(gDiff, j0 + 1, array.get(gDiff, j0 + 1) + dfull)
+                        array.set(gDiff, j1,     array.get(gDiff, j1)     - dfull)
+        float run = 0.
+        float tot = 0.
+        int   poc = 0
+        float mxv = -1.
+        for j = 0 to fnum - 1
+            run += array.get(gDiff, j)
+            array.set(gTot, j, run)
+            tot += run
+            if run > mxv
+                mxv := run
+                poc := j
+        float target = tot * percent / 100.
+        float acc = array.get(gTot, poc)
+        int u = poc
+        int d = poc
+        while acc < target and (u < fnum - 1 or d > 0)
+            float uv = u < fnum - 1 ? array.get(gTot, u + 1) : 0.
+            float lv = d > 0        ? array.get(gTot, d - 1) : 0.
+            if d <= 0 or (u < fnum - 1 and uv >= lv)
+                acc += uv
+                u += 1
+            else
+                acc += lv
+                d -= 1
+        if tot > 0
+            _vah := math.round_to_mintick(sesLo + fstep * u)
+            _val := math.round_to_mintick(sesLo + fstep * d)
+    [_vah, _val]
+
+//========================== ETAT DES NIVEAUX FIGES ==========================
+// VA finale (barre par barre) de la seance EN COURS
+var float shVah = na
+var float shVal = na
+
+// Ligne "J-1" (derniere seance close) : s'etend en direct, ne se coupe pas
+var line  liveVah   = na
+var line  liveVal   = na
+var float liveVahLv = na
+var float liveValLv = na
+var int   liveVahTouch = na   // 1re touche pendant le jour en cours (memorisee, pas appliquee)
+var int   liveValTouch = na
+
+// Lignes "J-2 et plus ancien"
+var array<line>  oldVah  = array.new<line>()
+var array<line>  oldVal  = array.new<line>()
+var array<float> oldVahL = array.new_float()
+var array<float> oldValL = array.new_float()
+var array<bool>  oldVahF = array.new_bool()   // figee (coupee) ?
+var array<bool>  oldValF = array.new_bool()
+
+color cVah = #2962ff
+color cVal = #ff9800
+
+//========================== BASCULE DE SEANCE ==========================
+if new_sess
+    // (a) GRADUATION : l'ancienne J-1 devient J-2 -> on applique la coupure differee
+    if not na(liveVah)
+        if not na(liveVahTouch)
+            line.set_x2(liveVah, liveVahTouch)   // retro-coupe a la 1re touche du jour ecoule
+        array.push(oldVah,  liveVah)
+        array.push(oldVahL, liveVahLv)
+        array.push(oldVahF, not na(liveVahTouch))
+        if not na(liveValTouch)
+            line.set_x2(liveVal, liveValTouch)
+        array.push(oldVal,  liveVal)
+        array.push(oldValL, liveValLv)
+        array.push(oldValF, not na(liveValTouch))
+    liveVah := na
+    liveVal := na
+    liveVahTouch := na
+    liveValTouch := na
+
+    // (b) NOUVELLE J-1 : trace la VA finale de la seance qui vient de clore
+    //     (shVah/shVal tiennent encore la derniere valeur de la seance ecoulee)
+    if not na(shVah) and not na(sess_start_bar)
+        liveVah   := line.new(sess_start_bar, shVah, bar_index, shVah, xloc=xloc.bar_index, color=color.new(cVah, 0), width=1)
+        liveVal   := line.new(sess_start_bar, shVal, bar_index, shVal, xloc=xloc.bar_index, color=color.new(cVal, 0), width=1)
+        liveVahLv := shVah
+        liveValLv := shVal
+
+    // (c) elagage : ne garder que les N dernieres seances
+    while array.size(oldVah) > keepSess
+        line.delete(array.shift(oldVah))
+        array.shift(oldVahL)
+        array.shift(oldVahF)
+    while array.size(oldVal) > keepSess
+        line.delete(array.shift(oldVal))
+        array.shift(oldValL)
+        array.shift(oldValF)
+
+    // (d) reset de l'accumulation pour la nouvelle seance
+    array.clear(sHi)
+    array.clear(sLo)
+    array.clear(sVo)
+    d_start        := time
+    sess_start_bar := bar_index
+    sesLo := na
+    sesHi := na
+    shVah := na
+    shVal := na
+
+//========================== ACCUMULATION SESSION ==========================
+if not na(d_start)
+    int nib = array.size(iV)
+    if nib > 0
+        for k = 0 to nib - 1
+            float h_ = array.get(iH, k)
+            float l_ = array.get(iL, k)
+            array.push(sHi, h_)
+            array.push(sLo, l_)
+            array.push(sVo, nz(array.get(iV, k)))
+            sesLo := na(sesLo) ? l_ : math.min(sesLo, l_)
+            sesHi := na(sesHi) ? h_ : math.max(sesHi, h_)
+    else
+        array.push(sHi, high)
+        array.push(sLo, low)
+        array.push(sVo, nz(volume))
+        sesLo := na(sesLo) ? low  : math.min(sesLo, low)
+        sesHi := na(sesHi) ? high : math.max(sesHi, high)
+
+//========================== CALCUL VA DE LA SEANCE EN COURS ==========================
+if not na(d_start)
+    [w_vah, w_val] = f_sessionVA()
+    if not na(w_vah)
+        shVah := w_vah
+        shVal := w_val
+
+//========================== FENETRE DE TOUCHE ==========================
+// Plage "HHMM-HHMM" -> minutes depuis minuit (une plage qui passe minuit est geree).
+f_hhmm(s) =>
+    int v = int(str.tonumber(s))
+    int(v / 100) * 60 + v % 100
+int touchBeg = f_hhmm(str.substring(touchSess, 0, 4))
+int touchEnd = f_hhmm(str.substring(touchSess, 5, 9))
+
+f_inWin(t) =>
+    int m = hour(t, touchTz) * 60 + minute(t, touchTz)
+    touchBeg <= touchEnd ? (m >= touchBeg and m < touchEnd) : (m >= touchBeg or m < touchEnd)
+
+// tLo / tHi = extremes atteints DANS la plage pendant la bougie courante
+// (na si aucune minute de la bougie n'est dans la plage -> pas de touche possible).
+float tLo = na
+float tHi = na
+if not touchOnly
+    tLo := low
+    tHi := high
+else
+    int nTb = array.size(iT)
+    if nTb > 0
+        for k = 0 to nTb - 1
+            if f_inWin(array.get(iT, k))
+                tLo := na(tLo) ? array.get(iL, k) : math.min(tLo, array.get(iL, k))
+                tHi := na(tHi) ? array.get(iH, k) : math.max(tHi, array.get(iH, k))
+    else if f_inWin(time)
+        tLo := low
+        tHi := high
+bool canTouch = not na(tLo) and not na(tHi)
+
+//========================== EXTENSION / COUPURE DES NIVEAUX ==========================
+// J-1 : on prolonge jusqu'a la bougie courante et on MEMORISE la 1re touche
+//       (sans couper) — la coupure sera appliquee a la graduation.
+if not na(liveVah)
+    line.set_x2(liveVah, bar_index)
+    if na(liveVahTouch) and canTouch and tLo <= liveVahLv and tHi >= liveVahLv
+        liveVahTouch := bar_index
+if not na(liveVal)
+    line.set_x2(liveVal, bar_index)
+    if na(liveValTouch) and canTouch and tLo <= liveValLv and tHi >= liveValLv
+        liveValTouch := bar_index
+
+// J-2 et plus ancien : tant que non fige, on prolonge ; a la 1re touche on fige.
+if array.size(oldVah) > 0
+    for i = 0 to array.size(oldVah) - 1
+        if not array.get(oldVahF, i)
+            line.set_x2(array.get(oldVah, i), bar_index)
+            float lv = array.get(oldVahL, i)
+            if canTouch and tLo <= lv and tHi >= lv
+                array.set(oldVahF, i, true)      // fige a la bougie qui touche (x2 = bar_index)
+if array.size(oldVal) > 0
+    for i = 0 to array.size(oldVal) - 1
+        if not array.get(oldValF, i)
+            line.set_x2(array.get(oldVal, i), bar_index)
+            float lv = array.get(oldValL, i)
+            if canTouch and tLo <= lv and tHi >= lv
+                array.set(oldValF, i, true)

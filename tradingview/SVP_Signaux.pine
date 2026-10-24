@@ -1,6 +1,6 @@
 //@version=6
 // =============================================================================
-//  SVP + Delta Heatmap — signaux sur VAH / VAL
+//  SVP — signaux sur VAH / VAL
 //
 //  SVP — Session Volume Profile (VAH / VAL figes en fin de journee)
 //  - Profil calcule sur les bougies 30 min (reglable) : bien plus d'historique
@@ -20,10 +20,6 @@
 //    La plage est verifiee sur les intrabars 1 min : exacte quelle que soit
 //    l'unite de temps du graphique.
 //
-//  DELTA HEATMAP (d'apres "[uxo] Delta Heatmap" de @uxoriaa)
-//  - Bougies colorees selon le delta de volume lisse : bleu = acheteurs,
-//    rouge = vendeurs, gris = neutre. Masquer les bougies du graphique.
-//
 //  SIGNAUX (touche dans la plage horaire)
 //  - Niveau d'achat : le prix est au-dessus (bougie precedente entierement
 //    au-dessus) puis vient toucher la VAH ou la VAL, comme un ordre limite
@@ -36,14 +32,14 @@
 //    sur un niveau pendant le setup (activation et compteur conserves). Tant
 //    que la seance du jour n'est pas finie, un niveau peut etre touche
 //    plusieurs fois (meme un niveau J-2 deja coupe aujourd'hui).
-//  - Signal (aucune condition de couleur du delta) quand :
+//  - Signal quand :
 //    (1) la bougie de reference est une bougie de rejet : corps entier (du
 //        haut au bas du corps) au-dessus des 50 % de la bougie pour acheter,
 //        sous les 50 % pour vendre ;
 //    (2) ou une bougie casse la reference : achat = au-dessus de son plus
 //        haut ; vente = sous son plus bas.
 // =============================================================================
-indicator("SVP + Δ Heatmap — Signaux VAH/VAL", "SVP Δ", overlay=true, max_lines_count=500, max_labels_count=200)
+indicator("SVP — Signaux VAH/VAL", "SVP Signaux", overlay=true, max_lines_count=500, max_labels_count=200)
 
 //========================== INPUTS ==========================
 svpTf      = input.timeframe("30", "Unite de temps du calcul SVP", group="Profil")
@@ -54,20 +50,6 @@ touchOnly  = input.bool(true, "Touche comptee uniquement de", inline="tw", group
 touchSess  = input.session("1530-2215", "", inline="tw", group="Touche")
 touchTz    = input.string("Europe/Paris", "Fuseau horaire de la plage", options=["Europe/Paris", "America/New_York", "America/Chicago", "UTC"], group="Touche")
 
-group_calc      = "Delta — Calcul"
-smoothingLength = input.int(15, "Lookback Smoothing (Bars)", minval=1, group=group_calc)
-gradientScale   = input.float(0.8, "Gradient Scale (x Avg|Δ|)", minval=0.1, step=0.1, group=group_calc)
-
-group_colors    = "Delta — Couleurs"
-c_strongBuy     = input.color(color.rgb(0, 120, 255), "Strong Buy Color", group=group_colors)
-c_strongSell    = input.color(color.rgb(255, 0, 150), "Strong Sell Color", group=group_colors)
-c_neutral       = input.color(color.gray, "Neutral Color", group=group_colors)
-
-group_style     = "Delta — Style (Outline & Wick)"
-useCustom       = input.bool(false, "Use Custom Brightness?", group=group_style)
-outlinePct      = input.int(-20, "Outline Brightness %", minval=-100, maxval=100, group=group_style)
-wickPct         = input.int(10, "Wick Brightness %", minval=-100, maxval=100, group=group_style)
-
 sigOn      = input.bool(true, "Afficher les signaux", group="Signaux")
 brkClose   = input.bool(true, "Cassure validee en cloture (sinon meche)", group="Signaux")
 setupBars  = input.int(10, "Validite du setup (bougies apres l'activation)", minval=1, maxval=100, group="Signaux")
@@ -76,37 +58,6 @@ setupBars  = input.int(10, "Validite du setup (bougies apres l'activation)", min
 // Servent a verifier la plage horaire des touches a la minute pres.
 ltf = timeframe.in_seconds() < 60 ? timeframe.period : "1"
 [iT, iH, iL] = request.security_lower_tf(syminfo.tickerid, ltf, [time, high, low])
-
-//========================== DELTA HEATMAP ==========================
-f_adjust_brightness(_col, _pct) =>
-    _factor = 1.0 + (_pct / 100.0)
-    _r = math.min(255, math.max(0, color.r(_col) * _factor))
-    _g = math.min(255, math.max(0, color.g(_col) * _factor))
-    _b = math.min(255, math.max(0, color.b(_col) * _factor))
-    color.rgb(_r, _g, _b)
-
-// 1. Delta brut (approxime) ; 2. lissage pondere ; 3. base de normalisation
-rawDelta      = close >= open ? volume : -volume
-smoothedDelta = ta.wma(rawDelta, smoothingLength)
-avgAbsDelta   = ta.sma(math.abs(rawDelta), smoothingLength)
-
-// 4. Ratio du degrade (-1.0 a 1.0)
-normalizationFactor = avgAbsDelta * gradientScale
-ratio = normalizationFactor != 0 ? smoothedDelta / normalizationFactor : 0
-ratio := math.max(math.min(ratio, 1.0), -1.0)
-
-bodyColor = ratio >= 0 ?
-     color.from_gradient(ratio, 0, 1, c_neutral, c_strongBuy) :
-     color.from_gradient(ratio, -1, 0, c_strongSell, c_neutral)
-ColorOutline = useCustom ? f_adjust_brightness(bodyColor, outlinePct) : bodyColor
-ColorWick    = useCustom ? f_adjust_brightness(bodyColor, wickPct)    : bodyColor
-
-// Masquer les bougies du graphique pour un meilleur rendu
-plotcandle(open, high, low, close,
-     title="Heatmap Candles",
-     color=bodyColor,
-     wickcolor=ColorWick,
-     bordercolor=ColorOutline)
 
 //========================== FENETRE DE TOUCHE ==========================
 // Plage "HHMM-HHMM" -> minutes depuis minuit (une plage qui passe minuit est geree).
@@ -284,6 +235,8 @@ var array<bool> fixL  = array.new_bool()
 
 color cVah = #2962ff
 color cVal = #ff9800
+color cBuy  = color.rgb(0, 120, 255)    // losanges d'achat
+color cSell = color.rgb(255, 0, 150)    // losanges de vente
 
 // Synchronisation avec les seances closes : nouvelle seance -> nouvelles lignes,
 // seance elaguee -> lignes supprimees.
@@ -421,8 +374,8 @@ if sellSig
     sOn := false
 
 // Signaux : petits losanges uniquement (achat sous la bougie, vente au-dessus)
-plotshape(sigOn and buySig,  "Signal achat", shape.diamond, location.belowbar, color.new(c_strongBuy, 30),  size=size.tiny)
-plotshape(sigOn and sellSig, "Signal vente", shape.diamond, location.abovebar, color.new(c_strongSell, 30), size=size.tiny)
+plotshape(sigOn and buySig,  "Signal achat", shape.diamond, location.belowbar, color.new(cBuy, 30),  size=size.tiny)
+plotshape(sigOn and sellSig, "Signal vente", shape.diamond, location.abovebar, color.new(cSell, 30), size=size.tiny)
 
-alertcondition(buySig,  "SVP Δ — Achat", "SVP Δ : signal d'ACHAT sur VAH/VAL ({{ticker}}, {{interval}})")
-alertcondition(sellSig, "SVP Δ — Vente", "SVP Δ : signal de VENTE sur VAH/VAL ({{ticker}}, {{interval}})")
+alertcondition(buySig,  "SVP — Achat", "SVP : signal d'ACHAT sur VAH/VAL ({{ticker}}, {{interval}})")
+alertcondition(sellSig, "SVP — Vente", "SVP : signal de VENTE sur VAH/VAL ({{ticker}}, {{interval}})")

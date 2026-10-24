@@ -1,5 +1,7 @@
 //@version=6
 // =============================================================================
+//  SVP + Delta Heatmap — signaux sur VAH / VAL
+//
 //  SVP — Session Volume Profile (VAH / VAL figes en fin de journee)
 //  - Les niveaux ne sont traces QU'A LA CLOTURE de chaque seance.
 //  - Chaque niveau s'etend vers la droite (facon TradingView).
@@ -13,8 +15,28 @@
 //    heure de Paris par defaut) ; hors plage, les niveaux continuent de s'etendre.
 //    La plage est verifiee sur les intrabars 1 min : exacte quelle que soit
 //    l'unite de temps du graphique.
+//
+//  DELTA HEATMAP (d'apres "[uxo] Delta Heatmap" de @uxoriaa)
+//  - Bougies colorees selon le delta de volume lisse : bleu = acheteurs,
+//    rouge = vendeurs, gris = neutre. Masquer les bougies du graphique.
+//
+//  SIGNAUX (touche dans la plage horaire)
+//  - Niveau d'achat : le prix est au-dessus (bougie precedente entierement
+//    au-dessus) puis vient toucher la VAH ou la VAL, comme un ordre limite
+//    d'achat. Niveau de vente : le prix vient par en dessous, comme un ordre
+//    limite de vente.
+//  - La bougie qui touche est la bougie de reference. Tant qu'une bougie
+//    suivante fait un plus bas (achat) / un plus haut (vente), elle devient
+//    la nouvelle reference.
+//  - Signal quand le delta est vif dans le sens du trade (bleu pour acheter,
+//    rouge pour vendre) ET :
+//    (1) meche de rejet : achat = cloture au-dessus des 50 % de la bougie avec
+//        une meche basse > 50 % de la bougie ; vente = cloture sous les 50 %
+//        avec une meche haute > 50 % ;
+//    (2) ou cassure de la bougie de reference : achat = au-dessus de son plus
+//        haut ; vente = sous son plus bas.
 // =============================================================================
-indicator("SVP — Session Volume Profile", "SVP", overlay=true, max_lines_count=500, max_labels_count=200)
+indicator("SVP + Δ Heatmap — Signaux VAH/VAL", "SVP Δ", overlay=true, max_lines_count=500, max_labels_count=200)
 
 //========================== INPUTS ==========================
 calc_ticks = input.int(1,    "Precision du calcul (ticks par niveau)", minval=1, maxval=50, group="Profil")
@@ -24,9 +46,60 @@ touchOnly  = input.bool(true, "Touche comptee uniquement de", inline="tw", group
 touchSess  = input.session("1530-2215", "", inline="tw", group="Touche")
 touchTz    = input.string("Europe/Paris", "Fuseau horaire de la plage", options=["Europe/Paris", "America/New_York", "America/Chicago", "UTC"], group="Touche")
 
+group_calc      = "Delta — Calcul"
+smoothingLength = input.int(15, "Lookback Smoothing (Bars)", minval=1, group=group_calc)
+gradientScale   = input.float(0.8, "Gradient Scale (x Avg|Δ|)", minval=0.1, step=0.1, group=group_calc)
+
+group_colors    = "Delta — Couleurs"
+c_strongBuy     = input.color(color.rgb(0, 120, 255), "Strong Buy Color", group=group_colors)
+c_strongSell    = input.color(color.rgb(255, 0, 150), "Strong Sell Color", group=group_colors)
+c_neutral       = input.color(color.gray, "Neutral Color", group=group_colors)
+
+group_style     = "Delta — Style (Outline & Wick)"
+useCustom       = input.bool(false, "Use Custom Brightness?", group=group_style)
+outlinePct      = input.int(-20, "Outline Brightness %", minval=-100, maxval=100, group=group_style)
+wickPct         = input.int(10, "Wick Brightness %", minval=-100, maxval=100, group=group_style)
+
+sigOn      = input.bool(true, "Afficher les signaux", group="Signaux")
+vivid      = input.float(0.6, "Seuil delta vif (0 = gris, 1 = couleur pleine)", minval=0.05, maxval=1, step=0.05, group="Signaux")
+touchCol   = input.string("Dans le sens du trade", "Delta vif a la touche", options=["Dans le sens du trade", "Bleu ou rouge", "Non exige"], group="Signaux")
+brkClose   = input.bool(true, "Cassure validee en cloture (sinon meche)", group="Signaux")
+setupBars  = input.int(10, "Validite du setup (bougies apres la touche)", minval=1, maxval=100, group="Signaux")
+
 //========================== DONNEES INTRABAR (1 minute) ==========================
 ltf = timeframe.in_seconds() < 60 ? timeframe.period : "1"
 [iT, iO, iH, iL, iC, iV] = request.security_lower_tf(syminfo.tickerid, ltf, [time, open, high, low, close, volume])
+
+//========================== DELTA HEATMAP ==========================
+f_adjust_brightness(_col, _pct) =>
+    _factor = 1.0 + (_pct / 100.0)
+    _r = math.min(255, math.max(0, color.r(_col) * _factor))
+    _g = math.min(255, math.max(0, color.g(_col) * _factor))
+    _b = math.min(255, math.max(0, color.b(_col) * _factor))
+    color.rgb(_r, _g, _b)
+
+// 1. Delta brut (approxime) ; 2. lissage pondere ; 3. base de normalisation
+rawDelta      = close >= open ? volume : -volume
+smoothedDelta = ta.wma(rawDelta, smoothingLength)
+avgAbsDelta   = ta.sma(math.abs(rawDelta), smoothingLength)
+
+// 4. Ratio du degrade (-1.0 a 1.0)
+normalizationFactor = avgAbsDelta * gradientScale
+ratio = normalizationFactor != 0 ? smoothedDelta / normalizationFactor : 0
+ratio := math.max(math.min(ratio, 1.0), -1.0)
+
+bodyColor = ratio >= 0 ?
+     color.from_gradient(ratio, 0, 1, c_neutral, c_strongBuy) :
+     color.from_gradient(ratio, -1, 0, c_strongSell, c_neutral)
+ColorOutline = useCustom ? f_adjust_brightness(bodyColor, outlinePct) : bodyColor
+ColorWick    = useCustom ? f_adjust_brightness(bodyColor, wickPct)    : bodyColor
+
+// Masquer les bougies du graphique pour un meilleur rendu
+plotcandle(open, high, low, close,
+     title="Heatmap Candles",
+     color=bodyColor,
+     wickcolor=ColorWick,
+     bordercolor=ColorOutline)
 
 //========================== SESSION (jour du graphique) ==========================
 var array<float> sHi = array.new_float()
@@ -238,16 +311,33 @@ else
 bool canTouch = not na(tLo) and not na(tHi)
 
 //========================== EXTENSION / COUPURE DES NIVEAUX ==========================
+// Sens d'arrivee sur un niveau touche : bougie precedente entierement au-dessus
+// -> niveau d'achat ; entierement en dessous -> niveau de vente.
+float pLo = low[1]
+float pHi = high[1]
+float touchBuyLv  = na
+float touchSellLv = na
+
 // J-1 : on prolonge jusqu'a la bougie courante et on MEMORISE la 1re touche
 //       (sans couper) — la coupure sera appliquee a la graduation.
 if not na(liveVah)
     line.set_x2(liveVah, bar_index)
-    if na(liveVahTouch) and canTouch and tLo <= liveVahLv and tHi >= liveVahLv
-        liveVahTouch := bar_index
+    if canTouch and tLo <= liveVahLv and tHi >= liveVahLv
+        if na(liveVahTouch)
+            liveVahTouch := bar_index
+        if pLo > liveVahLv
+            touchBuyLv := liveVahLv
+        else if pHi < liveVahLv
+            touchSellLv := liveVahLv
 if not na(liveVal)
     line.set_x2(liveVal, bar_index)
-    if na(liveValTouch) and canTouch and tLo <= liveValLv and tHi >= liveValLv
-        liveValTouch := bar_index
+    if canTouch and tLo <= liveValLv and tHi >= liveValLv
+        if na(liveValTouch)
+            liveValTouch := bar_index
+        if pLo > liveValLv
+            touchBuyLv := liveValLv
+        else if pHi < liveValLv
+            touchSellLv := liveValLv
 
 // J-2 et plus ancien : tant que non fige, on prolonge ; a la 1re touche on fige.
 if array.size(oldVah) > 0
@@ -257,6 +347,10 @@ if array.size(oldVah) > 0
             float lv = array.get(oldVahL, i)
             if canTouch and tLo <= lv and tHi >= lv
                 array.set(oldVahF, i, true)      // fige a la bougie qui touche (x2 = bar_index)
+                if pLo > lv
+                    touchBuyLv := lv
+                else if pHi < lv
+                    touchSellLv := lv
 if array.size(oldVal) > 0
     for i = 0 to array.size(oldVal) - 1
         if not array.get(oldValF, i)
@@ -264,3 +358,81 @@ if array.size(oldVal) > 0
             float lv = array.get(oldValL, i)
             if canTouch and tLo <= lv and tHi >= lv
                 array.set(oldValF, i, true)
+                if pLo > lv
+                    touchBuyLv := lv
+                else if pHi < lv
+                    touchSellLv := lv
+
+//========================== SIGNAUX ==========================
+bool dBuy  = ratio >= vivid     // delta bleu vif
+bool dSell = ratio <= -vivid    // delta rouge vif
+bool tBuyOk  = touchCol == "Non exige" or (touchCol == "Bleu ou rouge" ? (dBuy or dSell) : dBuy)
+bool tSellOk = touchCol == "Non exige" or (touchCol == "Bleu ou rouge" ? (dBuy or dSell) : dSell)
+
+// Meche de rejet : cloture du bon cote des 50 % et meche opposee > 50 % de la bougie
+float cRng = high - low
+float cMid = (high + low) / 2
+bool pinBuy  = cRng > 0 and close > cMid and math.min(open, close) - low  > cRng * 0.5
+bool pinSell = cRng > 0 and close < cMid and high - math.max(open, close) > cRng * 0.5
+
+// Setup d'achat : touche par au-dessus -> la bougie qui touche est la reference,
+// remplacee par chaque nouveau plus bas ; signal sur meche de rejet ou cassure du plus haut.
+var bool  bOn   = false
+var float bRefH = na
+var float bRefL = na
+var int   bBar  = na
+bool bArm = false
+bool bBrk = false
+if not na(touchBuyLv) and tBuyOk
+    bOn   := true
+    bArm  := true
+    bRefH := high
+    bRefL := low
+    bBar  := bar_index
+else if bOn
+    if not canTouch or bar_index - bBar > setupBars
+        bOn := false
+    else if low < bRefL
+        bRefH := high
+        bRefL := low
+    else
+        bBrk := (brkClose ? close : high) > bRefH
+bool buySig = bOn and dBuy and (pinBuy or bBrk)
+if buySig
+    bOn := false
+
+// Setup de vente : touche par en dessous -> reference remplacee par chaque nouveau
+// plus haut ; signal sur meche de rejet ou cassure du plus bas.
+var bool  sOn   = false
+var float sRefH = na
+var float sRefL = na
+var int   sBar  = na
+bool sArm = false
+bool sBrk = false
+if not na(touchSellLv) and tSellOk
+    sOn   := true
+    sArm  := true
+    sRefH := high
+    sRefL := low
+    sBar  := bar_index
+else if sOn
+    if not canTouch or bar_index - sBar > setupBars
+        sOn := false
+    else if high > sRefH
+        sRefH := high
+        sRefL := low
+    else
+        sBrk := (brkClose ? close : low) < sRefL
+bool sellSig = sOn and dSell and (pinSell or sBrk)
+if sellSig
+    sOn := false
+
+plotshape(sigOn and bArm and not buySig,  "Touche niveau d'achat", shape.diamond, location.belowbar, color.new(c_strongBuy, 30),  size=size.tiny)
+plotshape(sigOn and sArm and not sellSig, "Touche niveau de vente", shape.diamond, location.abovebar, color.new(c_strongSell, 30), size=size.tiny)
+plotshape(sigOn and buySig and bBrk,      "Achat — cassure", shape.labelup,   location.belowbar, c_strongBuy,  text="ACHAT\ncassure", textcolor=color.white, size=size.small)
+plotshape(sigOn and buySig and not bBrk,  "Achat — meche",   shape.labelup,   location.belowbar, c_strongBuy,  text="ACHAT\nmeche",   textcolor=color.white, size=size.small)
+plotshape(sigOn and sellSig and sBrk,     "Vente — cassure", shape.labeldown, location.abovebar, c_strongSell, text="VENTE\ncassure", textcolor=color.white, size=size.small)
+plotshape(sigOn and sellSig and not sBrk, "Vente — meche",   shape.labeldown, location.abovebar, c_strongSell, text="VENTE\nmeche",   textcolor=color.white, size=size.small)
+
+alertcondition(buySig,  "SVP Δ — Achat", "SVP Δ : signal d'ACHAT sur VAH/VAL ({{ticker}}, {{interval}})")
+alertcondition(sellSig, "SVP Δ — Vente", "SVP Δ : signal de VENTE sur VAH/VAL ({{ticker}}, {{interval}})")

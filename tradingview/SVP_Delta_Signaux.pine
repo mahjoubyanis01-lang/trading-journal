@@ -32,8 +32,7 @@
 //    sur un niveau pendant le setup (activation et compteur conserves). Tant
 //    que la seance du jour n'est pas finie, un niveau peut etre touche
 //    plusieurs fois (meme un niveau J-2 deja coupe aujourd'hui).
-//  - Signal quand la couleur du delta est forte (vive), bleue OU rouge, peu
-//    importe le sens du trade, a l'activation et sur la bougie du signal, ET :
+//  - Signal (aucune condition de couleur du delta) quand :
 //    (1) la bougie de reference est une bougie de rejet : corps entier (du
 //        haut au bas du corps) au-dessus des 50 % de la bougie pour acheter,
 //        sous les 50 % pour vendre ;
@@ -65,8 +64,6 @@ outlinePct      = input.int(-20, "Outline Brightness %", minval=-100, maxval=100
 wickPct         = input.int(10, "Wick Brightness %", minval=-100, maxval=100, group=group_style)
 
 sigOn      = input.bool(true, "Afficher les signaux", group="Signaux")
-vivid      = input.float(0.7, "Seuil couleur forte (0 = gris, 1 = couleur pleine)", minval=0.05, maxval=1, step=0.05, group="Signaux")
-touchVivid = input.bool(true, "Delta vif exige aussi a la touche", group="Signaux")
 brkClose   = input.bool(true, "Cassure validee en cloture (sinon meche)", group="Signaux")
 setupBars  = input.int(10, "Validite du setup (bougies apres l'activation)", minval=1, maxval=100, group="Signaux")
 
@@ -375,16 +372,13 @@ if array.size(oldVal) > 0
                     touchSellLv := lv
 
 //========================== SIGNAUX ==========================
-bool dVif    = math.abs(ratio) >= vivid    // delta vif, bleu OU rouge
-bool touchOk = not touchVivid or dVif
-
 // Bougie de rejet : le corps ENTIER (du haut au bas du corps) dans la bonne moitie
 // de la bougie -> achat = corps au-dessus des 50 %, vente = corps sous les 50 %.
 float cMid = (high + low) / 2
 bool rejBuy  = high > low and math.min(open, close) > cMid
 bool rejSell = high > low and math.max(open, close) < cMid
 
-// Setup d'achat. Activation : arrivee par au-dessus sur un niveau (+ couleur forte).
+// Setup d'achat. Activation : arrivee par au-dessus sur un niveau.
 // Ensuite le prix peut aller n'importe ou (sur le niveau, en dessous) : le setup tient
 // jusqu'a sa validite. Bougie de reference = la bougie d'activation, puis chaque nouveau
 // plus bas, et chaque nouvelle arrivee par au-dessus (activation et compteur conserves).
@@ -398,7 +392,7 @@ bool bRef = false
 bool bBrk = false
 if bOn and (not canTouch or bar_index - bBar > setupBars)
     bOn := false
-if not na(touchBuyLv) and (bOn or touchOk)
+if not na(touchBuyLv)
     if not bOn
         bOn  := true
         bBar := bar_index
@@ -412,7 +406,7 @@ else if bOn
 if bRef
     bRefH := high
     bRefL := low
-bool buySig = bOn and dVif and ((bRef and rejBuy) or bBrk)
+bool buySig = bOn and ((bRef and rejBuy) or bBrk)
 if buySig
     bOn := false
 
@@ -427,7 +421,7 @@ bool sRef = false
 bool sBrk = false
 if sOn and (not canTouch or bar_index - sBar > setupBars)
     sOn := false
-if not na(touchSellLv) and (sOn or touchOk)
+if not na(touchSellLv)
     if not sOn
         sOn  := true
         sBar := bar_index
@@ -441,7 +435,7 @@ else if sOn
 if sRef
     sRefH := high
     sRefL := low
-bool sellSig = sOn and dVif and ((sRef and rejSell) or sBrk)
+bool sellSig = sOn and ((sRef and rejSell) or sBrk)
 if sellSig
     sOn := false
 

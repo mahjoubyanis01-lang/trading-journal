@@ -32,6 +32,9 @@
 //    sur un niveau pendant le setup (activation et compteur conserves). Tant
 //    que la seance du jour n'est pas finie, un niveau peut etre touche
 //    plusieurs fois (meme un niveau J-2 deja coupe aujourd'hui).
+//  - Exception a la plage : la bougie pre-open (la derniere avant la plage,
+//    15h29 en 1 min) compte aussi si elle touche un niveau (meche ou corps) ;
+//    elle peut donc etre bougie de reference.
 //  - Signal quand :
 //    (1) la bougie de reference est une bougie de rejet : corps entier (du
 //        haut au bas du corps) au-dessus des 50 % de la bougie pour acheter,
@@ -201,11 +204,17 @@ bool new_sess = na(time[1]) or nz(dayChg, 0) != 0
 if new_sess
     d_start := time
 
-// tLo / tHi = extremes atteints DANS la plage pendant la bougie courante
-// (na si aucune minute de la bougie n'est dans la plage -> pas de touche possible).
+// Bougie pre-open : la derniere bougie avant la plage (15h29 en 1 min, 15h25 en 5 min).
+// Si elle touche un niveau (meche ou corps), elle compte comme une touche : elle peut donc
+// etre bougie de reference.
+int  sod     = hour(time, touchTz) * 3600 + minute(time, touchTz) * 60 + second(time, touchTz)
+bool preOpen = touchOnly and (sod + timeframe.in_seconds()) % 86400 == touchBeg * 60
+
+// tLo / tHi = extremes atteints DANS la plage pendant la bougie courante (bougie entiere
+// pour la pre-open ; na si aucune minute de la bougie n'est dans la plage -> pas de touche).
 float tLo = na
 float tHi = na
-if not touchOnly
+if not touchOnly or preOpen
     tLo := low
     tHi := high
 else

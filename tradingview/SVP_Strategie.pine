@@ -33,6 +33,9 @@
 //    sur un niveau pendant le setup (activation et compteur conserves). Tant
 //    que la seance du jour n'est pas finie, un niveau peut etre touche
 //    plusieurs fois (meme un niveau J-2 deja coupe aujourd'hui).
+//  - Exception a la plage : la bougie pre-open (la derniere avant la plage,
+//    15h29 en 1 min) compte aussi si elle touche un niveau (meche ou corps) ;
+//    elle peut donc etre bougie de reference.
 //  - Signal quand :
 //    (1) la bougie de reference est une bougie de rejet : corps entier (du
 //        haut au bas du corps) au-dessus des 50 % de la bougie pour acheter,
@@ -65,6 +68,8 @@
 //  - A chaque sortie (TP, SL, break-even, SL a +25 %) : etiquette avec le R
 //    obtenu (gain par contrat / risque initial), ex. "TP · +3.2R", et une alerte
 //    (creer une alerte sur la strategie avec "appels de la fonction alert()").
+//  - Tableau de backtest en R (en haut a droite) : trades, win rate, profit
+//    factor, esperance par trade, PnL total et drawdown max, en R.
 //  - Marge a 0 % : la taille est fixee par le risque en $, pas par le capital
 //    (avec une marge de 100 %, TradingView refuse les ordres dont la valeur
 //    totale depasse le capital, ce qui arrive vite sur les futures).
@@ -235,11 +240,17 @@ bool new_sess = na(time[1]) or nz(dayChg, 0) != 0
 if new_sess
     d_start := time
 
-// tLo / tHi = extremes atteints DANS la plage pendant la bougie courante
-// (na si aucune minute de la bougie n'est dans la plage -> pas de touche possible).
+// Bougie pre-open : la derniere bougie avant la plage (15h29 en 1 min, 15h25 en 5 min).
+// Si elle touche un niveau (meche ou corps), elle compte comme une touche : elle peut donc
+// etre bougie de reference.
+int  sod     = hour(time, touchTz) * 3600 + minute(time, touchTz) * 60 + second(time, touchTz)
+bool preOpen = touchOnly and (sod + timeframe.in_seconds()) % 86400 == touchBeg * 60
+
+// tLo / tHi = extremes atteints DANS la plage pendant la bougie courante (bougie entiere
+// pour la pre-open ; na si aucune minute de la bougie n'est dans la plage -> pas de touche).
 float tLo = na
 float tHi = na
-if not touchOnly
+if not touchOnly or preOpen
     tLo := low
     tHi := high
 else
@@ -416,6 +427,7 @@ qtyStep  = input.float(1, "Pas de quantite (1 = contrats entiers)", minval=0.000
 minQty   = input.bool(false, "Si 1 contrat depasse le risque, le prendre quand meme", group="Risque")
 showR    = input.bool(true, "Afficher le R obtenu a chaque sortie", group="Risque")
 maxTrades = input.int(1, "Positions max par seance", minval=1, maxval=5, group="Risque")
+showStats = input.bool(true, "Afficher le tableau de backtest (R)", group="Risque")
 
 // Valeur en $ d'un point de prix pour 1 contrat (2 $ sur MNQ, 20 $ sur NQ, 5 $ sur MES...)
 float fxUsd    = request.currency_rate(syminfo.currency, currency.USD, ignore_invalid_currency=true)
@@ -460,7 +472,7 @@ if new_sess
     dayHi   := na
     dayLo   := na
     dayBias := 0
-if canTouch and not na(dayLo)
+if canTouch and not preOpen and not na(dayLo)
     bool brkLo = tLo < dayLo
     bool brkHi = tHi > dayHi
     if brkLo and not brkHi
@@ -469,6 +481,16 @@ if canTouch and not na(dayLo)
         dayBias := -1
 dayHi := na(dayHi) ? high : math.max(dayHi, high)
 dayLo := na(dayLo) ? low  : math.min(dayLo, low)
+
+// Backtest en R sur les positions cloturees : gains / pertes, courbe cumulee, drawdown max
+var int   stN     = 0
+var int   stWin   = 0
+var int   stLoss  = 0
+var float stGainR = 0.
+var float stLossR = 0.
+var float stCum   = 0.
+var float stPeak  = 0.
+var float stDD    = 0.
 
 var int   nTrades    = 0       // positions ouvertes pendant la seance
 var bool  tpDone     = false   // un TP a ete atteint pendant la seance -> plus de position
@@ -507,6 +529,14 @@ if strategy.closedtrades > lastClosed
         tpDone := true
     float  rr   = (xp - strategy.closedtrades.entry_price(n)) * (isLong ? 1 : -1) / riskR
     float  pnl  = strategy.closedtrades.profit(n)
+    stN     += 1
+    stWin   += rr > 0.05 ? 1 : 0
+    stLoss  += rr < -0.05 ? 1 : 0
+    stGainR += math.max(rr, 0)
+    stLossR += math.max(-rr, 0)
+    stCum   += rr
+    stPeak  := math.max(stPeak, stCum)
+    stDD    := math.max(stDD, stPeak - stCum)
     string kind = hitTp ? "TP" : slStep == 0 ? "SL" : slStep == 1 ? "BE" : "SL à +25 %"
     string txt  = kind + " · " + (rr >= 0 ? "+" : "") + str.tostring(rr, "#.##") + "R"
     if showR
@@ -590,3 +620,26 @@ if bTook or sTook
 
 plot(strategy.position_size != 0 ? slPx : na, "SL", color.red,   style=plot.style_linebr)
 plot(strategy.position_size != 0 ? tpPx : na, "TP", color.green, style=plot.style_linebr)
+
+//========================== BACKTEST (R) ==========================
+var table stTbl = table.new(position.top_right, 2, 7, bgcolor=color.new(#131722, 10), border_width=1, border_color=color.new(color.gray, 70))
+
+f_r(x) => (x >= 0 ? "+" : "") + str.tostring(x, "#.##") + "R"
+
+f_row(r, k, v, c) =>
+    table.cell(stTbl, 0, r, k, text_color=color.silver, text_size=size.small, text_halign=text.align_left)
+    table.cell(stTbl, 1, r, v, text_color=c, text_size=size.small, text_halign=text.align_right)
+
+if showStats and barstate.islast
+    color cPos = #26a69a
+    color cNeg = #ef5350
+    float pf   = stLossR > 0 ? stGainR / stLossR : na
+    float expR = stN > 0 ? stCum / stN : 0.
+    table.cell(stTbl, 0, 0, "Backtest en R", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+    table.cell(stTbl, 1, 0, syminfo.ticker, text_color=color.silver, text_size=size.small, text_halign=text.align_right)
+    f_row(1, "Trades", str.tostring(stN) + "  (" + str.tostring(stWin) + " G / " + str.tostring(stLoss) + " P / " + str.tostring(stN - stWin - stLoss) + " BE)", color.white)
+    f_row(2, "Win rate", stN > 0 ? str.tostring(100.0 * stWin / stN, "#.#") + " %" : "-", color.white)
+    f_row(3, "Profit factor", na(pf) ? (stGainR > 0 ? "inf." : "-") : str.tostring(pf, "#.##"), na(pf) or pf >= 1 ? cPos : cNeg)
+    f_row(4, "Esperance / trade", f_r(expR), expR >= 0 ? cPos : cNeg)
+    f_row(5, "PnL total", f_r(stCum), stCum >= 0 ? cPos : cNeg)
+    f_row(6, "Drawdown max", "-" + str.tostring(stDD, "#.##") + "R", cNeg)

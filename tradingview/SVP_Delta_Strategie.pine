@@ -62,11 +62,16 @@
 //  - Une seule position a la fois, 2 positions maximum par seance.
 //    Apres un TP : plus de position ce jour-la. Apres un SL, un break-even ou
 //    le SL a +25 % : une 2e position reste possible.
-//  - Losange de couleur = signal pris ; losange gris = signal non pris (la
-//    raison s'affiche au survol).
+//  - Marge a 0 % : la taille est fixee par le risque en $, pas par le capital
+//    (avec une marge de 100 %, TradingView refuse les ordres dont la valeur
+//    totale depasse le capital, ce qui arrive vite sur les futures).
+//  - Losange de couleur = position reellement ouverte (verifie dans la liste
+//    des trades) ; losange gris = signal non pris ou ordre refuse (la raison
+//    s'affiche au survol).
 // =============================================================================
 strategy("SVP + Δ Heatmap — Strategie VAH/VAL", "SVP Δ Strat", overlay=true, max_lines_count=500, max_labels_count=500,
-     process_orders_on_close=true, default_qty_type=strategy.fixed, default_qty_value=1, currency=currency.USD)
+     process_orders_on_close=true, default_qty_type=strategy.fixed, default_qty_value=1, currency=currency.USD,
+     margin_long=0, margin_short=0)
 
 //========================== INPUTS ==========================
 svpTf      = input.timeframe("30", "Unite de temps du calcul SVP", group="Profil")
@@ -509,10 +514,24 @@ var float slPx       = na
 var float tpPx       = na
 var float riskR      = na
 var int   slStep     = 0       // 0 : SL initial, 1 : break-even, 2 : SL a +25 % du TP
+var bool  pend       = false   // ordre d'entree passe a la bougie precedente : execution a verifier
+var bool  pendLong   = true
+var int   pendClosed = 0       // trades clotures au moment de l'ordre
+var label pendLbl    = na      // son losange
 
 if new_sess
     nTrades := 0
     tpDone  := false
+
+// (0) L'ordre d'entree de la bougie precedente n'apparait pas dans la liste des trades
+//     (refuse par TradingView) : losange gris, et la position n'est pas comptee.
+if pend
+    if strategy.position_size == 0 and strategy.closedtrades == pendClosed
+        nTrades := math.max(nTrades - 1, 0)
+        if not na(pendLbl)
+            label.set_color(pendLbl, color.new(color.gray, 30))
+            label.set_tooltip(pendLbl, (pendLong ? "Achat" : "Vente") + " refuse par TradingView : l'ordre n'a pas ete execute (voir Proprietes : capital, marge)")
+    pend := false
 
 // (1) Position cloturee sur cette bougie : TP -> plus de position aujourd'hui ;
 //     SL, break-even ou SL a +25 % -> une 2e position reste possible.
@@ -562,6 +581,7 @@ bool   bTook = false
 bool   sTook = false
 string bWhy  = ""
 string sWhy  = ""
+float  takenQty = na
 if buySig
     bWhy := f_gate()
     if bWhy == ""
@@ -583,6 +603,7 @@ if buySig
                 entrySess := d_start
                 nTrades   += 1
                 bTook     := true
+                takenQty  := q
                 strategy.entry("L", strategy.long, qty=q, comment=str.tostring(q) + " ct · " + str.tostring(q * riskR * pointUsd, "#") + " $")
                 strategy.exit("XL", "L", stop=slPx, limit=tpPx)
 if sellSig
@@ -606,12 +627,17 @@ if sellSig
                 entrySess := d_start
                 nTrades   += 1
                 sTook     := true
+                takenQty  := q
                 strategy.entry("S", strategy.short, qty=q, comment=str.tostring(q) + " ct · " + str.tostring(q * riskR * pointUsd, "#") + " $")
                 strategy.exit("XS", "S", stop=slPx, limit=tpPx)
 
-// Losanges : couleur = signal pris ; gris = signal non pris (raison au survol)
-plotshape(sigOn and bTook, "Signal achat pris", shape.diamond, location.belowbar, color.new(c_strongBuy, 30),  size=size.tiny)
-plotshape(sigOn and sTook, "Signal vente pris", shape.diamond, location.abovebar, color.new(c_strongSell, 30), size=size.tiny)
+// Losanges : couleur = position ouverte ; gris = signal non pris (raison au survol).
+// L'execution reelle de l'ordre est verifiee a la bougie suivante (etape 0).
+if bTook or sTook
+    pend       := true
+    pendLong   := bTook
+    pendClosed := strategy.closedtrades
+    pendLbl    := sigOn ? label.new(bar_index, bTook ? low : high, "", yloc=bTook ? yloc.belowbar : yloc.abovebar, style=label.style_diamond, color=color.new(bTook ? c_strongBuy : c_strongSell, 30), size=size.tiny, tooltip=(bTook ? "Achat : " : "Vente : ") + str.tostring(takenQty) + " ct, risque " + str.tostring(takenQty * riskR * pointUsd, "#") + " $") : na
 if sigOn and buySig and not bTook
     label.new(bar_index, low, "", yloc=yloc.belowbar, style=label.style_diamond, color=color.new(color.gray, 30), size=size.tiny, tooltip="Achat non pris : " + bWhy)
 if sigOn and sellSig and not sTook

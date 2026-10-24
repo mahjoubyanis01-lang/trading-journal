@@ -21,26 +21,18 @@
 //    l'unite de temps du graphique.
 //
 //  SIGNAUX (touche dans la plage horaire)
-//  - Niveau d'achat : le prix est au-dessus (bougie precedente entierement
-//    au-dessus) puis vient toucher la VAH ou la VAL, comme un ordre limite
-//    d'achat. Niveau de vente : le prix vient par en dessous, comme un ordre
-//    limite de vente.
-//  - Une fois le niveau touche, le prix n'a plus besoin de rester du bon cote :
-//    il peut rester sur le niveau ou le traverser, le setup reste actif.
-//  - Bougie de reference : la bougie qui touche, puis chaque bougie qui fait un
-//    nouveau plus bas (achat) / plus haut (vente), et chaque nouvelle arrivee
-//    sur un niveau pendant le setup (activation et compteur conserves). Tant
-//    que la seance du jour n'est pas finie, un niveau peut etre touche
+//  - Chaque bougie qui touche un niveau valide (VAH / VAL, meche ou corps)
+//    devient la bougie de reference ; la plus recente remplace la precedente.
+//    Peu importe d'ou vient le prix : achat comme vente sont possibles.
+//  - Reference haussiere -> VENTE a la cassure de son plus bas ;
+//    reference baissiere -> ACHAT a la cassure de son plus haut.
+//    La bougie entiere, meches comprises (cassure en cloture par defaut).
+//    Une bougie sans corps (ouverture = cloture) ne devient pas reference.
+//  - Tant que la seance du jour n'est pas finie, un niveau peut etre touche
 //    plusieurs fois (meme un niveau J-2 deja coupe aujourd'hui).
 //  - Exception a la plage : la bougie pre-open (la derniere avant la plage,
-//    15h29 en 1 min) compte aussi si elle touche un niveau (meche ou corps) ;
-//    elle peut donc etre bougie de reference.
-//  - Signal quand :
-//    (1) la bougie de reference est une bougie de rejet : corps entier (du
-//        haut au bas du corps) au-dessus des 50 % de la bougie pour acheter,
-//        sous les 50 % pour vendre ;
-//    (2) ou une bougie casse la reference : achat = au-dessus de son plus
-//        haut ; vente = sous son plus bas.
+//    15h29 en 1 min) compte aussi si elle touche un niveau (meche ou corps).
+//  - Sans cassure, le setup expire apres N bougies ou a la fin de la plage.
 // =============================================================================
 indicator("SVP — Signaux VAH/VAL", "SVP Signaux", overlay=true, max_lines_count=500, max_labels_count=200)
 
@@ -55,7 +47,7 @@ touchTz    = input.string("Europe/Paris", "Fuseau horaire de la plage", options=
 
 sigOn      = input.bool(true, "Afficher les signaux", group="Signaux")
 brkClose   = input.bool(true, "Cassure validee en cloture (sinon meche)", group="Signaux")
-setupBars  = input.int(10, "Validite du setup (bougies apres l'activation)", minval=1, maxval=100, group="Signaux")
+setupBars  = input.int(10, "Validite du setup (bougies apres la reference)", minval=1, maxval=100, group="Signaux")
 
 //========================== DONNEES INTRABAR (1 minute) ==========================
 // Servent a verifier la plage horaire des touches a la minute pres.
@@ -272,115 +264,62 @@ if nS > 0
             array.shift(fixH)
             array.shift(fixL)
 
-// Sens d'arrivee sur un niveau touche : bougie precedente entierement au-dessus
-// -> niveau d'achat ; entierement en dessous -> niveau de vente.
-float pLo = low[1]
-float pHi = high[1]
-float touchBuyLv  = na
-float touchSellLv = na
-array<float> okLv = array.new_float()     // niveaux touchables aujourd'hui (signaux, TP)
-
-// Un niveau sur la bougie courante : coupure (1re touche dans la plage), extension de la
-// ligne et sens d'arrivee. Coupure connue : touche vue sur le graphique, sinon touche svpTf
-// anterieure au debut du graphique. Renvoie [touchable aujourd'hui, sens : 1 par au-dessus
-// (achat), -1 par en dessous (vente), 0 sinon].
+// Un niveau sur la bougie courante : coupure (1re touche dans la plage) et extension de la
+// ligne. Coupure connue : touche vue sur le graphique, sinon touche svpTf anterieure au debut
+// du graphique. Renvoie true si la bougie touche ce niveau et qu'il est encore valide
+// aujourd'hui (non coupe, ou coupe pendant la seance du jour).
 f_level(lv, ln, hc, cuts, fixs, j, isJ1) =>
-    int  cc   = array.get(cuts, j)
-    int  cut  = not na(cc) ? cc : (not na(hc) and hc < firstT ? hc : na)
-    bool ok   = na(cut) or cut >= d_start      // coupe aujourd'hui : reste touchable jusqu'a la fin de la seance
-    int  side = 0
-    if ok and canTouch and tLo <= lv and tHi >= lv
-        if na(cc)
-            array.set(cuts, j, time)
-            cut := time
-        side := pLo > lv ? 1 : pHi < lv ? -1 : 0
+    int  cc  = array.get(cuts, j)
+    int  cut = not na(cc) ? cc : (not na(hc) and hc < firstT ? hc : na)
+    bool ok  = na(cut) or cut >= d_start      // coupe aujourd'hui : reste touchable jusqu'a la fin de la seance
+    bool hit = ok and canTouch and tLo <= lv and tHi >= lv
+    if hit and na(cc)
+        array.set(cuts, j, time)
+        cut := time
     if not array.get(fixs, j)
         if not na(cut) and not (isJ1 and cut >= d_start)
             line.set_x2(ln, cut)
             array.set(fixs, j, true)
         else
             line.set_x2(ln, time)
-    [ok, side]
+    hit
 
+bool touchedLv = false     // la bougie touche au moins un niveau valide
 if nS > 0 and array.size(kT) == nS
     for j = 0 to nS - 1
-        bool  isJ1 = j == nS - 1
-        float vh   = array.get(hVah, j)
-        float vl   = array.get(hVal, j)
-        [okH, sdH] = f_level(vh, array.get(lnH, j), array.get(hCutH, j), cCutH, fixH, j, isJ1)
-        [okL, sdL] = f_level(vl, array.get(lnL, j), array.get(hCutL, j), cCutL, fixL, j, isJ1)
-        if okH
-            array.push(okLv, vh)
-        if okL
-            array.push(okLv, vl)
-        if sdH > 0 or sdL > 0
-            touchBuyLv := sdH > 0 ? vh : vl
-        if sdH < 0 or sdL < 0
-            touchSellLv := sdH < 0 ? vh : vl
+        bool isJ1 = j == nS - 1
+        bool hitH = f_level(array.get(hVah, j), array.get(lnH, j), array.get(hCutH, j), cCutH, fixH, j, isJ1)
+        bool hitL = f_level(array.get(hVal, j), array.get(lnL, j), array.get(hCutL, j), cCutL, fixL, j, isJ1)
+        touchedLv := touchedLv or hitH or hitL
 
 //========================== SIGNAUX ==========================
-// Bougie de rejet : le corps ENTIER (du haut au bas du corps) dans la bonne moitie
-// de la bougie -> achat = corps au-dessus des 50 %, vente = corps sous les 50 %.
-float cMid = (high + low) / 2
-bool rejBuy  = high > low and math.min(open, close) > cMid
-bool rejSell = high > low and math.max(open, close) < cMid
-
-// Setup d'achat. Activation : arrivee par au-dessus sur un niveau.
-// Ensuite le prix peut aller n'importe ou (sur le niveau, en dessous) : le setup tient
-// jusqu'a sa validite. Bougie de reference = la bougie d'activation, puis chaque nouveau
-// plus bas, et chaque nouvelle arrivee par au-dessus (activation et compteur conserves).
-// Signal : la bougie de reference est une bougie de rejet, ou une bougie casse son plus haut.
-var bool  bOn   = false
-var float bRefH = na
-var float bRefL = na
-var int   bBar  = na
-bool bRef = false
-bool bBrk = false
-if bOn and (not canTouch or bar_index - bBar > setupBars)
-    bOn := false
-if not na(touchBuyLv)
-    if not bOn
-        bOn  := true
-        bBar := bar_index
-    bRef := true
-else if bOn
-    if low < bRefL
-        bRef := true
-    else
-        bBrk := (brkClose ? close : high) > bRefH
-if bRef
-    bRefH := high
-    bRefL := low
-bool buySig = bOn and ((bRef and rejBuy) or bBrk)
-if buySig
-    bOn := false
-
-// Setup de vente : miroir de l'achat (arrivee par en dessous, reference = chaque
-// nouveau plus haut ; signal = reference en rejet ou cassure de son plus bas).
-var bool  sOn   = false
-var float sRefH = na
-var float sRefL = na
-var int   sBar  = na
-bool sRef = false
-bool sBrk = false
-if sOn and (not canTouch or bar_index - sBar > setupBars)
-    sOn := false
-if not na(touchSellLv)
-    if not sOn
-        sOn  := true
-        sBar := bar_index
-    sRef := true
-else if sOn
-    if high > sRefH
-        sRef := true
-    else
-        sBrk := (brkClose ? close : low) < sRefL
-if sRef
-    sRefH := high
-    sRefL := low
-bool sellSig = sOn and ((sRef and rejSell) or sBrk)
-if sellSig
-    sOn := false
+// Bougie de reference : chaque bougie qui touche un niveau valide (meche ou corps), la plus
+// recente remplacant la precedente ; achat comme vente sont possibles.
+// - Reference haussiere -> VENTE a la cassure de son plus bas.
+// - Reference baissiere -> ACHAT a la cassure de son plus haut.
+// La bougie entiere (meches comprises) ; une bougie sans corps ne devient pas reference.
+var int   refDir = 0       // 1 : reference baissiere (achat attendu), -1 : haussiere (vente attendue)
+var float refH   = na
+var float refL   = na
+var int   refBar = na
+bool  buySig  = false
+bool  sellSig = false
+float sigSL   = na         // SL du signal : extreme oppose de la bougie de reference
+if refDir != 0 and (not canTouch or bar_index - refBar > setupBars)
+    refDir := 0
+if refDir == 1 and (brkClose ? close : high) > refH
+    buySig := true
+    sigSL  := refL
+    refDir := 0
+else if refDir == -1 and (brkClose ? close : low) < refL
+    sellSig := true
+    sigSL   := refH
+    refDir  := 0
+if touchedLv and close != open
+    refDir := close < open ? 1 : -1
+    refH   := high
+    refL   := low
+    refBar := bar_index
 
 // Signaux : petits losanges uniquement (achat sous la bougie, vente au-dessus)
 plotshape(sigOn and buySig,  "Signal achat", shape.diamond, location.belowbar, color.new(cBuy, 30),  size=size.tiny)

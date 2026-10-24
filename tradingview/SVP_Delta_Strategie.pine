@@ -55,10 +55,13 @@
 //    x valeur du point en $), arrondie au pas inferieur (contrats entiers par
 //    defaut) pour ne jamais depasser le risque. Si un seul contrat depasse deja
 //    le risque, pas de position (sauf option). Mode quantite fixe disponible.
-//  - Break-even : des que le prix a depasse 2R, le SL passe au prix d'entree.
+//  - Gestion du SL selon le chemin parcouru vers le TP :
+//    TP a plus de 3R : a 25 % du TP -> SL au prix d'entree (break-even),
+//                      a 75 % du TP -> SL a +25 % du TP ;
+//    sinon           : a 50 % du TP -> SL au prix d'entree (break-even).
 //  - Une seule position a la fois, 2 positions maximum par seance.
-//    Apres un TP : plus de position ce jour-la. Apres un SL ou un break-even :
-//    une 2e position reste possible.
+//    Apres un TP : plus de position ce jour-la. Apres un SL, un break-even ou
+//    le SL a +25 % : une 2e position reste possible.
 //  - Losange de couleur = signal pris ; losange gris = signal non pris (la
 //    raison s'affiche au survol).
 // =============================================================================
@@ -505,14 +508,14 @@ var float entryPx    = na
 var float slPx       = na
 var float tpPx       = na
 var float riskR      = na
-var bool  beOn       = false
+var int   slStep     = 0       // 0 : SL initial, 1 : break-even, 2 : SL a +25 % du TP
 
 if new_sess
     nTrades := 0
     tpDone  := false
 
 // (1) Position cloturee sur cette bougie : TP -> plus de position aujourd'hui ;
-//     SL ou break-even -> une 2e position reste possible.
+//     SL, break-even ou SL a +25 % -> une 2e position reste possible.
 if strategy.closedtrades > lastClosed
     int   n  = strategy.closedtrades - 1
     float xp = strategy.closedtrades.exit_price(n)
@@ -521,16 +524,33 @@ if strategy.closedtrades > lastClosed
         tpDone := true
     lastClosed := strategy.closedtrades
 
-// (2) Position en cours : break-even des que le prix a depasse 2R
+// (2) Position en cours : SL deplace selon le chemin parcouru vers le TP (prog : 0 = entree,
+//     1 = TP). TP a plus de 3R : break-even a 25 %, SL a +25 % du TP a 75 %.
+//     Sinon : break-even a 50 %.
+f_manage(prog, dTp, dir) =>
+    int   step = slStep
+    float sl   = slPx
+    if dTp > 3 * riskR
+        if step < 2 and prog >= 0.75
+            step := 2
+            sl   := entryPx + dir * 0.25 * dTp
+        else if step < 1 and prog >= 0.25
+            step := 1
+            sl   := entryPx
+    else if step < 1 and prog >= 0.5
+        step := 1
+        sl   := entryPx
+    [step, sl]
+
 if strategy.position_size > 0
-    if not beOn and high >= entryPx + 2 * riskR
-        beOn := true
-        slPx := entryPx
+    [stp, sl] = f_manage((high - entryPx) / (tpPx - entryPx), tpPx - entryPx, 1)
+    slStep := stp
+    slPx   := sl
     strategy.exit("XL", "L", stop=slPx, limit=tpPx)
 if strategy.position_size < 0
-    if not beOn and low <= entryPx - 2 * riskR
-        beOn := true
-        slPx := entryPx
+    [stp, sl] = f_manage((entryPx - low) / (entryPx - tpPx), entryPx - tpPx, -1)
+    slStep := stp
+    slPx   := sl
     strategy.exit("XS", "S", stop=slPx, limit=tpPx)
 
 // (3) Nouvelle position : a plat, moins de 2 positions dans la seance, pas de TP aujourd'hui.
@@ -559,7 +579,7 @@ if buySig
                 slPx      := bRefL
                 tpPx      := tp
                 riskR     := close - bRefL
-                beOn      := false
+                slStep    := 0
                 entrySess := d_start
                 nTrades   += 1
                 bTook     := true
@@ -582,7 +602,7 @@ if sellSig
                 slPx      := sRefH
                 tpPx      := tp
                 riskR     := sRefH - close
-                beOn      := false
+                slStep    := 0
                 entrySess := d_start
                 nTrades   += 1
                 sTook     := true

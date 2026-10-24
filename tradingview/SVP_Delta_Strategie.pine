@@ -51,6 +51,10 @@
 //    coupe aujourd'hui) au-dessus de l'entree (achat) / en dessous (vente).
 //    Le TP est obligatoirement un AUTRE niveau que celui (ou ceux) qui a active
 //    le setup. Pas d'autre niveau dans le sens du trade -> pas de position.
+//  - Taille : risque fixe en $ par position. Quantite = risque / (distance au SL
+//    x valeur du point en $), arrondie au pas inferieur (contrats entiers par
+//    defaut) pour ne jamais depasser le risque. Si un seul contrat depasse deja
+//    le risque, pas de position (sauf option). Mode quantite fixe disponible.
 //  - Break-even : des que le prix a depasse 2R, le SL passe au prix d'entree.
 //  - Une seule position a la fois, 2 positions maximum par seance.
 //    Apres un TP : plus de position ce jour-la. Apres un SL ou un break-even :
@@ -59,7 +63,7 @@
 //    raison s'affiche au survol).
 // =============================================================================
 strategy("SVP + Δ Heatmap — Strategie VAH/VAL", "SVP Δ Strat", overlay=true, max_lines_count=500, max_labels_count=500,
-     process_orders_on_close=true, default_qty_type=strategy.fixed, default_qty_value=1)
+     process_orders_on_close=true, default_qty_type=strategy.fixed, default_qty_value=1, currency=currency.USD)
 
 //========================== INPUTS ==========================
 svpTf      = input.timeframe("30", "Unite de temps du calcul SVP", group="Profil")
@@ -437,6 +441,22 @@ if sellSig
     sOn := false
 
 //========================== STRATEGIE ==========================
+// Taille de position : risque fixe en $ (quantite = risque / risque d'un contrat), ou quantite fixe.
+riskMode = input.string("Risque fixe en $", "Taille de position", options=["Risque fixe en $", "Quantite fixe"], group="Risque")
+riskUsd  = input.float(200, "Risque par position ($)", minval=1, group="Risque")
+fixQty   = input.float(1, "Quantite fixe (contrats / lots)", minval=0.0001, group="Risque")
+qtyStep  = input.float(1, "Pas de quantite (1 = contrats entiers)", minval=0.0001, group="Risque")
+minQty   = input.bool(false, "Si 1 contrat depasse le risque, le prendre quand meme", group="Risque")
+
+// Valeur en $ d'un point de prix pour 1 contrat (2 $ sur MNQ, 20 $ sur NQ, 5 $ sur MES...)
+float fxUsd    = request.currency_rate(syminfo.currency, currency.USD, ignore_invalid_currency=true)
+float pointUsd = syminfo.pointvalue * fxUsd
+
+// Quantite pour une distance au SL, arrondie au pas inferieur : le risque n'est jamais depasse.
+f_qty(dist) =>
+    float q = math.floor(riskUsd / (dist * pointUsd) / qtyStep + 1e-9) * qtyStep
+    riskMode == "Quantite fixe" ? fixQty : q < qtyStep and minQty ? qtyStep : q
+
 // Niveau arrive du bon cote sur cette bougie (memes conditions que la detection des touches)
 f_arrived(lv, dir) =>
     canTouch and tLo <= lv and tHi >= lv and (dir > 0 ? pLo > lv : pHi < lv)
@@ -531,16 +551,20 @@ if buySig
         else if close <= bRefL
             bWhy := "SL invalide (cloture sous la bougie de reference)"
         else
-            entryPx   := close
-            slPx      := bRefL
-            tpPx      := tp
-            riskR     := close - bRefL
-            beOn      := false
-            entrySess := d_start
-            nTrades   += 1
-            bTook     := true
-            strategy.entry("L", strategy.long)
-            strategy.exit("XL", "L", stop=slPx, limit=tpPx)
+            float q = f_qty(close - bRefL)
+            if q <= 0
+                bWhy := "risque d'un contrat (" + str.tostring((close - bRefL) * pointUsd, "#.##") + " $) superieur au risque max (" + str.tostring(riskUsd, "#.##") + " $)"
+            else
+                entryPx   := close
+                slPx      := bRefL
+                tpPx      := tp
+                riskR     := close - bRefL
+                beOn      := false
+                entrySess := d_start
+                nTrades   += 1
+                bTook     := true
+                strategy.entry("L", strategy.long, qty=q, comment=str.tostring(q) + " ct · " + str.tostring(q * riskR * pointUsd, "#") + " $")
+                strategy.exit("XL", "L", stop=slPx, limit=tpPx)
 if sellSig
     sWhy := bTook ? "achat pris sur la meme bougie" : f_gate()
     if sWhy == ""
@@ -550,16 +574,20 @@ if sellSig
         else if close >= sRefH
             sWhy := "SL invalide (cloture au-dessus de la bougie de reference)"
         else
-            entryPx   := close
-            slPx      := sRefH
-            tpPx      := tp
-            riskR     := sRefH - close
-            beOn      := false
-            entrySess := d_start
-            nTrades   += 1
-            sTook     := true
-            strategy.entry("S", strategy.short)
-            strategy.exit("XS", "S", stop=slPx, limit=tpPx)
+            float q = f_qty(sRefH - close)
+            if q <= 0
+                sWhy := "risque d'un contrat (" + str.tostring((sRefH - close) * pointUsd, "#.##") + " $) superieur au risque max (" + str.tostring(riskUsd, "#.##") + " $)"
+            else
+                entryPx   := close
+                slPx      := sRefH
+                tpPx      := tp
+                riskR     := sRefH - close
+                beOn      := false
+                entrySess := d_start
+                nTrades   += 1
+                sTook     := true
+                strategy.entry("S", strategy.short, qty=q, comment=str.tostring(q) + " ct · " + str.tostring(q * riskR * pointUsd, "#") + " $")
+                strategy.exit("XS", "S", stop=slPx, limit=tpPx)
 
 // Losanges : couleur = signal pris ; gris = signal non pris (raison au survol)
 plotshape(sigOn and bTook, "Signal achat pris", shape.diamond, location.belowbar, color.new(c_strongBuy, 30),  size=size.tiny)

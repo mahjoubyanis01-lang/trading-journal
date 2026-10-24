@@ -47,10 +47,10 @@
 //  STRATEGIE
 //  - Entree a la cloture de la bougie signal.
 //  - SL = plus bas (achat) / plus haut (vente) de la bougie de reference.
-//  - TP = prochain niveau VAH ou VAL valide (J-1, ancien niveau non coupe ou
-//    coupe aujourd'hui) au-dessus de l'entree (achat) / en dessous (vente).
-//    Le TP est obligatoirement un AUTRE niveau que celui (ou ceux) qui a active
-//    le setup. Pas d'autre niveau dans le sens du trade -> pas de position.
+//  - TP = prochain niveau VAH ou VAL encore intact au-dessus de l'entree (achat)
+//    / en dessous (vente). Un niveau deja touche pendant la seance (dont celui
+//    qui a active le setup) ne peut pas etre un TP. Pas de niveau intact dans
+//    le sens du trade -> pas de position.
 //  - Taille : risque fixe en $ par position. Quantite = risque / (distance au SL
 //    x valeur du point en $), arrondie au pas inferieur (contrats entiers par
 //    defaut) pour ne jamais depasser le risque. Si un seul contrat depasse deja
@@ -469,45 +469,29 @@ f_qty(dist) =>
     float q = math.floor(riskUsd / (dist * pointUsd) / qtyStep + 1e-9) * qtyStep
     riskMode == "Quantite fixe" ? fixQty : q < qtyStep and minQty ? qtyStep : q
 
-// Niveau arrive du bon cote sur cette bougie (memes conditions que la detection des touches)
-f_arrived(lv, dir) =>
-    canTouch and tLo <= lv and tHi >= lv and (dir > 0 ? pLo > lv : pHi < lv)
+// TP possibles : niveaux encore intacts, jamais touches (coupure inconnue sur le graphique
+// comme en svpTf). Un niveau touche pendant la seance - dont celui qui a active le setup -
+// ne peut donc pas servir de TP.
+f_intact(cc, hc) =>
+    na(cc) and (na(hc) or hc >= firstT)
 
-// Tous les niveaux sur lesquels le prix arrive sur cette bougie (dir = 1 : par au-dessus)
-f_arrivals(dir) =>
-    array<float> out = array.new_float()
-    if array.size(okLv) > 0
-        for i = 0 to array.size(okLv) - 1
-            float lv = array.get(okLv, i)
-            if f_arrived(lv, dir)
-                array.push(out, lv)
-    out
+array<float> tpLv = array.new_float()
+if nS > 0 and array.size(kT) == nS
+    for j = 0 to nS - 1
+        if f_intact(array.get(cCutH, j), array.get(hCutH, j))
+            array.push(tpLv, array.get(hVah, j))
+        if f_intact(array.get(cCutL, j), array.get(hCutL, j))
+            array.push(tpLv, array.get(hVal, j))
 
-// Prochain niveau VAH/VAL valide au-dessus (dir = 1) ou en dessous (dir = -1) d'un prix :
-// niveaux touchables aujourd'hui (J-1, et anciens niveaux non coupes ou coupes aujourd'hui).
-// Les niveaux qui ont active le setup (excl) ne peuvent pas servir de TP.
-f_pick(best, lv, px, dir, excl) =>
-    bool ok = (dir > 0 ? lv > px : lv < px) and not array.includes(excl, lv)
-    ok and (na(best) or math.abs(lv - px) < math.abs(best - px)) ? lv : best
-
-f_nextLevel(px, dir, excl) =>
+// Prochain niveau intact au-dessus (dir = 1) ou en dessous (dir = -1) d'un prix
+f_nextLevel(px, dir) =>
     float best = na
-    if array.size(okLv) > 0
-        for i = 0 to array.size(okLv) - 1
-            best := f_pick(best, array.get(okLv, i), px, dir, excl)
+    if array.size(tpLv) > 0
+        for i = 0 to array.size(tpLv) - 1
+            float lv = array.get(tpLv, i)
+            if (dir > 0 ? lv > px : lv < px) and (na(best) or math.abs(lv - px) < math.abs(best - px))
+                best := lv
     best
-
-// Niveaux ayant active (ou relance) le setup en cours : remis a zero a chaque activation
-var array<float> bActs = array.new_float()
-var array<float> sActs = array.new_float()
-if not na(touchBuyLv)
-    if bBar == bar_index
-        array.clear(bActs)
-    array.concat(bActs, f_arrivals(1))
-if not na(touchSellLv)
-    if sBar == bar_index
-        array.clear(sActs)
-    array.concat(sActs, f_arrivals(-1))
 
 var int   nTrades    = 0       // positions ouvertes pendant la seance
 var bool  tpDone     = false   // un TP a ete atteint pendant la seance -> plus de position
@@ -599,9 +583,9 @@ float  takenQty = na
 if buySig
     bWhy := f_gate()
     if bWhy == ""
-        float tp = f_nextLevel(close, 1, bActs)
+        float tp = f_nextLevel(close, 1)
         if na(tp)
-            bWhy := "aucun autre niveau VAH/VAL au-dessus pour le TP"
+            bWhy := "aucun niveau VAH/VAL intact (non touche dans la seance) au-dessus pour le TP"
         else if close <= bRefL
             bWhy := "SL invalide (cloture sous la bougie de reference)"
         else
@@ -623,9 +607,9 @@ if buySig
 if sellSig
     sWhy := bTook ? "achat pris sur la meme bougie" : f_gate()
     if sWhy == ""
-        float tp = f_nextLevel(close, -1, sActs)
+        float tp = f_nextLevel(close, -1)
         if na(tp)
-            sWhy := "aucun autre niveau VAH/VAL en dessous pour le TP"
+            sWhy := "aucun niveau VAH/VAL intact (non touche dans la seance) en dessous pour le TP"
         else if close >= sRefH
             sWhy := "SL invalide (cloture au-dessus de la bougie de reference)"
         else

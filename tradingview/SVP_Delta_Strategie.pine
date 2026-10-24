@@ -59,9 +59,13 @@
 //    TP a plus de 3R : a 25 % du TP -> SL au prix d'entree (break-even),
 //                      a 75 % du TP -> SL a +25 % du TP ;
 //    sinon           : a 50 % du TP -> SL au prix d'entree (break-even).
-//  - Une seule position a la fois, 2 positions maximum par seance.
-//    Apres un TP : plus de position ce jour-la. Apres un SL, un break-even ou
-//    le SL a +25 % : une 2e position reste possible.
+//  - Une seule position a la fois, 1 position maximum par seance (reglable).
+//    Si plusieurs sont autorisees : apres un TP, plus de position ce jour-la ;
+//    apres un SL, un break-even ou le SL a +25 %, une autre reste possible.
+//  - Sens autorise selon le range du jour : nouveau plus bas du jour pendant la
+//    plage horaire (apres 15h30) -> achats seulement ; nouveau plus haut du jour
+//    -> ventes seulement ; tant que le prix reste dans le range du jour ->
+//    achats et ventes. Le dernier extreme casse decide.
 //  - A chaque sortie (TP, SL, break-even, SL a +25 %) : etiquette avec le R
 //    obtenu (gain par contrat / risque initial), ex. "TP · +3.2R", et une alerte
 //    (creer une alerte sur la strategie avec "appels de la fonction alert()").
@@ -458,6 +462,7 @@ fixQty   = input.float(1, "Quantite fixe (contrats / lots)", minval=0.0001, grou
 qtyStep  = input.float(1, "Pas de quantite (1 = contrats entiers)", minval=0.0001, group="Risque")
 minQty   = input.bool(false, "Si 1 contrat depasse le risque, le prendre quand meme", group="Risque")
 showR    = input.bool(true, "Afficher le R obtenu a chaque sortie", group="Risque")
+maxTrades = input.int(1, "Positions max par seance", minval=1, maxval=5, group="Risque")
 
 // Valeur en $ d'un point de prix pour 1 contrat (2 $ sur MNQ, 20 $ sur NQ, 5 $ sur MES...)
 float fxUsd    = request.currency_rate(syminfo.currency, currency.USD, ignore_invalid_currency=true)
@@ -491,6 +496,26 @@ f_nextLevel(px, dir) =>
             if (dir > 0 ? lv > px : lv < px) and (na(best) or math.abs(lv - px) < math.abs(best - px))
                 best := lv
     best
+
+// Sens autorise selon le range du jour (depuis le debut de la seance) : un nouveau plus bas
+// du jour pendant la plage horaire -> achats seulement ; un nouveau plus haut -> ventes
+// seulement ; dans le range -> les deux. Le dernier extreme casse decide.
+var float dayHi   = na
+var float dayLo   = na
+var int   dayBias = 0      // 1 : achats seulement, -1 : ventes seulement, 0 : les deux
+if new_sess
+    dayHi   := na
+    dayLo   := na
+    dayBias := 0
+if canTouch and not na(dayLo)
+    bool brkLo = tLo < dayLo
+    bool brkHi = tHi > dayHi
+    if brkLo and not brkHi
+        dayBias := 1
+    else if brkHi and not brkLo
+        dayBias := -1
+dayHi := na(dayHi) ? high : math.max(dayHi, high)
+dayLo := na(dayLo) ? low  : math.min(dayLo, low)
 
 var int   nTrades    = 0       // positions ouvertes pendant la seance
 var bool  tpDone     = false   // un TP a ete atteint pendant la seance -> plus de position
@@ -566,13 +591,13 @@ if strategy.position_size < 0
     slPx   := sl
     strategy.exit("XS", "S", stop=slPx, limit=tpPx)
 
-// (3) Nouvelle position : a plat, moins de 2 positions dans la seance, pas de TP aujourd'hui,
-//     un niveau intact pour le TP et au moins un contrat dans le risque.
-bool  canOpen  = strategy.position_size == 0 and not tpDone and nTrades < 2
+// (3) Nouvelle position : a plat, quota de la seance non atteint, pas de TP aujourd'hui, sens
+//     autorise par le range du jour, un niveau intact pour le TP et au moins un contrat.
+bool  canOpen  = strategy.position_size == 0 and not tpDone and nTrades < maxTrades
 bool  bTook    = false
 bool  sTook    = false
 float takenQty = na
-if buySig and canOpen
+if buySig and canOpen and dayBias >= 0
     float tp = f_nextLevel(close, 1)
     float q  = close > bRefL ? f_qty(close - bRefL) : 0.
     if not na(tp) and q > 0
@@ -587,7 +612,7 @@ if buySig and canOpen
         takenQty  := q
         strategy.entry("L", strategy.long, qty=q, comment=str.tostring(q) + " ct · " + str.tostring(q * riskR * pointUsd, "#") + " $")
         strategy.exit("XL", "L", stop=slPx, limit=tpPx)
-if sellSig and canOpen and not bTook
+if sellSig and canOpen and dayBias <= 0 and not bTook
     float tp = f_nextLevel(close, -1)
     float q  = close < sRefH ? f_qty(sRefH - close) : 0.
     if not na(tp) and q > 0

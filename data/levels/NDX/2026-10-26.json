@@ -1,0 +1,66 @@
+{
+ "symbol": "NDX",
+ "day": "2026-10-26",
+ "locked_at": "2026-10-26T14:39:42-04:00",
+ "source_snapshot": "data/options/NDX/2026-10-26/1439.json",
+ "spot": 29338.957,
+ "iv30": 22.008,
+ "call_wall": 29320.0,
+ "put_wall": 29200.0,
+ "flip": 29259.0,
+ "net_gex": 2275.885,
+ "nearest_expiry": {
+  "expiration": "2026-10-26",
+  "dte": 0,
+  "call_wall": 29320.0,
+  "put_wall": 29275.0,
+  "net_gex": 2335.625,
+  "atm_strike": 29340.0,
+  "straddle": 53.6,
+  "em_up": 29392.56,
+  "em_down": 29285.36
+ },
+ "em_iv": 406.75,
+ "key_strikes": [
+  {
+   "strike": 29320.0,
+   "net_gex": 1270.8
+  },
+  {
+   "strike": 29400.0,
+   "net_gex": 606.4
+  },
+  {
+   "strike": 29675.0,
+   "net_gex": 594.0
+  },
+  {
+   "strike": 29200.0,
+   "net_gex": -229.6
+  },
+  {
+   "strike": 30200.0,
+   "net_gex": -219.2
+  },
+  {
+   "strike": 27500.0,
+   "net_gex": -196.3
+  },
+  {
+   "strike": 28000.0,
+   "net_gex": -135.8
+  },
+  {
+   "strike": 29000.0,
+   "net_gex": -133.6
+  },
+  {
+   "strike": 29340.0,
+   "net_gex": 129.1
+  },
+  {
+   "strike": 31325.0,
+   "net_gex": 113.1
+  }
+ ]
+}

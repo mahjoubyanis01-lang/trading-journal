@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-30T13:58:36-04:00",
+ "updated": "2026-11-03T14:27:22-05:00",
  "source": "ForexFactory (flux public), heures de New York",
  "events": [
   {
@@ -89,6 +89,78 @@
    "impact": "moyen",
    "forecast": "198K",
    "previous": "194K"
+  },
+  {
+   "date": "2026-11-02",
+   "time": "10:00",
+   "title": "ISM Manufacturing PMI",
+   "impact": "moyen",
+   "forecast": "54.5",
+   "previous": "54.5"
+  },
+  {
+   "date": "2026-11-03",
+   "time": "10:00",
+   "title": "JOLTS Job Openings",
+   "impact": "moyen",
+   "forecast": "7.15M",
+   "previous": "7.08M"
+  },
+  {
+   "date": "2026-11-03",
+   "time": "10:16",
+   "title": "Congressional Elections",
+   "impact": "fort",
+   "forecast": "",
+   "previous": ""
+  },
+  {
+   "date": "2026-11-04",
+   "time": "10:00",
+   "title": "ISM Services PMI",
+   "impact": "moyen",
+   "forecast": "54.8",
+   "previous": "54.9"
+  },
+  {
+   "date": "2026-11-05",
+   "time": "08:30",
+   "title": "Unemployment Claims",
+   "impact": "moyen",
+   "forecast": "197K",
+   "previous": "194K"
+  },
+  {
+   "date": "2026-11-06",
+   "time": "08:30",
+   "title": "Average Hourly Earnings m/m",
+   "impact": "fort",
+   "forecast": "0.3%",
+   "previous": "0.1%"
+  },
+  {
+   "date": "2026-11-06",
+   "time": "08:30",
+   "title": "Non-Farm Employment Change",
+   "impact": "fort",
+   "forecast": "65K",
+   "previous": "29K"
+  },
+  {
+   "date": "2026-11-06",
+   "time": "08:30",
+   "title": "Unemployment Rate",
+   "impact": "fort",
+   "forecast": "4.2%",
+   "previous": "4.2%"
+  },
+  {
+   "date": "2026-11-06",
+   "time": "10:00",
+   "title": "Prelim UoM Consumer Sentiment",
+   "impact": "moyen",
+   "forecast": "48.1",
+   "previous": "46.3"
   }
  ]
 }

@@ -1,0 +1,17 @@
+{
+ "day": "2026-11-03",
+ "symbol": "SPX",
+ "snapshots": [
+  {
+   "time": "1427",
+   "file": "1427.json",
+   "spot": 7576.5298,
+   "cboe_timestamp": "2026-11-03 19:26:34",
+   "net_gex": -65057.764,
+   "net_dex": -6195.942,
+   "flip": 7646.22,
+   "call_wall": 8000.0,
+   "put_wall": 8000.0
+  }
+ ]
+}

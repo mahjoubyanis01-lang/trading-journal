@@ -1,0 +1,17 @@
+{
+ "day": "2026-11-03",
+ "symbol": "QQQ",
+ "snapshots": [
+  {
+   "time": "1427",
+   "file": "1427.json",
+   "spot": 686.0399,
+   "cboe_timestamp": "2026-11-03 19:26:25",
+   "net_gex": -5702.51,
+   "net_dex": -595.112,
+   "flip": 685.93,
+   "call_wall": 700.0,
+   "put_wall": 680.0
+  }
+ ]
+}

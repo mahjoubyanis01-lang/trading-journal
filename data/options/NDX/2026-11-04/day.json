@@ -1,0 +1,17 @@
+{
+ "day": "2026-11-04",
+ "symbol": "NDX",
+ "snapshots": [
+  {
+   "time": "1441",
+   "file": "1441.json",
+   "spot": 28515.3613,
+   "cboe_timestamp": "2026-11-04 19:41:23",
+   "net_gex": 543.738,
+   "net_dex": -157.12,
+   "flip": 28508.49,
+   "call_wall": 28525.0,
+   "put_wall": 28000.0
+  }
+ ]
+}

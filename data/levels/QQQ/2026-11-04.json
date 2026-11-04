@@ -1,0 +1,66 @@
+{
+ "symbol": "QQQ",
+ "day": "2026-11-04",
+ "locked_at": "2026-11-04T14:41:40-05:00",
+ "source_snapshot": "data/options/QQQ/2026-11-04/1441.json",
+ "spot": 693.7,
+ "iv30": 21.912,
+ "call_wall": 700.0,
+ "put_wall": 680.0,
+ "flip": 694.71,
+ "net_gex": -4690.952,
+ "nearest_expiry": {
+  "expiration": "2026-11-04",
+  "dte": 0,
+  "call_wall": 693.0,
+  "put_wall": 695.0,
+  "net_gex": 658.152,
+  "atm_strike": 694.0,
+  "straddle": 2.04,
+  "em_up": 695.74,
+  "em_down": 691.66
+ },
+ "em_iv": 9.58,
+ "key_strikes": [
+  {
+   "strike": 680.0,
+   "net_gex": -1140.7
+  },
+  {
+   "strike": 675.0,
+   "net_gex": -624.0
+  },
+  {
+   "strike": 690.0,
+   "net_gex": -594.2
+  },
+  {
+   "strike": 685.0,
+   "net_gex": -573.8
+  },
+  {
+   "strike": 670.0,
+   "net_gex": -461.8
+  },
+  {
+   "strike": 650.0,
+   "net_gex": -342.9
+  },
+  {
+   "strike": 691.0,
+   "net_gex": -232.6
+  },
+  {
+   "strike": 660.0,
+   "net_gex": -227.4
+  },
+  {
+   "strike": 713.0,
+   "net_gex": -218.3
+  },
+  {
+   "strike": 715.0,
+   "net_gex": 200.7
+  }
+ ]
+}

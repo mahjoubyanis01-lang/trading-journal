@@ -1,0 +1,17 @@
+{
+ "day": "2026-11-04",
+ "symbol": "SPY",
+ "snapshots": [
+  {
+   "time": "1441",
+   "file": "1441.json",
+   "spot": 767.98,
+   "cboe_timestamp": "2026-11-04 19:41:18",
+   "net_gex": 2408.206,
+   "net_dex": 136.495,
+   "flip": 767.68,
+   "call_wall": 770.0,
+   "put_wall": 767.0
+  }
+ ]
+}

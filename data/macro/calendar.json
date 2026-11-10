@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-06T14:17:53-05:00",
+ "updated": "2026-11-10T14:39:50-05:00",
  "source": "ForexFactory (flux public), heures de New York",
  "events": [
   {
@@ -161,6 +161,46 @@
    "impact": "moyen",
    "forecast": "48.1",
    "previous": "46.3"
+  },
+  {
+   "date": "2026-11-10",
+   "time": "08:30",
+   "title": "Core CPI m/m",
+   "impact": "fort",
+   "forecast": "0.2%",
+   "previous": "0.3%"
+  },
+  {
+   "date": "2026-11-10",
+   "time": "08:30",
+   "title": "CPI m/m",
+   "impact": "fort",
+   "forecast": "0.3%",
+   "previous": "0.6%"
+  },
+  {
+   "date": "2026-11-12",
+   "time": "08:30",
+   "title": "Unemployment Claims",
+   "impact": "moyen",
+   "forecast": "194K",
+   "previous": "189K"
+  },
+  {
+   "date": "2026-11-13",
+   "time": "08:30",
+   "title": "Core PPI m/m",
+   "impact": "fort",
+   "forecast": "0.3%",
+   "previous": "0.7%"
+  },
+  {
+   "date": "2026-11-13",
+   "time": "08:30",
+   "title": "PPI m/m",
+   "impact": "fort",
+   "forecast": "0.4%",
+   "previous": "1.3%"
   }
  ]
 }

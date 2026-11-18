@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-17T15:49:15-05:00",
+ "updated": "2026-11-18T15:25:36-05:00",
  "source": "ForexFactory (flux public), heures de New York",
  "events": [
   {
@@ -239,7 +239,7 @@
    "time": "08:30",
    "title": "Unemployment Claims",
    "impact": "moyen",
-   "forecast": "199K",
+   "forecast": "198K",
    "previous": "200K"
   },
   {
@@ -247,7 +247,7 @@
    "time": "10:00",
    "title": "Revised UoM Consumer Sentiment",
    "impact": "moyen",
-   "forecast": "52.1",
+   "forecast": "51.7",
    "previous": "51.0"
   }
  ]

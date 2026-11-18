@@ -1,0 +1,66 @@
+{
+ "symbol": "SPY",
+ "day": "2026-11-18",
+ "locked_at": "2026-11-18T15:25:34-05:00",
+ "source_snapshot": "data/options/SPY/2026-11-18/1525.json",
+ "spot": 730.59,
+ "iv30": 19.686,
+ "call_wall": 730.0,
+ "put_wall": 730.0,
+ "flip": 746.3,
+ "net_gex": -15193.081,
+ "nearest_expiry": {
+  "expiration": "2026-11-18",
+  "dte": 0,
+  "call_wall": 732.0,
+  "put_wall": 730.0,
+  "net_gex": -966.11,
+  "atm_strike": 731.0,
+  "straddle": 1.93,
+  "em_up": 732.52,
+  "em_down": 728.66
+ },
+ "em_iv": 9.06,
+ "key_strikes": [
+  {
+   "strike": 730.0,
+   "net_gex": -1656.7
+  },
+  {
+   "strike": 725.0,
+   "net_gex": -1406.0
+  },
+  {
+   "strike": 720.0,
+   "net_gex": -1129.1
+  },
+  {
+   "strike": 700.0,
+   "net_gex": -1012.0
+  },
+  {
+   "strike": 710.0,
+   "net_gex": -710.0
+  },
+  {
+   "strike": 728.0,
+   "net_gex": -665.0
+  },
+  {
+   "strike": 735.0,
+   "net_gex": -624.6
+  },
+  {
+   "strike": 715.0,
+   "net_gex": -585.3
+  },
+  {
+   "strike": 740.0,
+   "net_gex": -571.6
+  },
+  {
+   "strike": 724.0,
+   "net_gex": -503.6
+  }
+ ]
+}
